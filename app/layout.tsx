@@ -26,7 +26,11 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ backgroundImage: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
       >
+        <header className= "text-white p-4 text-center text-6xl font-bold">
+          Model Mind
+        </header>
         {children}
       </body>
     </html>
