@@ -1,64 +1,75 @@
+/* Keep existing imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Enhance font rendering */
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer base {
+  /* Keep existing CSS variables but add a few new ones */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    /* Background gradients */
+    --header-gradient: linear-gradient(90deg, #1A1E2D 0%, #2D293B 100%);
+    --main-bg-gradient: linear-gradient(135deg, #171923 0%, #1A1A2E 100%);
+    --chat-panel-gradient: linear-gradient(180deg, #232838 0%, #1E2230 100%);
+    --editor-panel-gradient: linear-gradient(180deg, #1E2433 0%, #1A1F2B 100%);
+    --preview-panel-gradient: linear-gradient(180deg, #252C40 0%, #1F2335 100%);
+    --user-msg-gradient: linear-gradient(90deg, #2E3B5E 0%, #364878 100%);
+    --ai-msg-gradient: linear-gradient(90deg, #2A3046 0%, #2C384F 100%);
+    --btn-primary-gradient: linear-gradient(180deg, #6F87FF 0%, #5E6FE6 100%);
+    --btn-secondary-gradient: linear-gradient(180deg, #3A4055 0%, #2F3447 100%);
+    --tab-active-gradient: linear-gradient(180deg, #384364 0%, #2F3A59 100%);
+    --logo-gradient: linear-gradient(135deg, #7F87FF 0%, #6F66E2 100%);
+    
+    /* Base colors */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 25%;
+    --input: 217 33% 22%;
+    --ring: 224 76% 48%;
+    
+    /* UI Element Colors */
+    --panel-bg: #151824;
+    --panel-border: #252A3A;
+    --header-bg: #252C40;
+    --chat-bg: #1C2032;
+    --editor-bg: #1A1F2B;
+    --preview-bg: #1A203A;
+    --input-bg: #1C2032;
+    --input-border: #384364;
+    --active-line: #2D3656;
+    --scrollbar-bg: #17192A;
+    --scrollbar-thumb: #384364;
+    --user-text: #E8EAFF;
+    --ai-text: #DFFFF6;
+    --muted-text: #8990B0;
+    
     --radius: 0.5rem;
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+
+  /* Always use dark mode */
+  :root {
+    color-scheme: dark;
   }
 }
 
@@ -68,5 +79,326 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    background: var(--main-bg-gradient);
   }
+  .diagram-content {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  .diagram-content img {
+    @apply max-w-full max-h-full;
+  }
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px; /* Smaller scrollbar */
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(217 33% 35%);
+}
+
+/* Animation for auto-expanding textarea */
+.textarea-resize-animation {
+  transition: height 0.15s ease-out;
+}
+
+/* Custom Monaco Editor Styling */
+.monaco-editor .margin {
+  background-color: var(--scrollbar-bg) !important;
+}
+
+.monaco-editor .monaco-scrollable-element .scrollbar.vertical .slider {
+  background-color: var(--scrollbar-thumb) !important;
+}
+
+/* Custom components */
+@layer components {
+  .main-container {
+    @apply container mx-auto px-2 py-2 flex flex-col h-[calc(100vh-80px)];
+  }
+  
+  .panel-container {
+    @apply grid gap-3 h-full overflow-hidden;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  .panel {
+    @apply flex-1 min-w-0 rounded-lg overflow-hidden flex flex-col;
+    box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.2);
+  }
+  
+  .panel-header {
+    @apply p-2 flex items-center justify-between;
+    background-color: var(--header-bg);
+    border-bottom: 1px solid var(--panel-border);
+  }
+  
+  .panel-title {
+    @apply text-base font-semibold text-white flex items-center gap-2;
+  }
+  
+  .panel-title-icon {
+    @apply w-4 h-4 rounded;
+  }
+  
+  .panel-content {
+    @apply flex-1 overflow-hidden;
+  }
+  
+  .message-user {
+    @apply rounded-lg;
+    background: var(--user-msg-gradient);
+    border: 1px solid rgba(111, 135, 255, 0.3);
+  }
+  
+  .message-assistant {
+    @apply rounded-lg;
+    background: var(--ai-msg-gradient);
+    border: 1px solid rgba(78, 201, 176, 0.3);
+  }
+  
+  .button-primary {
+    @apply rounded-full px-3 py-1.5 text-sm font-medium text-white;
+    background: var(--btn-primary-gradient);
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  .button-secondary {
+    @apply rounded-md px-2 py-1 text-sm font-medium text-gray-200;
+    background: var(--btn-secondary-gradient);
+    border: 1px solid var(--input-border);
+  }
+  
+  .chat-input-container {
+    @apply relative;
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+  }
+  
+  .format-toggle {
+    @apply flex rounded-md overflow-hidden;
+    border: 1px solid var(--input-border);
+  }
+  
+  .format-option {
+    @apply px-2 py-1 text-xs font-medium;
+  }
+  
+  .format-active {
+    background: #6F87FF;
+    color: white;
+  }
+  
+  .format-inactive {
+    background: var(--input-bg);
+    color: var(--muted-text);
+  }
+
+  /* Animation for glowing effect */
+  @keyframes softGlow {
+    0% { filter: drop-shadow(0 0 2px rgba(111, 135, 255, 0.3)); }
+    50% { filter: drop-shadow(0 0 4px rgba(111, 135, 255, 0.5)); }
+    100% { filter: drop-shadow(0 0 2px rgba(111, 135, 255, 0.3)); }
+  }
+
+  .glow-effect {
+    animation: softGlow 2s infinite;
+  }
+}
+
+/* App-specific styles */
+.app-container {
+  min-height: 100vh;
+  background: var(--main-bg-gradient);
+}
+
+.app-header {
+  background: var(--header-gradient);
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
+  height: 40px; /* Reduced header height */
+}
+
+.chat-panel {
+  background: var(--chat-panel-gradient);
+  border: 1px solid var(--panel-border);
+}
+
+.editor-panel {
+  background: var(--editor-panel-gradient);
+  border: 1px solid var(--panel-border);
+}
+
+.preview-panel {
+  background: var(--preview-panel-gradient);
+  border: 1px solid var(--panel-border);
+}
+
+.monaco-editor-container {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Fix the chat input styling to ensure proper send button positioning */
+.chat-input-wrapper {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+/* This file only contains the VS Code-related styling changes to match
+   the requested color scheme. The full file would be much larger. */
+
+/* VS Code syntax highlighting theme colors */
+.monaco-editor .mtk1 { color: #D4D4D4; } /* Default text */
+.monaco-editor .mtk2 { color: #569CD6; } /* Keywords */
+.monaco-editor .mtk3 { color: #6A9955; } /* Comments */
+.monaco-editor .mtk4 { color: #CE9178; } /* Strings */
+.monaco-editor .mtk5 { color: #4EC9B0; } /* Types and tags */
+.monaco-editor .mtk6 { color: #D4D4D4; } /* Operators */
+.monaco-editor .mtk7 { color: #4FC1FF; } /* Constants */
+.monaco-editor .mtk8 { color: #B5CEA8; } /* Numbers */
+.monaco-editor .mtk9 { color: #C586C0; } /* Preprocessor */
+.monaco-editor .mtk10 { color: #D7BA7D; } /* String escapes */
+.monaco-editor .mtk11 { color: #F14C4C; } /* Invalid */
+
+/* VS Code UI colors */
+.monaco-editor .margin { background-color: #1E1E1E !important; }
+.monaco-editor .line-numbers { color: #858585 !important; }
+.monaco-editor .current-line { background-color: #2D2D30 !important; }
+.monaco-editor .cursor { background-color: #AEAFAD !important; }
+
+/* Line highlighting */
+.monaco-editor .view-overlays .current-line { background-color: #2D2D30 !important; }
+.monaco-editor .margin-view-overlays .current-line-margin { background-color: #2D2D30 !important; }
+
+/* Selection highlighting */
+.monaco-editor .selected-text { background-color: #264F78 !important; }
+
+/* Improve VS Code-like focus styling for active line */
+.monaco-editor-background {
+  background-color: #1E1E1E;
+}
+
+.monaco-editor .current-line-highlight {
+  background-color: #2D2D30;
+  border-left: 2px solid #5E85E2;
+}
+
+/* Custom styling for error decoration */
+.errorDecoration {
+  background-color: rgba(255, 0, 0, 0.1);
+  border-bottom: 2px dotted #F14C4C;
+}
+
+.errorGlyphMargin {
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23F14C4C' /><path d='M8 4v6M8 11v1' stroke='white' stroke-width='1.5' /></svg>") no-repeat center center;
+}
+
+/* Collapsible panel animation */
+.panel-collapsible {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Improved checkerboard pattern for transparency indication */
+.transparent-bg {
+  background-image: 
+    repeating-conic-gradient(
+      #1C2240 0% 25%, 
+      #1F2546 0% 50%
+    );
+  background-size: 20px 20px;
+}
+
+/* Animation for chat message appearance */
+@keyframes messageAppear {
+  from { 
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-user, .message-assistant {
+  animation: messageAppear 0.3s ease-out forwards;
+}
+
+/* Enhanced scrollbar styling for VS Code look */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1E1E1E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4D4D4D;
+}
+
+::-webkit-scrollbar-corner {
+  background: #1E1E1E;
+}
+
+/* Add these styles to your globals.css file */
+
+/* Force dark background on Monaco editor loading state */
+.monaco-dark-container {
+  background-color: #1E1E1E !important;
+}
+
+/* Ensure the editor container maintains dark background */
+.monaco-editor-background,
+.monaco-editor,
+.monaco-editor .margin,
+.monaco-editor-container {
+  background-color: #1E1E1E !important;
+}
+
+/* Force dark theme during the loading phase */
+.monaco-dark-theme .monaco-editor {
+  background-color: #1E1E1E !important;
+  color: #D4D4D4 !important;
+}
+
+/* Override any inline styles that might be applied during initialization */
+.monaco-editor .overflow-guard {
+  background-color: #1E1E1E !important;
+}
+
+/* Ensure line numbers have correct color from the start */
+.monaco-editor .line-numbers {
+  color: #858585 !important;
+}
+
+/* Fix gutter background */
+.monaco-editor .margin-view-overlays {
+  background-color: #1E1E1E !important;
+}
+
+/* Ensure text has proper color from start */
+.monaco-editor .mtk1 {
+  color: #D4D4D4 !important;
 }

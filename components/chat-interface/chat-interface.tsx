@@ -1,28 +1,26 @@
 "use client"
 
 import { useChat } from "ai/react"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent } from "@/components/ui/card"
-import { useCallback, useState, useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
+import { useCallback, useState, useEffect, useRef, useMemo} from "react"
+import { useIsomorphicLayoutEffect } from 'react-use'
+import { User, Bot, Send, Code, ListOrdered, Image, Link, Sparkles } from 'lucide-react'
 
 interface ChatInterfaceProps {
   onScriptGenerated: (script: string) => void
   currentScript: string
 }
 
+interface ChatMessage {
+  id: string
+  role: string
+  content: string
+}
+
 export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<{ id: string; role: string; content: string }[]>([])
-  const [rows, setRows] = useState(3)
-  const [showCommands, setShowCommands] = useState(false)
-  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
-
-  const lineHeight = 24 // adjust as needed, it's chosen arbitrarily 
-  const minRows = 3 // minimum number of rows
-  const maxRows = 10 // maximum number of rows
-
+  // Initialize the chat hook
   const { input, handleInputChange, handleSubmit } = useChat({
     api: "/api/chatopenai",
     body: {
@@ -31,7 +29,6 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     onResponse: async (response) => {
       try {
         const text = await response.text()
-        console.log("Response text:", text)
         const { mandatory, optional } = JSON.parse(text)
 
         if (mandatory.type === "message") {
@@ -53,17 +50,20 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     },
   })
 
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [textareaHeight, setTextareaHeight] = useState<number>(72) // Reduced default height
+  const [showCommands, setShowCommands] = useState(false)
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
+
+  const messageContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const commandsRef = useRef<HTMLDivElement>(null)
+  
+  const MIN_TEXTAREA_HEIGHT = 56 // Reduced minimum height
+  const MAX_TEXTAREA_HEIGHT = 180 // Reduced maximum height
 
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-    }
-  }, [scrollAreaRef.current]) 
-
-  const commands: { [key: string]: () => void } = {
+  // Command processors wrapped in useMemo to avoid recreating on every render
+  const commands = useMemo(() => ({
     "@clear": () => {
       setMessages([])
       handleInputChange({ target: { value: "" } } as React.ChangeEvent<HTMLTextAreaElement>)
@@ -72,10 +72,32 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       onScriptGenerated("")
       handleInputChange({ target: { value: "" } } as React.ChangeEvent<HTMLTextAreaElement>)
     },
-    
-  }
+  }), [setMessages, handleInputChange, onScriptGenerated]);
 
-  const commandList = Object.keys(commands)
+  const commandList = useMemo(() => Object.keys(commands), [commands]);
+
+  // Auto-scroll when new messages are added - enhanced implementation
+  useEffect(() => {
+    if (messageContainerRef.current) {
+      const container = messageContainerRef.current;
+      
+      // Check if user is already near the bottom before scrolling
+      const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 100;
+      
+      // Use requestAnimationFrame to ensure DOM is updated before scrolling
+      requestAnimationFrame(() => {
+        // Only auto-scroll if user was already at the bottom or it's a new message from the user
+        if (isNearBottom || messages.length > 0 && messages[messages.length - 1].role === 'user') {
+          // Smooth scroll to bottom
+          console.log("Scrolling to bottom")
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      });
+    }
+  }, [messages]);
 
   const onSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -95,35 +117,48 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       }
       setShowCommands(false)
     },
-    [input, handleSubmit, commandList, commands],
+    [input, handleSubmit, commandList, commands, setMessages],
   )
 
+  // Dynamically adjust textarea height
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      // Reset height to auto to calculate actual content height
+      textareaRef.current.style.height = 'auto'
+      
+      // Calculate new height, constrained between min and max
+      const newHeight = Math.min(
+        Math.max(textareaRef.current.scrollHeight, MIN_TEXTAREA_HEIGHT),
+        MAX_TEXTAREA_HEIGHT
+      )
+      
+      // Set the new height
+      textareaRef.current.style.height = `${newHeight}px`
+      setTextareaHeight(newHeight)
+    }
+  }, [MIN_TEXTAREA_HEIGHT, MAX_TEXTAREA_HEIGHT])
+
+  // Adjust height whenever input changes
+  useEffect(() => {
+    adjustTextareaHeight()
+  }, [input, adjustTextareaHeight])
+
+  // Initial adjustment after render
+  useIsomorphicLayoutEffect(() => {
+    adjustTextareaHeight()
+  }, [adjustTextareaHeight])
+
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleInputChange(e)
+    handleInputChange(e);
+    adjustTextareaHeight();
+    
     const value = e.target.value
     const cursorPos = e.target.selectionStart
     const textBeforeCursor = value.slice(0, cursorPos)
     const currentWord = textBeforeCursor.split(/\s+/).pop() || ""
+    
     setShowCommands(currentWord.startsWith("@"))
     setSelectedCommandIndex(0)
-
-    // Reset the height to auto and set a specific width to get the correct scrollHeight
-    e.target.style.height = "auto"
-    e.target.style.width = `${e.target.offsetWidth}px` // Set a specific width
-
-    // Calculate the new number of rows
-    const newRows = Math.min(Math.max(Math.ceil((e.target.scrollHeight - 10) / lineHeight), minRows), maxRows)
-
-    // Set the new height
-    e.target.style.height = `${newRows * lineHeight}px`
-
-    setRows(newRows)
-
-    // Sync overlay scroll position with textarea
-    const overlayDiv = e.target.previousSibling as HTMLDivElement
-    if (overlayDiv) {
-      overlayDiv.scrollTop = e.target.scrollTop
-    }
   }
 
   const handleTextareaScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
@@ -133,17 +168,21 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     }
   }
 
-  const filteredCommands = input ? commandList.filter((cmd) => cmd.startsWith(input.split(/\s+/).pop() || "")) : []
+  const filteredCommands = useMemo(() => input 
+    ? commandList.filter((cmd) => cmd.startsWith(input.split(/\s+/).pop() || "")) 
+    : [], [input, commandList]);
 
-  const insertCommand = (cmd: string) => {
+  const insertCommand = useCallback((cmd: string) => {
     if (textareaRef.current) {
       const cursorPosition = textareaRef.current.selectionStart
       const textBeforeCursor = input.slice(0, cursorPosition)
       const textAfterCursor = input.slice(cursorPosition)
       const lastSpaceIndex = textBeforeCursor.lastIndexOf(" ")
       const newValue = textBeforeCursor.slice(0, lastSpaceIndex + 1) + cmd + " " + textAfterCursor
+      
       handleInputChange({ target: { value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>)
       setShowCommands(false)
+      
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus()
@@ -152,9 +191,9 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
         }
       }, 0)
     }
-  }
+  }, [input, handleInputChange]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showCommands && filteredCommands.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault()
@@ -178,80 +217,98 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       e.preventDefault()
       onSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
     }
-  }
+  }, [showCommands, filteredCommands, selectedCommandIndex, insertCommand, onSubmit]);
 
-/*   // Wrap commands (words starting with "@") in styled spans
-  const highlightText = (text: string) => {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/(@\w+)/g, '<span class="bg-blue-100 text-blue-800 rounded">$1</span>')
-  }
- */
-
-  const highlightText = (text: string) => {
+  // Highlight commands in text
+  const highlightText = useCallback((text: string) => {
     return text.split(/(@\w+)/).map((part, index) => {
       if (part.startsWith("@")) {
         return (
-          <span key={index} className="bg-blue-100 text-blue-800 rounded py-0.5">
+          <span key={index} className="bg-blue-700/30 text-blue-300 rounded py-0.5 px-1">
             {part}
           </span>
         )
       } else {
-        return <span key={index} className="text-white">{part}</span>
+        return <span key={index} className="text-gray-100">{part}</span>
       }
     })
-  }
+  }, []);
 
   // Shared styles so both the overlay and textarea align
   const sharedStyle: React.CSSProperties = {
-    fontSize: "1rem",
-    lineHeight: "1.5", // Matches lineHeight of 24px (1.5 * 16px base)
-    padding: "8px", // Explicit pixels for consistency (0.5rem = 8px typically)
-    fontFamily: "inherit", // Ensures same font as textarea
+    fontSize: "0.9rem", // Smaller font
+    lineHeight: "1.4", // Tighter line spacing
+    padding: "6px", // Reduced padding
+    fontFamily: "inherit", 
     whiteSpace: "pre-wrap",
     overflowWrap: "break-word",
     wordBreak: "break-word",
-    boxSizing: "border-box", // Ensures padding doesn’t offset alignment
+    boxSizing: "border-box",
     transition: "all 0.2s ease-in-out",
   }
 
   return (
-    <Card className="flex flex-col h-full bg-slate-600">
-      <CardContent className="flex-1 p-4">
-        <ScrollArea ref={scrollAreaRef} className="h-[500px] pr-4 pl-4 overflow-y-auto bg-slate-900 rounded-lg">
-          {messages.map((message) => (
-            <div key={message.id} className={`mb-4 ${message.role === "user" ? "text-rose-400" : "text-green-600"}`}>
-              <p className="whitespace-pre-wrap">
-                {message.content.split(/(@\w+)/).map((part, index) =>
-                  part.startsWith("@") ? (
-                    <Badge key={index} variant="secondary" className="mr-1 bg-blue-100 text-blue-800">
-                      {part}
-                    </Badge>
-                  ) : (
-                    part
-                  ),
+    <div className="flex flex-col h-full">
+      <ScrollArea 
+        ref={messageContainerRef} 
+        className="flex-1 pr-2 pl-2 py-4 overflow-y-auto"
+      >
+        {messages.map((message) => (
+          <div 
+            key={message.id} 
+            className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2`} // Reduced margins and padding
+          >
+            <div className="flex items-center mb-1"> {/* Reduced margin */}
+              <div className={`flex items-center justify-center w-6 h-6 rounded-full ${
+                message.role === "user" ? "bg-[#2E3B5E]" : "bg-[#2A3046]"
+              }`}>
+                {message.role === "user" ? (
+                  <User size={12} className="text-[#96ADFF]" /> // Smaller icon
+                ) : (
+                  <Bot size={12} className="text-[#79DBC7]" /> // Smaller icon
                 )}
-              </p>
+              </div>
+              <div className="ml-1 text-xs font-semibold"> {/* Smaller text and margin */}
+                {message.role === "user" ? (
+                  <span className="text-[#96ADFF]">You</span>
+                ) : (
+                  <span className="text-[#79DBC7]">Assistant</span>
+                )}
+              </div>
             </div>
-          ))}
-        </ScrollArea>
-        <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-2">
-          <div className="relative">
+            <p className={`whitespace-pre-wrap text-sm leading-tight ml-7 ${
+              message.role === "user" ? "text-[#E8EAFF]" : "text-[#DFFFF6]"
+            }`}>
+              {message.content.split(/(@\w+)/).map((part, index) =>
+                part.startsWith("@") ? (
+                  <Badge key={index} variant="secondary" className="mr-1 bg-blue-700/30 text-blue-300 text-xs">
+                    {part}
+                  </Badge>
+                ) : (
+                  part
+                ),
+              )}
+            </p>
+          </div>
+        ))}
+      </ScrollArea>
+      
+      <form onSubmit={onSubmit} className="mt-2 mb-2 px-2">
+        <div className="chat-input-wrapper relative">
+          <div className="chat-input-container rounded-md">
             {/* Overlay that displays highlighted commands */}
-<div
-  className="absolute inset-0 pointer-events-none overflow-hidden bg-slate-900 z-0 "
-  style={{
-    ...sharedStyle,
-    height: `${Math.min(rows, maxRows) * lineHeight}px`,
-    overflowY: rows > maxRows ? "scroll" : "hidden",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  }}
->
-  {highlightText(input)}
-</div>
+            <div
+              className="absolute inset-0 pointer-events-none overflow-hidden z-0 rounded-md px-3 py-2"
+              style={{
+                ...sharedStyle,
+                height: `${textareaHeight}px`,
+                paddingBottom: "40px", // Add extra padding at the bottom for the toolbar
+                overflowY: textareaHeight >= MAX_TEXTAREA_HEIGHT ? "scroll" : "hidden",
+              }}
+            >
+              {highlightText(input)}
+            </div>
+            
             {/* The real Textarea which remains fully functional */}
             <Textarea
               ref={textareaRef}
@@ -260,48 +317,79 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
               onKeyDown={handleKeyDown}
               onScroll={handleTextareaScroll}
               placeholder="Ask about PlantUML diagrams..."
-              className="relative caret-white bg-transparent resize-none pr-10 transition-all duration-200 ease-in-out z-1"
+              className="relative caret-white bg-transparent resize-none border-none transition-all duration-200 ease-in-out z-1"
               style={{
                 ...sharedStyle,
-                minHeight: `${minRows * lineHeight}px`,
-                maxHeight: `${maxRows * lineHeight}px`,
-                height: `${Math.min(rows, maxRows) * lineHeight}px`,
-                overflowY: rows > maxRows ? "scroll" : "hidden", 
+                minHeight: `${MIN_TEXTAREA_HEIGHT}px`,
+                maxHeight: `${MAX_TEXTAREA_HEIGHT}px`,
+                height: `${textareaHeight}px`,
+                paddingBottom: "40px", // Add extra padding at the bottom for the toolbar
+                overflowY: textareaHeight >= MAX_TEXTAREA_HEIGHT ? "scroll" : "hidden", 
                 caretColor: "white", 
                 color: "transparent", 
-                position: "relative", 
-                
               }}
             />
-            {showCommands && filteredCommands.length > 0 && (
-              <div
-                ref={commandsRef}
-                className="absolute bottom-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg z-10"
-              >
-                <ul className="py-1">
-                  {filteredCommands.map((cmd, index) => (
-                    <li
-                      key={cmd}
-                      className={`px-4 py-2 cursor-pointer ${
-                        index === selectedCommandIndex ? "bg-blue-100" : "hover:bg-gray-100"
-                      }`}
-                      onClick={() => insertCommand(cmd)}
-                    >
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                        {cmd}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
+            
+            {/* New bottom toolbar area for action buttons */}
+            <div className="absolute bottom-0 left-0 right-0 h-10 bg-[#1C2032] border-t border-[#384364] rounded-b-md flex items-center justify-between px-3">
+              {/* Left side - formatting controls */}
+              <div className="flex items-center space-x-2 text-gray-400">
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert code">
+                  <Code size={16} />
+                </button>
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert list">
+                  <ListOrdered size={16} />
+                </button>
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert image">                  
+                  <Image size={16}/>
+                </button>
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert link">
+                  <Link size={16} />
+                </button>
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="AI suggestions">
+                  <Sparkles size={16} />
+                </button>
               </div>
-            )}
+              
+              {/* Right side - send button */}
+              <button 
+                type="submit" 
+                className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-colors"
+                aria-label="Send message"
+              >
+                <Send size={16} className="text-white" />
+              </button>
+            </div>
           </div>
-          <Button type="submit" className="self-end">
-            Send
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          
+          {/* Command suggestions popup */}
+          {showCommands && filteredCommands.length > 0 && (
+            <div
+              ref={commandsRef}
+              className="absolute bottom-full left-0 w-full bg-[#1A203A] border border-[#384364] rounded-md shadow-lg z-10 mb-1"
+            >
+              <ul className="py-1">
+                {filteredCommands.map((cmd, index) => (
+                  <li
+                    key={cmd}
+                    className={`px-4 py-1.5 cursor-pointer text-sm ${
+                      index === selectedCommandIndex ? "bg-blue-900/50" : "hover:bg-slate-700"
+                    }`} // Smaller text and reduced padding
+                    onClick={() => insertCommand(cmd)}
+                  >
+                    <Badge variant="secondary" className="bg-blue-700/30 text-blue-300">
+                      {cmd}
+                    </Badge>
+                    <span className="ml-2 text-xs text-gray-300"> {/* Smaller text */}
+                      {cmd === "@clear" ? "Clear chat history" : "Reset diagram"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </form>
+    </div>
   )
 }
-
