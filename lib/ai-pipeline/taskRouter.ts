@@ -4,21 +4,17 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { model } from "./baseChain";
 import { DiagramIntent } from "./inputProcessor";
 import { contextManager } from "./contextManager";
-import winston from "winston";
+import { diagramGenerator } from "./agents/generator";
+import { diagramModifier } from "./agents/modifier";
+import { diagramAnalyzer } from "./agents/analyzer";
+import pino from "pino";
 
 // Setup logger
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.Console({ format: winston.format.simple() })
-  ]
+const logger = pino({
+  browser: {
+    asObject: true
+  }
 });
-
-// Agent placeholders - to be implemented
-const diagramGenerator = { invoke: async () => ({ type: "message", content: "Generator placeholder" }) };
-const diagramModifier = { invoke: async () => ({ type: "message", content: "Modifier placeholder" }) };
-const diagramAnalyzer = { invoke: async () => ({ type: "message", content: "Analyzer placeholder" }) };
 
 // Define the task router prompt template
 const routerPromptTemplate = PromptTemplate.fromTemplate(`
@@ -78,10 +74,8 @@ export async function routeRequest({
         intent = DiagramIntent.GENERATE;
         contextManager.setLastIntent(intent);
         logger.info("Routing to generator agent", { userInput });
-        return await diagramGenerator.invoke({ 
+        return await diagramGenerator.generate({ 
           userInput, 
-          currentDiagram, 
-          messageHistory,
           context: await contextManager.getGeneratorContext()
         });
         
@@ -89,10 +83,9 @@ export async function routeRequest({
         intent = DiagramIntent.MODIFY;
         contextManager.setLastIntent(intent);
         logger.info("Routing to modifier agent", { userInput });
-        return await diagramModifier.invoke({ 
+        return await diagramModifier.modify({ 
           userInput, 
           currentDiagram, 
-          messageHistory,
           context: await contextManager.getModifierContext()
         });
         
@@ -100,10 +93,9 @@ export async function routeRequest({
         intent = DiagramIntent.ANALYZE;
         contextManager.setLastIntent(intent);
         logger.info("Routing to analyzer agent", { userInput });
-        return await diagramAnalyzer.invoke({ 
+        return await diagramAnalyzer.analyze({ 
           userInput, 
-          currentDiagram, 
-          messageHistory,
+          diagram: currentDiagram, 
           context: await contextManager.getAnalyzerContext()
         });
         
@@ -112,10 +104,9 @@ export async function routeRequest({
         intent = DiagramIntent.UNKNOWN;
         contextManager.setLastIntent(intent);
         logger.warn(`Unknown task type: ${taskType}. Defaulting to ANALYZE.`);
-        return await diagramAnalyzer.invoke({ 
+        return await diagramAnalyzer.analyze({ 
           userInput, 
-          currentDiagram, 
-          messageHistory,
+          diagram: currentDiagram, 
           context: await contextManager.getAnalyzerContext()
         });
     }
@@ -128,10 +119,3 @@ export async function routeRequest({
   }
 }
 
-// Export the router object
-const router = {
-  routeRequest,
-  taskRouter,
-};
-
-export default router;

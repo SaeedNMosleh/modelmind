@@ -1,14 +1,12 @@
 import { BufferMemory } from "langchain/memory";
 import { DiagramIntent } from "./inputProcessor";
-import winston from "winston";
+import pino from "pino";
 
 // Setup logger
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.Console({ format: winston.format.simple() })
-  ]
+const logger = pino({
+  browser: {
+    asObject: true
+  }
 });
 
 /**
@@ -39,10 +37,11 @@ export interface DiagramMetadata {
 export class ContextManager {
   private currentDiagram: string;
   private diagramMetadata: DiagramMetadata;
-  private memory: BufferMemory;
+  private memory: BufferMemory | null = null;
   private sessionId: string;
   private messages: Message[];
   private lastIntent: DiagramIntent;
+  private isMemoryInitialized: boolean = false;
 
   /**
    * Constructor for the ContextManager
@@ -55,11 +54,16 @@ export class ContextManager {
     this.messages = [];
     this.lastIntent = DiagramIntent.UNKNOWN;
     
-    // Initialize LangChain memory
-    this.memory = new BufferMemory({
-      returnMessages: true,
-      memoryKey: "conversation_history"
-    });
+    // Initialize memory lazily to avoid issues
+    try {
+      this.memory = new BufferMemory({
+        returnMessages: true,
+        memoryKey: "conversation_history"
+      });
+    } catch (error) {
+      logger.error("Failed to initialize LangChain memory:", error);
+      this.memory = null;
+    }
     
     // Initialize diagram metadata
     const now = new Date();
@@ -122,19 +126,33 @@ export class ContextManager {
     
     this.messages.push(message);
     
-    // Add to LangChain memory
-    if (role === "user") {
-      await this.memory.saveContext({ input: content }, { output: "" });
-    } else if (role === "assistant") {
-      // Update the last output
-      const memoryVariables = await this.memory.loadMemoryVariables({});
-      const chatHistory = memoryVariables.conversation_history || [];
-      
-      if (chatHistory.length > 0) {
-        await this.memory.saveContext(
-          { input: chatHistory[chatHistory.length - 1].content }, 
-          { output: content }
-        );
+    // Only try to use memory if it was successfully initialized
+    if (this.memory) {
+      try {
+        // Add to LangChain memory
+        if (role === "user") {
+          // For user messages, just save with empty output
+          await this.memory.saveContext({ input: content }, { output: "" });
+          this.isMemoryInitialized = true;
+        } else if (role === "assistant" && this.isMemoryInitialized) {
+          // For assistant messages, update the last output if memory is initialized
+          const memoryVariables = await this.memory.loadMemoryVariables({});
+          const chatHistory = memoryVariables.conversation_history || [];
+          
+          // Only try to update if we have history
+          if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+            const lastMessage = chatHistory[chatHistory.length - 1];
+            if (lastMessage && typeof lastMessage.content === 'string') {
+              await this.memory.saveContext(
+                { input: lastMessage.content }, 
+                { output: content }
+              );
+            }
+          }
+        }
+      } catch (error) {
+        logger.error("Error saving message to memory:", error);
+        // Continue execution even if memory fails - we still have the messages array
       }
     }
     
@@ -192,14 +210,40 @@ export class ContextManager {
    * @returns Formatted conversation history string
    */
   public async getFormattedConversationHistory(limit?: number): Promise<string> {
-    const memoryVariables = await this.memory.loadMemoryVariables({});
-    const history = memoryVariables.conversation_history || [];
+    // If memory is unavailable or fails, fall back to the messages array
+    if (!this.memory || !this.isMemoryInitialized) {
+      return this.messages
+        .slice(limit ? -limit : 0)
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+    }
     
-    // Format the history
-    return history
-      .slice(limit ? -limit : 0)
-      .map((msg: { type: string; content: string }) => `${msg.type}: ${msg.content}`)
-      .join('\n');
+    try {
+      const memoryVariables = await this.memory.loadMemoryVariables({});
+      const history = memoryVariables.conversation_history || [];
+      
+      // If no history from memory, use the messages array
+      if (!Array.isArray(history) || history.length === 0) {
+        return this.messages
+          .slice(limit ? -limit : 0)
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n');
+      }
+      
+      // Format the history from memory
+      return history
+        .slice(limit ? -limit : 0)
+        .map((msg: { type: string; content: string }) => 
+          `${msg.type || 'unknown'}: ${msg.content}`)
+        .join('\n');
+    } catch (error) {
+      logger.error("Error loading conversation history:", error);
+      // Fallback to messages array if memory fails
+      return this.messages
+        .slice(limit ? -limit : 0)
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+    }
   }
 
   /**
@@ -279,10 +323,19 @@ export class ContextManager {
    */
   public async clearConversation(): Promise<void> {
     this.messages = [];
-    this.memory = new BufferMemory({
-      returnMessages: true,
-      memoryKey: "conversation_history"
-    });
+    this.isMemoryInitialized = false;
+    
+    // Recreate memory instance to clear it
+    try {
+      this.memory = new BufferMemory({
+        returnMessages: true,
+        memoryKey: "conversation_history"
+      });
+    } catch (error) {
+      logger.error("Error recreating memory:", error);
+      this.memory = null;
+    }
+    
     logger.info("Conversation history cleared");
   }
 }

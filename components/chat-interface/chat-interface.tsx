@@ -1,12 +1,12 @@
 "use client"
 
-import { useChat } from "ai/react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
-import { useCallback, useState, useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
+import { ResponseType } from "@/lib/ai-pipeline/responseFormatter"
 
 interface ChatInterfaceProps {
   onScriptGenerated: (script: string) => void
@@ -15,43 +15,15 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<{ id: string; role: string; content: string }[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const [rows, setRows] = useState(3)
   const [showCommands, setShowCommands] = useState(false)
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
 
-  const lineHeight = 24 // adjust as needed, it's chosen arbitrarily 
+  const lineHeight = 24 // adjust as needed
   const minRows = 3 // minimum number of rows
   const maxRows = 10 // maximum number of rows
-
-  const { input, handleInputChange, handleSubmit } = useChat({
-    api: "/api/chatopenai",
-    body: {
-      currentScript,
-    },
-    onResponse: async (response) => {
-      try {
-        const text = await response.text()
-        console.log("Response text:", text)
-        const { mandatory, optional } = JSON.parse(text)
-
-        if (mandatory.type === "message") {
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            { id: Date.now().toString(), role: "assistant", content: mandatory.content },
-          ])
-        }
-
-        if (optional && optional.type === "script" && optional.content !== "") {
-          onScriptGenerated(optional.content)
-        }
-
-        return mandatory.content
-      } catch (error) {
-        console.error("Failed to parse response:", error)
-        return response.statusText
-      }
-    },
-  })
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -61,45 +33,130 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
-  }, [scrollAreaRef.current]) 
+  }, [messages]) 
 
-  const commands: { [key: string]: () => void } = {
+  const commandHandlers = useMemo(() => ({
     "@clear": () => {
       setMessages([])
-      handleInputChange({ target: { value: "" } } as React.ChangeEvent<HTMLTextAreaElement>)
+      setInput("")
+      return true
     },
     "@reset": () => {
       onScriptGenerated("")
-      handleInputChange({ target: { value: "" } } as React.ChangeEvent<HTMLTextAreaElement>)
+      setInput("")
+      return true
     },
-    
-  }
+  }), [setMessages, setInput, onScriptGenerated]);
 
-  const commandList = Object.keys(commands)
+  const commandList = useMemo(() => Object.keys(commandHandlers), [commandHandlers]);
 
-  const onSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+  // Check if input is a command and handle it
+  const handleCommand = useCallback((userMessage: string) => {
+    for (const cmd of commandList) {
+      if (userMessage.trim() === cmd) {
+        return commandHandlers[cmd]();
+      }
+    }
+    return false;
+  }, [commandList, commandHandlers]);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
       const userMessage = input.trim()
-      if (userMessage) {
-        const command = commandList.find((cmd) => userMessage.includes(cmd))
-        if (command && commands[command]) {
-          commands[command]()
-        } else {
+      
+      if (!userMessage) return
+      
+      // Check if this is a command before proceeding
+      if (handleCommand(userMessage)) {
+        return;
+      }
+      
+      // Add user message to UI
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { id: Date.now().toString(), role: "user", content: userMessage },
+      ])
+      
+      // Clear input and hide commands
+      setInput("")
+      setShowCommands(false)
+      setIsLoading(true)
+      
+      try {
+        // Send request to pipeline API
+        const response = await fetch("/api/pipeline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              ...messages,
+              { role: "user", content: userMessage }
+            ],
+            currentScript
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        
+        // Process the response based on type
+        if (data.type === ResponseType.SCRIPT) {
+          // Update diagram in the editor
+          onScriptGenerated(data.content)
+          
+          // Add explanation to chat
           setMessages((prevMessages) => [
             ...prevMessages,
-            { id: Date.now().toString(), role: "user", content: userMessage },
+            { 
+              id: Date.now().toString(), 
+              role: "assistant", 
+              content: data.explanation || "I've updated the diagram." 
+            },
           ])
-          handleSubmit(e)
+        } else if (data.type === ResponseType.MESSAGE) {
+          // Add message to chat
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { 
+              id: Date.now().toString(), 
+              role: "assistant", 
+              content: data.content 
+            },
+          ])
+        } else if (data.type === ResponseType.ERROR) {
+          // Handle error
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { 
+              id: Date.now().toString(), 
+              role: "assistant", 
+              content: `Error: ${data.content}` 
+            },
+          ])
         }
+      } catch (error) {
+        console.error("Failed to send message:", error)
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { 
+            id: Date.now().toString(), 
+            role: "assistant", 
+            content: "Sorry, I encountered an error processing your request." 
+          },
+        ])
+      } finally {
+        setIsLoading(false)
       }
-      setShowCommands(false)
     },
-    [input, handleSubmit, commandList, commands],
+    [input, messages, currentScript, handleCommand, onScriptGenerated]
   )
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleInputChange(e)
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
     const value = e.target.value
     const cursorPos = e.target.selectionStart
     const textBeforeCursor = value.slice(0, cursorPos)
@@ -142,7 +199,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       const textAfterCursor = input.slice(cursorPosition)
       const lastSpaceIndex = textBeforeCursor.lastIndexOf(" ")
       const newValue = textBeforeCursor.slice(0, lastSpaceIndex + 1) + cmd + " " + textAfterCursor
-      handleInputChange({ target: { value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>)
+      setInput(newValue)
       setShowCommands(false)
       setTimeout(() => {
         if (textareaRef.current) {
@@ -170,25 +227,15 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
           return
         }
         e.preventDefault()
-        onSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
+        handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
       } else if (e.key === "Escape") {
         setShowCommands(false)
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      onSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
+      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
     }
   }
-
-/*   // Wrap commands (words starting with "@") in styled spans
-  const highlightText = (text: string) => {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/(@\w+)/g, '<span class="bg-blue-100 text-blue-800 rounded">$1</span>')
-  }
- */
 
   const highlightText = (text: string) => {
     return text.split(/(@\w+)/).map((part, index) => {
@@ -213,7 +260,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     whiteSpace: "pre-wrap",
     overflowWrap: "break-word",
     wordBreak: "break-word",
-    boxSizing: "border-box", // Ensures padding doesn’t offset alignment
+    boxSizing: "border-box", // Ensures padding doesn't offset alignment
     transition: "all 0.2s ease-in-out",
   }
 
@@ -236,27 +283,32 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
               </p>
             </div>
           ))}
+          {isLoading && (
+            <div className="text-green-600 animate-pulse">
+              <p>Thinking...</p>
+            </div>
+          )}
         </ScrollArea>
-        <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-2">
+        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
           <div className="relative">
             {/* Overlay that displays highlighted commands */}
-<div
-  className="absolute inset-0 pointer-events-none overflow-hidden bg-slate-900 z-0 "
-  style={{
-    ...sharedStyle,
-    height: `${Math.min(rows, maxRows) * lineHeight}px`,
-    overflowY: rows > maxRows ? "scroll" : "hidden",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  }}
->
-  {highlightText(input)}
-</div>
+            <div
+              className="absolute inset-0 pointer-events-none overflow-hidden bg-slate-900 z-0 "
+              style={{
+                ...sharedStyle,
+                height: `${Math.min(rows, maxRows) * lineHeight}px`,
+                overflowY: rows > maxRows ? "scroll" : "hidden",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {highlightText(input)}
+            </div>
             {/* The real Textarea which remains fully functional */}
             <Textarea
               ref={textareaRef}
               value={input}
-              onChange={handleTextareaChange}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onScroll={handleTextareaScroll}
               placeholder="Ask about PlantUML diagrams..."
@@ -270,8 +322,8 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                 caretColor: "white", 
                 color: "transparent", 
                 position: "relative", 
-                
               }}
+              disabled={isLoading}
             />
             {showCommands && filteredCommands.length > 0 && (
               <div
@@ -296,12 +348,11 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
               </div>
             )}
           </div>
-          <Button type="submit" className="self-end">
-            Send
+          <Button type="submit" className="self-end" disabled={isLoading}>
+            {isLoading ? "Sending..." : "Send"}
           </Button>
         </form>
       </CardContent>
     </Card>
   )
 }
-
