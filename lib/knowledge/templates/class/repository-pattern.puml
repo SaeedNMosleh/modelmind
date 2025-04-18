@@ -1,0 +1,37 @@
+@startuml Repository Pattern
+title Repository Pattern
+
+interface "IRepository<T>" {
+  +getById(id: string): T
+  +getAll(): T[]
+  +add(item: T): void
+  +update(item: T): void
+  +delete(id: string): void
+}
+
+class "Repository<T>" {
+  -context: DbContext
+  +getById(id: string): T
+  +getAll(): T[]
+  +add(item: T): void
+  +update(item: T): void
+  +delete(id: string): void
+}
+
+class "UserRepository" {
+  +getUserByEmail(email: string): User
+  +getUsersByRole(role: string): User[]
+}
+
+class "User" {
+  -id: string
+  -name: string
+  -email: string
+  -role: string
+}
+
+IRepository <|.. Repository
+Repository <|-- UserRepository
+UserRepository --> User
+
+@enduml

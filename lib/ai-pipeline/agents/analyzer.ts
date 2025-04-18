@@ -3,7 +3,8 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
-import { DiagramType, readGuidelines } from "../../knowledge/guidelines";
+// Import the real DiagramType from the guidelines module
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import pino from "pino";
 
 // Setup logger
@@ -12,6 +13,19 @@ const logger = pino({
     asObject: true
   }
 });
+
+// Define our analyzer's DiagramType enum (use a different name to avoid conflicts)
+export enum AnalyzerDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
 
 /**
  * Enum defining types of analysis that can be performed
@@ -29,7 +43,7 @@ export enum AnalysisType {
  * Schema defining the structure of the diagram analysis output
  */
 const analysisOutputSchema = z.object({
-  diagramType: z.nativeEnum(DiagramType),
+  diagramType: z.nativeEnum(AnalyzerDiagramType),
   analysisType: z.nativeEnum(AnalysisType),
   overview: z.string(),
   components: z.array(z.object({
@@ -65,7 +79,7 @@ const analyzerParamsSchema = z.object({
   userInput: z.string().min(1),
   diagram: z.string().min(10),
   analysisType: z.nativeEnum(AnalysisType).optional(),
-  diagramType: z.nativeEnum(DiagramType).optional(),
+  diagramType: z.nativeEnum(AnalyzerDiagramType).optional(),
   context: z.record(z.unknown()).optional()
 });
 
@@ -73,6 +87,30 @@ const analyzerParamsSchema = z.object({
  * Type definition for analyzer parameters
  */
 export type AnalyzerParams = z.infer<typeof analyzerParamsSchema>;
+
+/**
+ * Helper function to map our analyzer diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: AnalyzerDiagramType): GuidelinesType {
+  switch(type) {
+    case AnalyzerDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case AnalyzerDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case AnalyzerDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case AnalyzerDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case AnalyzerDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case AnalyzerDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case AnalyzerDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
 
 /**
  * Specialized agent for analyzing PlantUML diagrams
@@ -163,17 +201,15 @@ export class DiagramAnalyzer {
         // Fetch relevant guidelines
         let guidelinesText = "No specific guidelines available.";
         try {
-          const guidelines = await readGuidelines(diagramType, { 
-            fullContent: true 
-          });
+          // Convert our enum to the expected type for readGuidelines
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          
+          // Call readGuidelines with the right type
+          const guidelines = await readGuidelines(guidelinesType);
           
           // Format guidelines for prompt
-          if (guidelines) {
-            if (Array.isArray(guidelines)) {
-              guidelinesText = guidelines.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            } else if ('sections' in guidelines && Array.isArray(guidelines.sections)) {
-              guidelinesText = guidelines.sections.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            }
+          if (guidelines && typeof guidelines === 'string') {
+            guidelinesText = guidelines;
           }
         } catch (guidelineError) {
           logger.error("Error fetching guidelines:", guidelineError);
@@ -229,7 +265,7 @@ export class DiagramAnalyzer {
         logger.error("Input validation error:", { errors: error.errors });
         // Return a fallback response with a minimal analysis
         return {
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: AnalyzerDiagramType.UNKNOWN,
           analysisType: AnalysisType.GENERAL,
           overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
         };
@@ -241,7 +277,7 @@ export class DiagramAnalyzer {
         
         // Return a fallback response with a minimal analysis
         return {
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: AnalyzerDiagramType.UNKNOWN,
           analysisType: AnalysisType.GENERAL,
           overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
         };
@@ -250,7 +286,7 @@ export class DiagramAnalyzer {
         
         // Return a generic fallback
         return {
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: AnalyzerDiagramType.UNKNOWN,
           analysisType: AnalysisType.GENERAL,
           overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
         };
@@ -264,7 +300,7 @@ export class DiagramAnalyzer {
    * @returns Detected diagram type
    * @private
    */
-  private async detectDiagramType(diagram: string): Promise<DiagramType> {
+  private async detectDiagramType(diagram: string): Promise<AnalyzerDiagramType> {
     try {
       const detectTypePrompt = PromptTemplate.fromTemplate(`
         ${baseSystemPrompt}
@@ -289,26 +325,26 @@ export class DiagramAnalyzer {
       const detectedType = String(result).trim().toUpperCase();
       
       // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
+      const diagramTypeMap: Record<string, AnalyzerDiagramType> = {
+        "SEQUENCE": AnalyzerDiagramType.SEQUENCE,
+        "CLASS": AnalyzerDiagramType.CLASS,
+        "ACTIVITY": AnalyzerDiagramType.ACTIVITY,
+        "STATE": AnalyzerDiagramType.STATE,
+        "COMPONENT": AnalyzerDiagramType.COMPONENT,
+        "DEPLOYMENT": AnalyzerDiagramType.DEPLOYMENT,
+        "USE_CASE": AnalyzerDiagramType.USE_CASE,
+        "USECASE": AnalyzerDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": AnalyzerDiagramType.ENTITY_RELATIONSHIP,
+        "ER": AnalyzerDiagramType.ENTITY_RELATIONSHIP
       };
       
-      const finalType = diagramTypeMap[detectedType] || DiagramType.UNKNOWN;
+      const finalType = diagramTypeMap[detectedType] || AnalyzerDiagramType.UNKNOWN;
       
       logger.info("Diagram type detected", { detectedType: finalType });
       return finalType;
     } catch (error) {
       logger.error("Error detecting diagram type:", error);
-      return DiagramType.UNKNOWN;
+      return AnalyzerDiagramType.UNKNOWN;
     }
   }
 

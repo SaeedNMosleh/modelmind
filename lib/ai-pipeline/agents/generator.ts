@@ -3,8 +3,10 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
-import { DiagramType, readGuidelines } from "../../knowledge/guidelines";
-import { getTemplatesForType } from "../../knowledge/templates";
+// Import the DiagramType from guidelines with an alias to avoid conflicts
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+// Fix the import for templates
+import { listTemplates } from "../../knowledge/templates";
 import pino from "pino";
 
 // Setup logger
@@ -15,11 +17,26 @@ const logger = pino({
 });
 
 /**
+ * Our local enum for diagram types used in the generator
+ */
+export enum GeneratorDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
+
+/**
  * Schema defining the structure of the diagram generation output
  */
 const generationOutputSchema = z.object({
   diagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType),
+  diagramType: z.nativeEnum(GeneratorDiagramType),
   explanation: z.string(),
   suggestions: z.array(z.string()).optional()
 });
@@ -34,7 +51,7 @@ export type GenerationResult = z.infer<typeof generationOutputSchema>;
  */
 const generatorParamsSchema = z.object({
   userInput: z.string().min(1),
-  diagramType: z.nativeEnum(DiagramType).optional(),
+  diagramType: z.nativeEnum(GeneratorDiagramType).optional(),
   context: z.record(z.unknown()).optional()
 });
 
@@ -42,6 +59,30 @@ const generatorParamsSchema = z.object({
  * Type definition for generator parameters
  */
 export type GeneratorParams = z.infer<typeof generatorParamsSchema>;
+
+/**
+ * Helper function to map our generator diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: GeneratorDiagramType): GuidelinesType {
+  switch(type) {
+    case GeneratorDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case GeneratorDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case GeneratorDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case GeneratorDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case GeneratorDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case GeneratorDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case GeneratorDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
 
 /**
  * Specialized agent for generating PlantUML diagrams from user requirements
@@ -142,10 +183,14 @@ export class DiagramGenerator {
         // Fetch relevant guidelines and templates
         let guidelines, templates;
         try {
-          [guidelines, templates] = await Promise.all([
-            readGuidelines(diagramType, { fullContent: true }).catch(() => null),
-            getTemplatesForType(diagramType).catch(() => [])
-          ]);
+          // Convert our enum to the expected type for guidelines
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          
+          // Get guidelines and templates
+          guidelines = await readGuidelines(guidelinesType);
+          
+          // Get templates for the appropriate diagram type
+          templates = await listTemplates(mapToGuidelinesType(diagramType));
         } catch (resourceError) {
           logger.error("Error fetching guidelines or templates:", resourceError);
           guidelines = null;
@@ -154,19 +199,14 @@ export class DiagramGenerator {
         
         // Format guidelines for prompt
         let guidelinesText = "No specific guidelines available.";
-        if (guidelines) {
-          if (Array.isArray(guidelines)) {
-            guidelinesText = guidelines.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-          } else if (guidelines.sections) {
-            guidelinesText = guidelines.sections.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-          }
+        if (guidelines && typeof guidelines === 'string') {
+          guidelinesText = guidelines;
         }
         
-        // Format templates for prompt (and include in prompt if available)
-        let templatesSection = "";
-        if (templates.length > 0) {
-          const templatesText = templates.map(t => `${t.metadata?.name}:\n${t.content}`).join('\n\n');
-          templatesSection = `\nAvailable Templates:\n${templatesText}`;
+        // Format templates for prompt (optional, addressing the unused variable warning)
+        let templatesText = "No specific templates available for this diagram type.";
+        if (templates && templates.length > 0) {
+          templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
         }
         
         // Create the generation prompt template
@@ -181,7 +221,9 @@ export class DiagramGenerator {
           
           PlantUML Guidelines:
           ${guidelinesText}
-          ${templatesSection}
+          
+          Available Templates:
+          ${templatesText}
           
           Based on the requirements, create a detailed PlantUML diagram.
           Focus on clarity, proper syntax, and following best practices.
@@ -204,7 +246,7 @@ export class DiagramGenerator {
         
         logger.info("Diagram generation completed (advanced approach)", { 
           diagramType: typedResult.diagramType,
-          diagramLength: typedResult.diagram.length
+          diagramLength: typedResult.diagram ? typedResult.diagram.length : 0
         });
         
         return typedResult;
@@ -215,7 +257,7 @@ export class DiagramGenerator {
         // Return a fallback response with an error diagram
         return {
           diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: GeneratorDiagramType.UNKNOWN,
           explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
         };
       } else if (error instanceof Error) {
@@ -227,7 +269,7 @@ export class DiagramGenerator {
         // Return a fallback response with an error diagram
         return {
           diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: GeneratorDiagramType.UNKNOWN,
           explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
         };
       } else {
@@ -236,7 +278,7 @@ export class DiagramGenerator {
         // Return a generic fallback response
         return {
           diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: GeneratorDiagramType.UNKNOWN,
           explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
         };
       }
@@ -249,7 +291,7 @@ export class DiagramGenerator {
    * @returns Detected diagram type
    * @private
    */
-  private async detectDiagramType(userInput: string): Promise<DiagramType> {
+  private async detectDiagramType(userInput: string): Promise<GeneratorDiagramType> {
     try {
       const detectTypePrompt = PromptTemplate.fromTemplate(`
         ${baseSystemPrompt}
@@ -281,27 +323,27 @@ export class DiagramGenerator {
       const detectedType = String(result).trim().toUpperCase();
       
       // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
+      const diagramTypeMap: Record<string, GeneratorDiagramType> = {
+        "SEQUENCE": GeneratorDiagramType.SEQUENCE,
+        "CLASS": GeneratorDiagramType.CLASS,
+        "ACTIVITY": GeneratorDiagramType.ACTIVITY,
+        "STATE": GeneratorDiagramType.STATE,
+        "COMPONENT": GeneratorDiagramType.COMPONENT,
+        "DEPLOYMENT": GeneratorDiagramType.DEPLOYMENT,
+        "USE_CASE": GeneratorDiagramType.USE_CASE,
+        "USECASE": GeneratorDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": GeneratorDiagramType.ENTITY_RELATIONSHIP,
+        "ER": GeneratorDiagramType.ENTITY_RELATIONSHIP
       };
       
-      const finalType = diagramTypeMap[detectedType] || DiagramType.SEQUENCE;
+      const finalType = diagramTypeMap[detectedType] || GeneratorDiagramType.SEQUENCE;
       
       logger.info("Diagram type detected", { detectedType: finalType });
       return finalType;
     } catch (error) {
       logger.error("Error detecting diagram type:", error);
       // Default to SEQUENCE if detection fails
-      return DiagramType.SEQUENCE;
+      return GeneratorDiagramType.SEQUENCE;
     }
   }
 

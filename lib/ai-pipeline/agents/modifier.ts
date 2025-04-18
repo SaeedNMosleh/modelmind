@@ -3,7 +3,8 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
-import { DiagramType, readGuidelines } from "../../knowledge/guidelines";
+// Import the DiagramType from guidelines with an alias to avoid conflicts
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import pino from "pino";
 
 // Setup logger
@@ -14,11 +15,26 @@ const logger = pino({
 });
 
 /**
+ * Our local enum for diagram types used in the modifier
+ */
+export enum ModifierDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
+
+/**
  * Schema defining the structure of the diagram modification output
  */
 const modificationOutputSchema = z.object({
   diagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType),
+  diagramType: z.nativeEnum(ModifierDiagramType),
   changes: z.array(z.string()).min(1),
   explanation: z.string()
 });
@@ -34,7 +50,7 @@ export type ModificationResult = z.infer<typeof modificationOutputSchema>;
 const modifierParamsSchema = z.object({
   userInput: z.string().min(1),
   currentDiagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType).optional(),
+  diagramType: z.nativeEnum(ModifierDiagramType).optional(),
   context: z.record(z.unknown()).optional()
 });
 
@@ -42,6 +58,30 @@ const modifierParamsSchema = z.object({
  * Type definition for modifier parameters
  */
 export type ModifierParams = z.infer<typeof modifierParamsSchema>;
+
+/**
+ * Helper function to map our modifier diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: ModifierDiagramType): GuidelinesType {
+  switch(type) {
+    case ModifierDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case ModifierDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case ModifierDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case ModifierDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case ModifierDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case ModifierDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case ModifierDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
 
 /**
  * Specialized agent for modifying existing PlantUML diagrams
@@ -182,17 +222,15 @@ export class DiagramModifier {
         // Fetch relevant guidelines
         let guidelinesText = "No specific guidelines available.";
         try {
-          const guidelines = await readGuidelines(diagramType, { 
-            bestPracticesOnly: true 
-          });
+          // Convert our enum to the expected type for guidelines
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          
+          // Get the guidelines
+          const guidelines = await readGuidelines(guidelinesType);
           
           // Format guidelines for prompt
-          if (guidelines) {
-            if (Array.isArray(guidelines)) {
-              guidelinesText = guidelines.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            } else if ('sections' in guidelines && Array.isArray(guidelines.sections)) {
-              guidelinesText = guidelines.sections.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            }
+          if (guidelines && typeof guidelines === 'string') {
+            guidelinesText = guidelines;
           }
         } catch (guidelineError) {
           logger.error("Error fetching guidelines:", guidelineError);
@@ -246,7 +284,7 @@ export class DiagramModifier {
         
         logger.info("Diagram modification completed (structured approach)", { 
           diagramType: typedResult.diagramType,
-          changes: typedResult.changes.length
+          changes: typedResult.changes ? typedResult.changes.length : 0
         });
         
         return typedResult;
@@ -257,7 +295,7 @@ export class DiagramModifier {
         // Return a fallback response with the original diagram
         return {
           diagram: params.currentDiagram || "",
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: ModifierDiagramType.UNKNOWN,
           changes: [`Error: Invalid modification parameters: ${error.message}`],
           explanation: `I couldn't modify the diagram due to validation errors: ${error.message}. Please try again with clearer instructions.`
         };
@@ -270,7 +308,7 @@ export class DiagramModifier {
         // Return a fallback response with the original diagram
         return {
           diagram: params.currentDiagram,
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: ModifierDiagramType.UNKNOWN,
           changes: [`Error: ${error.message}`],
           explanation: `I encountered an error while modifying the diagram: ${error.message}. Please try again with different instructions.`
         };
@@ -280,7 +318,7 @@ export class DiagramModifier {
         // Return a generic fallback with the original diagram
         return {
           diagram: params.currentDiagram,
-          diagramType: DiagramType.UNKNOWN,
+          diagramType: ModifierDiagramType.UNKNOWN,
           changes: ["Error: Unknown error occurred"],
           explanation: "I encountered an unexpected error while modifying the diagram. Please try again with different instructions."
         };
@@ -297,7 +335,7 @@ export class DiagramModifier {
    */
   private async retryModification(
     params: ModifierParams, 
-    diagramType: DiagramType
+    diagramType: ModifierDiagramType
   ): Promise<ModificationResult> {
     try {
       // Create a more directive prompt template
@@ -392,7 +430,7 @@ export class DiagramModifier {
    * @returns Detected diagram type
    * @private
    */
-  private async detectDiagramType(diagram: string): Promise<DiagramType> {
+  private async detectDiagramType(diagram: string): Promise<ModifierDiagramType> {
     try {
       const detectTypePrompt = PromptTemplate.fromTemplate(`
         ${baseSystemPrompt}
@@ -417,26 +455,26 @@ export class DiagramModifier {
       const detectedType = String(result).trim().toUpperCase();
       
       // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
+      const diagramTypeMap: Record<string, ModifierDiagramType> = {
+        "SEQUENCE": ModifierDiagramType.SEQUENCE,
+        "CLASS": ModifierDiagramType.CLASS,
+        "ACTIVITY": ModifierDiagramType.ACTIVITY,
+        "STATE": ModifierDiagramType.STATE,
+        "COMPONENT": ModifierDiagramType.COMPONENT,
+        "DEPLOYMENT": ModifierDiagramType.DEPLOYMENT,
+        "USE_CASE": ModifierDiagramType.USE_CASE,
+        "USECASE": ModifierDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": ModifierDiagramType.ENTITY_RELATIONSHIP,
+        "ER": ModifierDiagramType.ENTITY_RELATIONSHIP
       };
       
-      const finalType = diagramTypeMap[detectedType] || DiagramType.UNKNOWN;
+      const finalType = diagramTypeMap[detectedType] || ModifierDiagramType.UNKNOWN;
       
       logger.info("Diagram type detected", { detectedType: finalType });
       return finalType;
     } catch (error) {
       logger.error("Error detecting diagram type:", error);
-      return DiagramType.UNKNOWN;
+      return ModifierDiagramType.UNKNOWN;
     }
   }
 

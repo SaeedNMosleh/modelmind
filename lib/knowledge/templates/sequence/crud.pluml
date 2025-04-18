@@ -1,0 +1,45 @@
+@startuml CRUD Operations
+title Basic CRUD Operations
+
+actor User
+participant "Frontend" as FE
+participant "API" as API
+database "Database" as DB
+
+group Create
+    User -> FE: Submit new item
+    FE -> API: POST /items
+    API -> DB: Insert item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+group Read
+    User -> FE: Request items
+    FE -> API: GET /items
+    API -> DB: Query items
+    DB --> API: Return items
+    API --> FE: Items data
+    FE --> User: Display items
+end
+
+group Update
+    User -> FE: Modify item
+    FE -> API: PUT /items/{id}
+    API -> DB: Update item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+group Delete
+    User -> FE: Delete item
+    FE -> API: DELETE /items/{id}
+    API -> DB: Remove item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+@enduml
