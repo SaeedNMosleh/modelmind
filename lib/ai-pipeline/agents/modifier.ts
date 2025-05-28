@@ -223,7 +223,10 @@ export class DiagramModifier {
         let guidelinesText = "No specific guidelines available.";
         try {
           // Convert our enum to the expected type for guidelines
+          
           const guidelinesType = mapToGuidelinesType(diagramType);
+          logger.info("Fetching guidelines for diagram type", { diagramType, guidelinesType });
+          
           
           // Get the guidelines
           const guidelines = await readGuidelines(guidelinesType);

@@ -68,7 +68,11 @@ lib/knowledge/guidelines/class.md
 lib/knowledge/guidelines/index.ts
 lib/knowledge/guidelines/sequence.md
 lib/knowledge/index.ts
+lib/knowledge/templates/class/facade-pattern.puml
+lib/knowledge/templates/class/mvc-pattern.puml
+lib/knowledge/templates/class/observer-pattern.puml
 lib/knowledge/templates/class/repository-pattern.puml
+lib/knowledge/templates/class/strategy-pattern.puml
 lib/knowledge/templates/index.ts
 lib/knowledge/templates/sequence/authnetication.puml
 lib/knowledge/templates/sequence/crud.pluml
@@ -92,411 +96,360 @@ vscode-style-terminal-tabs-plantuml.svg
 
 # Files
 
-## File: lib/knowledge/guidelines/class.md
-````markdown
-# Class Diagram Guidelines
+## File: lib/knowledge/templates/class/facade-pattern.puml
+````
+@startuml Facade Pattern
+' Description: Facade design pattern implementation for simplifying complex systems
+' Tags: facade, design pattern, structural pattern
 
-## Basic Principles
-- Use class diagrams to show the structure of a system
-- Classes should represent distinct concepts or entities
-- Relationships show how classes interact or relate
-- Attributes and methods should be relevant to the domain
+title Facade Design Pattern
 
-## Best Practices
-- Keep class names singular and nouns (e.g., "Customer" not "Customers")
-- Use proper visibility markers (+, -, #, ~)
-- Organize classes in logical groups
-- Avoid deep inheritance hierarchies (prefer composition)
-- Include only essential attributes and methods
+class "HomeTheaterFacade" {
+  -amplifier: Amplifier
+  -tuner: Tuner
+  -dvdPlayer: DvdPlayer
+  -cdPlayer: CdPlayer
+  -projector: Projector
+  -lights: TheaterLights
+  -screen: Screen
+  -popcornPopper: PopcornPopper
+  +HomeTheaterFacade(amp: Amplifier, tuner: Tuner, dvd: DvdPlayer, cd: CdPlayer, projector: Projector, lights: TheaterLights, screen: Screen, popper: PopcornPopper)
+  +watchMovie(movie: string): void
+  +endMovie(): void
+  +listenToCD(cdTitle: string): void
+  +endCD(): void
+  +listenToRadio(frequency: double): void
+  +endRadio(): void
+}
 
-## Styling Recommendations
-- Use consistent naming conventions
-- Group related classes with packages
-- Use colors to distinguish different types of classes
-- Position associated classes near each other
+class "Amplifier" {
+  -tuner: Tuner
+  -dvdPlayer: DvdPlayer
+  -cdPlayer: CdPlayer
+  +on(): void
+  +off(): void
+  +setCD(cdPlayer: CdPlayer): void
+  +setDVD(dvdPlayer: DvdPlayer): void
+  +setTuner(tuner: Tuner): void
+  +setVolume(level: int): void
+}
+
+class "Tuner" {
+  -amplifier: Amplifier
+  +on(): void
+  +off(): void
+  +setAm(): void
+  +setFm(): void
+  +setFrequency(frequency: double): void
+}
+
+class "DvdPlayer" {
+  -amplifier: Amplifier
+  +on(): void
+  +off(): void
+  +play(movie: string): void
+  +stop(): void
+  +pause(): void
+  +setTwoChannelAudio(): void
+  +setSurroundAudio(): void
+}
+
+class "CdPlayer" {
+  -amplifier: Amplifier
+  +on(): void
+  +off(): void
+  +play(title: string): void
+  +stop(): void
+  +pause(): void
+}
+
+class "Projector" {
+  -dvdPlayer: DvdPlayer
+  +on(): void
+  +off(): void
+  +wideScreenMode(): void
+  +tvMode(): void
+}
+
+class "TheaterLights" {
+  +on(): void
+  +off(): void
+  +dim(level: int): void
+}
+
+class "Screen" {
+  +up(): void
+  +down(): void
+}
+
+class "PopcornPopper" {
+  +on(): void
+  +off(): void
+  +pop(): void
+}
+
+class "Client" {
+}
+
+Client --> HomeTheaterFacade
+HomeTheaterFacade --> Amplifier
+HomeTheaterFacade --> Tuner
+HomeTheaterFacade --> DvdPlayer
+HomeTheaterFacade --> CdPlayer
+HomeTheaterFacade --> Projector
+HomeTheaterFacade --> TheaterLights
+HomeTheaterFacade --> Screen
+HomeTheaterFacade --> PopcornPopper
+Amplifier --> Tuner
+Amplifier --> DvdPlayer
+Amplifier --> CdPlayer
+Projector --> DvdPlayer
+
+note bottom of HomeTheaterFacade
+  Provides a simplified interface
+  to the complex subsystem
+end note
+
+note bottom of Client
+  Uses the facade rather than
+  working with subsystem directly
+end note
+
+@enduml
 ````
 
-## File: lib/knowledge/guidelines/index.ts
-````typescript
-import fs from 'fs';
-import path from 'path';
-import { Document } from 'langchain/document';
-import { TextLoader } from 'langchain/document_loaders/fs/text';
+## File: lib/knowledge/templates/class/mvc-pattern.puml
+````
+@startuml MVC Pattern
+' Description: Model-View-Controller architectural pattern
+' Tags: mvc, architecture, design pattern
 
+title Model-View-Controller Pattern
 
-// Define diagram types
-export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case';
-
-/**
- * Reads the specified guideline file for a diagram type.
- * @param diagramType The type of diagram to get guidelines for
- * @returns The guideline content as a string
- */
-export async function readGuidelines(diagramType: DiagramType): Promise<string> {
-  try {
-    const filePath = path.join(process.cwd(), `lib/knowledge/guidelines/${diagramType}.md`);
-    
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.warn(`No guidelines file found for diagram type: ${diagramType}`);
-      return `No specific guidelines available for ${diagramType} diagrams.`;
-    }
-    
-    // Use TextLoader from LangChain to load the markdown file
-    const loader = new TextLoader(filePath);
-    const docs = await loader.load();
-    
-    // If there's content, return it
-    if (docs.length > 0) {
-      return docs[0].pageContent;
-    }
-    
-    return `No specific guidelines available for ${diagramType} diagrams.`;
-  } catch (error) {
-    console.error(`Error reading guidelines for ${diagramType}:`, error);
-    return `Error loading guidelines for ${diagramType} diagrams.`;
+package "Model" {
+  class "UserModel" {
+    -id: int
+    -username: string
+    -email: string
+    -createdAt: DateTime
+    +getUserById(id: int): User
+    +createUser(username: string, email: string): User
+    +updateUser(id: int, data: UserData): boolean
+    +deleteUser(id: int): boolean
+  }
+  
+  class "Database" {
+    +executeQuery(query: string): ResultSet
+    +connect(): Connection
+    +disconnect(): void
   }
 }
 
-/**
- * Gets all available guidelines as documents that can be used for retrieval.
- * Useful for RAG (Retrieval Augmented Generation) approaches.
- */
-export async function getAllGuidelinesAsDocuments(): Promise<Document[]> {
-  const guidelineFiles = [
-    'sequence.md',
-    'class.md',
-    'activity.md',
-    'state.md',
-    'component.md',
-    'use-case.md'
-  ];
-  
-  const documents: Document[] = [];
-  
-  for (const file of guidelineFiles) {
-    try {
-      const filePath = path.join(process.cwd(), `lib/knowledge/guidelines/${file}`);
-      
-      if (fs.existsSync(filePath)) {
-        const loader = new TextLoader(filePath);
-        const docs = await loader.load();
-        documents.push(...docs);
-      }
-    } catch (error) {
-      console.error(`Error loading ${file}:`, error);
-    }
+package "View" {
+  class "UserListView" {
+    +render(users: List<User>): void
+    +showError(message: string): void
+    +showSuccess(message: string): void
   }
   
-  return documents;
-}
-
-/**
- * Gets guidelines for a specific aspect of a diagram type
- * @param diagramType The type of diagram
- * @param aspect The specific aspect to get guidelines for (e.g., 'styling', 'best-practices')
- * @returns The guidelines for the specified aspect
- */
-export async function getGuidelinesForAspect(
-  diagramType: DiagramType,
-  aspect: string
-): Promise<string> {
-  const fullGuidelines = await readGuidelines(diagramType);
-  
-  // Simple regex-based section extraction
-  // This could be enhanced with more sophisticated parsing
-  const sectionRegex = new RegExp(`## ${aspect}\\s*([\\s\\S]*?)(?=##|$)`, 'i');
-  const match = fullGuidelines.match(sectionRegex);
-  
-  if (match && match[1]) {
-    return match[1].trim();
+  class "UserDetailsView" {
+    +render(user: User): void
+    +enableEditMode(): void
+    +showError(message: string): void
   }
-  
-  return `No specific guidelines for ${aspect} in ${diagramType} diagrams.`;
-}
-````
-
-## File: lib/knowledge/guidelines/sequence.md
-````markdown
-# Sequence Diagram Guidelines
-
-## Basic Principles
-- Use sequence diagrams to show interactions between objects over time
-- Time flows from top to bottom
-- Participants should be arranged left to right in order of first interaction
-- Keep diagrams focused on a single scenario or use case
-
-## Best Practices
-- Limit diagram to 5-7 participants for readability
-- Use activation bars to clearly show when participants are active
-- Include return messages for clarity
-- Use notes to explain complex logic or conditions
-- Group related messages with boxes or alt/opt fragments
-
-## Styling Recommendations
-- Use colors consistently (actors one color, systems another)
-- Add titles to clearly identify the scenario
-- Consider using skinparam to customize appearance
-- Use numbered messages for complex diagrams
-````
-
-## File: lib/knowledge/index.ts
-````typescript
-import { readGuidelines } from './guidelines';
-import { getTemplate } from './templates'
-
-export {
-  readGuidelines,
-  getTemplate
-};
-````
-
-## File: lib/knowledge/templates/class/repository-pattern.puml
-````
-@startuml Repository Pattern
-title Repository Pattern
-
-interface "IRepository<T>" {
-  +getById(id: string): T
-  +getAll(): T[]
-  +add(item: T): void
-  +update(item: T): void
-  +delete(id: string): void
 }
 
-class "Repository<T>" {
-  -context: DbContext
-  +getById(id: string): T
-  +getAll(): T[]
-  +add(item: T): void
-  +update(item: T): void
-  +delete(id: string): void
+package "Controller" {
+  class "UserController" {
+    -model: UserModel
+    -listView: UserListView
+    -detailsView: UserDetailsView
+    +UserController(model: UserModel, listView: UserListView, detailsView: UserDetailsView)
+    +showAllUsers(): void
+    +showUserDetails(id: int): void
+    +createUser(data: UserData): void
+    +updateUser(id: int, data: UserData): void
+    +deleteUser(id: int): void
+  }
 }
 
-class "UserRepository" {
-  +getUserByEmail(email: string): User
-  +getUsersByRole(role: string): User[]
+UserModel --> Database
+UserController --> UserModel
+UserController --> UserListView
+UserController --> UserDetailsView
+
+note bottom of UserModel
+  Handles data and business logic
+end note
+
+note bottom of UserListView
+  Displays data to user
+end note
+
+note bottom of UserController
+  Processes user input and 
+  updates Model and View
+end note
+
+@enduml
+````
+
+## File: lib/knowledge/templates/class/observer-pattern.puml
+````
+@startuml Observer Pattern
+' Description: Observer design pattern implementation
+' Tags: observer, design pattern, behavioral pattern
+
+title Observer Design Pattern
+
+interface "Subject" {
+  +registerObserver(observer: Observer): void
+  +removeObserver(observer: Observer): void
+  +notifyObservers(): void
 }
 
-class "User" {
-  -id: string
-  -name: string
+interface "Observer" {
+  +update(data: any): void
+}
+
+class "WeatherStation" {
+  -observers: List<Observer>
+  -temperature: float
+  -humidity: float
+  -pressure: float
+  +WeatherStation()
+  +registerObserver(observer: Observer): void
+  +removeObserver(observer: Observer): void
+  +notifyObservers(): void
+  +setMeasurements(temperature: float, humidity: float, pressure: float): void
+  -measurementsChanged(): void
+}
+
+class "CurrentConditionsDisplay" {
+  -temperature: float
+  -humidity: float
+  -weatherStation: Subject
+  +CurrentConditionsDisplay(weatherStation: Subject)
+  +update(data: any): void
+  +display(): void
+}
+
+class "StatisticsDisplay" {
+  -temperatureReadings: List<float>
+  -humidityReadings: List<float>
+  -pressureReadings: List<float>
+  -weatherStation: Subject
+  +StatisticsDisplay(weatherStation: Subject)
+  +update(data: any): void
+  +display(): void
+  -calculateStatistics(): Statistics
+}
+
+class "ForecastDisplay" {
+  -currentPressure: float
+  -lastPressure: float
+  -weatherStation: Subject
+  +ForecastDisplay(weatherStation: Subject)
+  +update(data: any): void
+  +display(): void
+  -predictWeather(): string
+}
+
+Subject <|.. WeatherStation
+Observer <|.. CurrentConditionsDisplay
+Observer <|.. StatisticsDisplay
+Observer <|.. ForecastDisplay
+WeatherStation o-- Observer
+CurrentConditionsDisplay --> Subject
+StatisticsDisplay --> Subject
+ForecastDisplay --> Subject
+
+note right of Subject
+  Maintains list of observers
+  and notifies them of changes
+end note
+
+note right of Observer
+  Interface implemented by all objects
+  that need to be notified of changes
+end note
+
+note bottom of WeatherStation
+  Concrete subject that holds
+  and updates state data
+end note
+
+@enduml
+````
+
+## File: lib/knowledge/templates/class/strategy-pattern.puml
+````
+@startuml Strategy Pattern
+' Description: Strategy design pattern implementation
+' Tags: strategy, design pattern, behavioral pattern
+
+title Strategy Design Pattern
+
+interface "PaymentStrategy" {
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
+}
+
+class "CreditCardPayment" {
+  -cardNumber: string
+  -expiryDate: string
+  -cvv: string
+  -cardholderName: string
+  +CreditCardPayment(cardNumber: string, expiryDate: string, cvv: string, name: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
+}
+
+class "PayPalPayment" {
   -email: string
-  -role: string
+  -password: string
+  -isLoggedIn: boolean
+  +PayPalPayment(email: string, password: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +login(): boolean
+  +getPaymentMethod(): string
 }
 
-IRepository <|.. Repository
-Repository <|-- UserRepository
-UserRepository --> User
-
-@enduml
-````
-
-## File: lib/knowledge/templates/index.ts
-````typescript
-import fs from 'fs';
-import path from 'path';
-import { glob } from 'glob';
-
-// Define diagram types
-export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case';
-
-/**
- * Interface representing a template metadata
- */
-export interface TemplateInfo {
-  name: string;
-  description: string;
-  tags: string[];
-  filePath: string;
-  diagramType: DiagramType;
+class "BankTransferPayment" {
+  -accountNumber: string
+  -bankCode: string
+  -accountName: string
+  +BankTransferPayment(accountNumber: string, bankCode: string, accountName: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
 }
 
-/**
- * Gets a specific template by diagram type and template name
- * @param diagramType The type of diagram
- * @param templateName The name of the template to retrieve
- * @returns The content of the template file
- */
-export async function getTemplate(diagramType: DiagramType, templateName: string): Promise<string> {
-  try {
-    const filePath = path.join(
-      process.cwd(), 
-      `lib/knowledge/templates/${diagramType}/${templateName}.puml`
-    );
-    
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.warn(`Template not found: ${templateName} for ${diagramType}`);
-      return '';
-    }
-    
-    // Read the template file
-    const content = await fs.promises.readFile(filePath, 'utf-8');
-    return content;
-  } catch (error) {
-    console.error(`Error reading template ${templateName} for ${diagramType}:`, error);
-    return '';
-  }
+class "PaymentContext" {
+  -strategy: PaymentStrategy
+  +PaymentContext(strategy: PaymentStrategy)
+  +setStrategy(strategy: PaymentStrategy): void
+  +executePayment(amount: double): boolean
+  +getSelectedPaymentMethod(): string
 }
 
-/**
- * Lists all available templates for a specific diagram type
- * @param diagramType The type of diagram
- * @returns Array of template information objects
- */
-export async function listTemplates(diagramType: DiagramType): Promise<TemplateInfo[]> {
-  try {
-    const templatesDir = path.join(process.cwd(), `lib/knowledge/templates/${diagramType}`);
-    
-    // Check if directory exists
-    if (!fs.existsSync(templatesDir)) {
-      return [];
-    }
-    
-    // Find all .puml files in the directory
-    const templateFiles = await glob(`${templatesDir}/*.puml`);
-    
-    // Process each file to extract metadata
-    const templates: TemplateInfo[] = [];
-    
-    for (const file of templateFiles) {
-      const content = await fs.promises.readFile(file, 'utf-8');
-      const fileName = path.basename(file, '.puml');
-      
-      // Extract description and tags from comments in the template
-      const descriptionMatch = content.match(/'*\s*Description:\s*(.*)/i);
-      const tagsMatch = content.match(/'*\s*Tags:\s*(.*)/i);
-      
-      templates.push({
-        name: fileName,
-        description: descriptionMatch ? descriptionMatch[1].trim() : `${fileName} template`,
-        tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
-        filePath: file,
-        diagramType
-      });
-    }
-    
-    return templates;
-  } catch (error) {
-    console.error(`Error listing templates for ${diagramType}:`, error);
-    return [];
-  }
-}
+PaymentStrategy <|.. CreditCardPayment
+PaymentStrategy <|.. PayPalPayment
+PaymentStrategy <|.. BankTransferPayment
+PaymentContext o-- PaymentStrategy
 
-/**
- * Searches for templates across all diagram types based on a keyword
- * @param keyword The keyword to search for in template names, descriptions or tags
- * @returns Array of matching template information objects
- */
-export async function searchTemplates(keyword: string): Promise<TemplateInfo[]> {
-  const diagramTypes: DiagramType[] = ['sequence', 'class', 'activity', 'state', 'component', 'use-case'];
-  const results: TemplateInfo[] = [];
-  
-  for (const type of diagramTypes) {
-    const templates = await listTemplates(type);
-    const matches = templates.filter(template => 
-      template.name.toLowerCase().includes(keyword.toLowerCase()) ||
-      template.description.toLowerCase().includes(keyword.toLowerCase()) ||
-      template.tags.some(tag => tag.toLowerCase().includes(keyword.toLowerCase()))
-    );
-    
-    results.push(...matches);
-  }
-  
-  return results;
-}
+note right of PaymentStrategy
+  Defines the interface for 
+  all payment strategies
+end note
 
-/**
- * Gets a template by a relevant use case
- * @param useCase The use case to find templates for (e.g., "authentication", "data flow")
- * @returns The most relevant template for the use case, or empty string if none found
- */
-export async function getTemplateForUseCase(useCase: string): Promise<string> {
-  // Search all templates for matching use case
-  const matchingTemplates = await searchTemplates(useCase);
-  
-  if (matchingTemplates.length > 0) {
-    // Sort by relevance (here we just take the first match)
-    // In a real implementation, this could be more sophisticated
-    const bestMatch = matchingTemplates[0];
-    return getTemplate(bestMatch.diagramType, bestMatch.name);
-  }
-  
-  return '';
-}
-````
-
-## File: lib/knowledge/templates/sequence/authnetication.puml
-````
-@startuml Authentication Flow
-title Authentication Sequence
-
-actor User
-participant "Client" as C
-participant "API Gateway" as API
-participant "Auth Service" as Auth
-database "User DB" as DB
-
-User -> C: Enter credentials
-C -> API: POST /login
-API -> Auth: Validate credentials
-Auth -> DB: Query user
-DB --> Auth: Return user data
-Auth -> Auth: Generate JWT
-Auth --> API: Return token
-API --> C: Send token
-C -> C: Store token
-C --> User: Show success
-
-@enduml
-````
-
-## File: lib/knowledge/templates/sequence/crud.pluml
-````
-@startuml CRUD Operations
-title Basic CRUD Operations
-
-actor User
-participant "Frontend" as FE
-participant "API" as API
-database "Database" as DB
-
-group Create
-    User -> FE: Submit new item
-    FE -> API: POST /items
-    API -> DB: Insert item
-    DB --> API: Confirm
-    API --> FE: Success response
-    FE --> User: Show confirmation
-end
-
-group Read
-    User -> FE: Request items
-    FE -> API: GET /items
-    API -> DB: Query items
-    DB --> API: Return items
-    API --> FE: Items data
-    FE --> User: Display items
-end
-
-group Update
-    User -> FE: Modify item
-    FE -> API: PUT /items/{id}
-    API -> DB: Update item
-    DB --> API: Confirm
-    API --> FE: Success response
-    FE --> User: Show confirmation
-end
-
-group Delete
-    User -> FE: Delete item
-    FE -> API: DELETE /items/{id}
-    API -> DB: Remove item
-    DB --> API: Confirm
-    API --> FE: Success response
-    FE --> User: Show confirmation
-end
+note bottom of PaymentContext
+  Uses the strategy without being
+  coupled to concrete implementations
+end note
 
 @enduml
 ````
@@ -1313,1218 +1266,6 @@ const eslintConfig = [
 export default eslintConfig;
 ````
 
-## File: lib/ai-pipeline/agents/analyzer.ts
-````typescript
-import { PromptTemplate } from "@langchain/core/prompts";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
-import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
-// Import from the proper path - likely the guidelines module is re-exporting from the main knowledge module
-import { readGuidelines } from "../../knowledge";
-
-// Let's also define the expected DiagramType for the readGuidelines function
-type GuidelinesDiagramType = 
-  | 'sequence' 
-  | 'class' 
-  | 'activity' 
-  | 'state' 
-  | 'component' 
-  | 'use-case' 
-  | 'entity_relationship';
-import pino from "pino";
-
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
-
-// Define diagram types as an enum rather than importing it as just a type
-export enum DiagramType {
-  SEQUENCE = "SEQUENCE",
-  CLASS = "CLASS",
-  ACTIVITY = "ACTIVITY",
-  STATE = "STATE",
-  COMPONENT = "COMPONENT",
-  DEPLOYMENT = "DEPLOYMENT",
-  USE_CASE = "USE_CASE",
-  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
-  UNKNOWN = "UNKNOWN"
-}
-
-/**
- * Enum defining types of analysis that can be performed
- */
-export enum AnalysisType {
-  GENERAL = "general",
-  QUALITY = "quality",
-  COMPONENTS = "components",
-  RELATIONSHIPS = "relationships",
-  COMPLEXITY = "complexity",
-  IMPROVEMENTS = "improvements"
-}
-
-/**
- * Schema defining the structure of the diagram analysis output
- */
-const analysisOutputSchema = z.object({
-  diagramType: z.nativeEnum(DiagramType),
-  analysisType: z.nativeEnum(AnalysisType),
-  overview: z.string(),
-  components: z.array(z.object({
-    name: z.string(),
-    type: z.string().optional(),
-    description: z.string().optional()
-  })).optional(),
-  relationships: z.array(z.object({
-    source: z.string(),
-    target: z.string(),
-    type: z.string().optional(),
-    description: z.string().optional()
-  })).optional(),
-  qualityAssessment: z.object({
-    score: z.number().min(1).max(10).optional(),
-    strengths: z.array(z.string()).optional(),
-    weaknesses: z.array(z.string()).optional(),
-    bestPracticesFollowed: z.array(z.string()).optional(),
-    bestPracticesViolated: z.array(z.string()).optional()
-  }).optional(),
-  suggestedImprovements: z.array(z.string()).optional()
-});
-
-/**
- * Type definition for the analyzer result
- */
-export type AnalysisResult = z.infer<typeof analysisOutputSchema>;
-
-/**
- * Schema for analyzer input parameters
- */
-const analyzerParamsSchema = z.object({
-  userInput: z.string().min(1),
-  diagram: z.string().min(10),
-  analysisType: z.nativeEnum(AnalysisType).optional(),
-  diagramType: z.nativeEnum(DiagramType).optional(),
-  context: z.record(z.unknown()).optional()
-});
-
-/**
- * Type definition for analyzer parameters
- */
-export type AnalyzerParams = z.infer<typeof analyzerParamsSchema>;
-
-/**
- * Specialized agent for analyzing PlantUML diagrams
- */
-export class DiagramAnalyzer {
-  private parser;
-
-  constructor() {
-    this.parser = StructuredOutputParser.fromZodSchema(analysisOutputSchema);
-  }
-
-  /**
-   * Analyze a PlantUML diagram based on user requirements
-   * @param params - Parameters for analysis
-   * @returns A promise resolving to the analysis result
-   */
-  public async analyze(params: AnalyzerParams): Promise<AnalysisResult> {
-    try {
-      // Validate input params
-      const validatedParams = analyzerParamsSchema.parse(params);
-      
-      // Detect diagram type if not provided
-      const diagramType = validatedParams.diagramType || 
-        await this.detectDiagramType(validatedParams.diagram);
-      
-      // Determine analysis type from user input if not provided
-      const analysisType = validatedParams.analysisType || 
-        await this.detectAnalysisType(validatedParams.userInput);
-      
-      logger.info("Analyzing diagram", { diagramType, analysisType });
-      
-      // Try a simple analysis approach first
-      try {
-        // Create a simple analysis prompt
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in analyzing PlantUML diagrams.
-          
-          Analyze this PlantUML diagram:
-          \`\`\`plantuml
-          ${validatedParams.diagram}
-          \`\`\`
-          
-          User's analysis request: ${validatedParams.userInput}
-          
-          Focus on ${analysisType} analysis.
-          
-          Provide a comprehensive analysis that includes:
-          1. An overview of what the diagram shows
-          2. Key components and their relationships
-          3. Strengths of the diagram
-          4. Potential areas for improvement
-          
-          Analysis:
-        `);
-        
-        // Run the simple analysis
-        const simpleAnalysisChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const analysis = await simpleAnalysisChain.invoke({});
-        
-        // Return a properly formatted result
-        logger.info("Diagram analysis completed (simple approach)", { 
-          diagramType,
-          analysisType
-        });
-        
-        return {
-          diagramType,
-          analysisType,
-          overview: analysis,
-          qualityAssessment: {
-            strengths: [],
-            weaknesses: []
-          },
-          suggestedImprovements: []
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try structured approach
-        logger.warn("Simple diagram analysis failed, trying structured approach", { error: simpleError });
-        
-        // Fetch relevant guidelines
-        let guidelinesText = "No specific guidelines available.";
-        try {
-          // Convert our enum to the string type expected by readGuidelines
-          let diagramTypeForGuidelines: GuidelinesDiagramType;
-          
-          // Map our enum values to the expected string literals
-          switch(diagramType) {
-            case DiagramType.SEQUENCE: 
-              diagramTypeForGuidelines = 'sequence'; 
-              break;
-            case DiagramType.CLASS: 
-              diagramTypeForGuidelines = 'class'; 
-              break;
-            case DiagramType.ACTIVITY: 
-              diagramTypeForGuidelines = 'activity'; 
-              break;
-            case DiagramType.STATE: 
-              diagramTypeForGuidelines = 'state'; 
-              break;
-            case DiagramType.COMPONENT: 
-              diagramTypeForGuidelines = 'component'; 
-              break;
-            case DiagramType.USE_CASE: 
-              diagramTypeForGuidelines = 'use-case'; 
-              break;
-            case DiagramType.ENTITY_RELATIONSHIP: 
-              diagramTypeForGuidelines = 'entity_relationship'; 
-              break;
-            default:
-              diagramTypeForGuidelines = 'sequence'; // Default fallback
-          }
-          
-          // Call readGuidelines with the properly typed parameter
-          const guidelines = await readGuidelines(diagramTypeForGuidelines);
-          
-          // Format guidelines for prompt
-          if (guidelines && typeof guidelines === 'string') {
-            guidelinesText = guidelines;
-          }
-        } catch (guidelineError) {
-          logger.error("Error fetching guidelines:", guidelineError);
-        }
-        
-        // Create the analysis prompt template
-        const analysisPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in analyzing PlantUML diagrams.
-          
-          Diagram to analyze:
-          \`\`\`plantuml
-          ${validatedParams.diagram}
-          \`\`\`
-          
-          User analysis request: ${validatedParams.userInput}
-          
-          Analysis type: ${analysisType}
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Analyze the diagram based on the analysis type and user request.
-          Provide detailed and insightful analysis.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the analysis chain
-        const analysisChain = RunnableSequence.from([
-          analysisPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await analysisChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as AnalysisResult;
-        
-        logger.info("Diagram analysis completed (structured approach)", { 
-          diagramType: typedResult.diagramType,
-          analysisType: typedResult.analysisType
-        });
-        
-        return typedResult;
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error("Input validation error:", { errors: error.errors });
-        // Return a fallback response with a minimal analysis
-        return {
-          diagramType: DiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
-        };
-      } else if (error instanceof Error) {
-        logger.error("Error analyzing diagram:", { 
-          message: error.message, 
-          stack: error.stack
-        });
-        
-        // Return a fallback response with a minimal analysis
-        return {
-          diagramType: DiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
-        };
-      } else {
-        logger.error("Unknown error during diagram analysis:", { error });
-        
-        // Return a generic fallback
-        return {
-          diagramType: DiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
-        };
-      }
-    }
-  }
-
-  /**
-   * Detect the diagram type from an existing diagram
-   * @param diagram - The current diagram
-   * @returns Detected diagram type
-   * @private
-   */
-  private async detectDiagramType(diagram: string): Promise<DiagramType> {
-    try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the type of the following PlantUML diagram:
-        
-        \`\`\`plantuml
-        ${diagram}
-        \`\`\`
-        
-        Return ONLY one of these types that best matches the diagram:
-        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
-      `);
-      
-      const detectTypeChain = RunnableSequence.from([
-        detectTypePrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectTypeChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
-      };
-      
-      const finalType = diagramTypeMap[detectedType] || DiagramType.UNKNOWN;
-      
-      logger.info("Diagram type detected", { detectedType: finalType });
-      return finalType;
-    } catch (error) {
-      logger.error("Error detecting diagram type:", error);
-      return DiagramType.UNKNOWN;
-    }
-  }
-
-  /**
-   * Detect the analysis type based on user input
-   * @param userInput - The user's input message
-   * @returns Detected analysis type
-   * @private
-   */
-  private async detectAnalysisType(userInput: string): Promise<AnalysisType> {
-    try {
-      const detectAnalysisPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the most appropriate type of analysis based on the user's request:
-        
-        User request: ${userInput}
-        
-        Select the MOST appropriate analysis type from these options:
-        - GENERAL: Overall assessment of the diagram
-        - QUALITY: Assessment of diagram quality and best practices
-        - COMPONENTS: Inventory and explanation of diagram components
-        - RELATIONSHIPS: Analysis of relationships between components
-        - COMPLEXITY: Assessment of diagram complexity
-        - IMPROVEMENTS: Suggestions for improving the diagram
-        
-        Return ONLY one of these types (just the word).
-      `);
-      
-      const detectAnalysisChain = RunnableSequence.from([
-        detectAnalysisPrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectAnalysisChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid AnalysisType
-      const analysisTypeMap: Record<string, AnalysisType> = {
-        "GENERAL": AnalysisType.GENERAL,
-        "QUALITY": AnalysisType.QUALITY,
-        "COMPONENTS": AnalysisType.COMPONENTS,
-        "RELATIONSHIPS": AnalysisType.RELATIONSHIPS,
-        "COMPLEXITY": AnalysisType.COMPLEXITY,
-        "IMPROVEMENTS": AnalysisType.IMPROVEMENTS
-      };
-      
-      const finalType = analysisTypeMap[detectedType] || AnalysisType.GENERAL;
-      
-      logger.info("Analysis type detected", { detectedType: finalType });
-      return finalType;
-    } catch (error) {
-      logger.error("Error detecting analysis type:", error);
-      return AnalysisType.GENERAL;
-    }
-  }
-
-  /**
-   * Invoke the analyzer (convenience method for chainable API)
-   * @param params - Analyzer parameters
-   * @returns Analyzer result
-   */
-  public async invoke(params: AnalyzerParams): Promise<AnalysisResult> {
-    return this.analyze(params);
-  }
-}
-
-// Export singleton instance
-export const diagramAnalyzer = new DiagramAnalyzer();
-````
-
-## File: lib/ai-pipeline/agents/generator.ts
-````typescript
-import { PromptTemplate } from "@langchain/core/prompts";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
-import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
-import { DiagramType, readGuidelines } from "../../knowledge/guidelines";
-import { getTemplatesForType } from "../../knowledge/templates";
-import pino from "pino";
-
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
-
-/**
- * Schema defining the structure of the diagram generation output
- */
-const generationOutputSchema = z.object({
-  diagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType),
-  explanation: z.string(),
-  suggestions: z.array(z.string()).optional()
-});
-
-/**
- * Type definition for the generator result
- */
-export type GenerationResult = z.infer<typeof generationOutputSchema>;
-
-/**
- * Schema for generator input parameters
- */
-const generatorParamsSchema = z.object({
-  userInput: z.string().min(1),
-  diagramType: z.nativeEnum(DiagramType).optional(),
-  context: z.record(z.unknown()).optional()
-});
-
-/**
- * Type definition for generator parameters
- */
-export type GeneratorParams = z.infer<typeof generatorParamsSchema>;
-
-/**
- * Specialized agent for generating PlantUML diagrams from user requirements
- */
-export class DiagramGenerator {
-  private parser;
-
-  constructor() {
-    this.parser = StructuredOutputParser.fromZodSchema(generationOutputSchema);
-  }
-
-  /**
-   * Generate a new PlantUML diagram based on user requirements
-   * @param params - Parameters for generation
-   * @returns A promise resolving to the generation result
-   */
-  public async generate(params: GeneratorParams): Promise<GenerationResult> {
-    try {
-      // Validate input params
-      const validatedParams = generatorParamsSchema.parse(params);
-      
-      // Determine diagram type from input or context
-      const diagramType = validatedParams.diagramType || 
-        await this.detectDiagramType(validatedParams.userInput);
-      
-      logger.info("Generating diagram with type", { diagramType });
-      
-      // Try a simpler generation approach first for robustness
-      try {
-        // Create a simple generation prompt
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in creating PlantUML diagrams based on user requirements.
-          
-          User requirements: ${validatedParams.userInput}
-          
-          Diagram type: ${diagramType}
-          
-          Create a PlantUML diagram that satisfies these requirements.
-          The diagram should start with @startuml and end with @enduml.
-          Focus on proper syntax and clarity.
-          
-          PlantUML Diagram:
-        `);
-        
-        // Run the simple generation
-        const simpleGenerationChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const simpleResult = await simpleGenerationChain.invoke({});
-        
-        // Extract the diagram from the result (it might have extra text)
-        const diagramMatch = simpleResult.match(/@startuml[\s\S]*?@enduml/);
-        const diagram = diagramMatch ? diagramMatch[0] : simpleResult;
-        
-        // Create a simple explanation
-        const explainPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You've just created this PlantUML diagram based on these requirements:
-          Requirements: ${validatedParams.userInput}
-          
-          Diagram:
-          ${diagram}
-          
-          Provide a short explanation of the diagram you created (about 2-3 sentences).
-        `);
-        
-        const explainChain = RunnableSequence.from([
-          explainPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const explanation = await explainChain.invoke({});
-        
-        // Return a properly formatted result
-        logger.info("Diagram generation completed (simple approach)", { 
-          diagramType,
-          diagramLength: diagram.length
-        });
-        
-        return {
-          diagram,
-          diagramType,
-          explanation,
-          suggestions: []
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try advanced approach
-        logger.warn("Simple diagram generation failed, trying full approach", { error: simpleError });
-        
-        // Fetch relevant guidelines and templates
-        let guidelines, templates;
-        try {
-          [guidelines, templates] = await Promise.all([
-            readGuidelines(diagramType, { fullContent: true }).catch(() => null),
-            getTemplatesForType(diagramType).catch(() => [])
-          ]);
-        } catch (resourceError) {
-          logger.error("Error fetching guidelines or templates:", resourceError);
-          guidelines = null;
-          templates = [];
-        }
-        
-        // Format guidelines for prompt
-        let guidelinesText = "No specific guidelines available.";
-        if (guidelines) {
-          if (Array.isArray(guidelines)) {
-            guidelinesText = guidelines.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-          } else if (guidelines.sections) {
-            guidelinesText = guidelines.sections.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-          }
-        }
-        
-        // Format templates for prompt
-        const templatesText = templates.length > 0
-          ? templates.map(t => `${t.metadata?.name}:\n${t.content}`).join('\n\n')
-          : 'No specific templates available for this diagram type.';
-        
-        // Create the generation prompt template
-        const generationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in creating PlantUML diagrams based on user requirements.
-          
-          User requirements: ${validatedParams.userInput}
-          
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Based on the requirements, create a detailed PlantUML diagram.
-          Focus on clarity, proper syntax, and following best practices.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the generation chain
-        const generationChain = RunnableSequence.from([
-          generationPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await generationChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as GenerationResult;
-        
-        logger.info("Diagram generation completed (advanced approach)", { 
-          diagramType: typedResult.diagramType,
-          diagramLength: typedResult.diagram.length
-        });
-        
-        return typedResult;
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error("Input validation error:", { errors: error.errors });
-        // Return a fallback response with an error diagram
-        return {
-          diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
-          explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
-        };
-      } else if (error instanceof Error) {
-        logger.error("Error generating diagram:", { 
-          message: error.message, 
-          stack: error.stack
-        });
-        
-        // Return a fallback response with an error diagram
-        return {
-          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
-          explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
-        };
-      } else {
-        logger.error("Unknown error during diagram generation:", { error });
-        
-        // Return a generic fallback response
-        return {
-          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
-          diagramType: DiagramType.UNKNOWN,
-          explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
-        };
-      }
-    }
-  }
-
-  /**
-   * Detect the diagram type from user input
-   * @param userInput - The user's input message
-   * @returns Detected diagram type
-   * @private
-   */
-  private async detectDiagramType(userInput: string): Promise<DiagramType> {
-    try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the most appropriate PlantUML diagram type based on the user's request:
-        
-        User request: ${userInput}
-        
-        Valid diagram types:
-        - SEQUENCE: for interactions between components over time
-        - CLASS: for system structure and relationships
-        - ACTIVITY: for workflows and processes
-        - STATE: for state transitions and behaviors
-        - COMPONENT: for system components and interfaces
-        - DEPLOYMENT: for physical deployment of components
-        - USE_CASE: for system/actor interactions
-        - ENTITY_RELATIONSHIP: for data modeling
-        
-        Return ONLY one of these types that best matches the user's request.
-      `);
-      
-      const detectTypeChain = RunnableSequence.from([
-        detectTypePrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectTypeChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
-      };
-      
-      const finalType = diagramTypeMap[detectedType] || DiagramType.SEQUENCE;
-      
-      logger.info("Diagram type detected", { detectedType: finalType });
-      return finalType;
-    } catch (error) {
-      logger.error("Error detecting diagram type:", error);
-      // Default to SEQUENCE if detection fails
-      return DiagramType.SEQUENCE;
-    }
-  }
-
-  /**
-   * Invoke the generator (convenience method for chainable API)
-   * @param params - Generator parameters
-   * @returns Generator result
-   */
-  public async invoke(params: GeneratorParams): Promise<GenerationResult> {
-    return this.generate(params);
-  }
-}
-
-// Export singleton instance for easier imports
-export const diagramGenerator = new DiagramGenerator();
-````
-
-## File: lib/ai-pipeline/agents/modifier.ts
-````typescript
-import { PromptTemplate } from "@langchain/core/prompts";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
-import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
-import { DiagramType, readGuidelines } from "../../knowledge/guidelines";
-import pino from "pino";
-
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
-
-/**
- * Schema defining the structure of the diagram modification output
- */
-const modificationOutputSchema = z.object({
-  diagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType),
-  changes: z.array(z.string()).min(1),
-  explanation: z.string()
-});
-
-/**
- * Type definition for the modifier result
- */
-export type ModificationResult = z.infer<typeof modificationOutputSchema>;
-
-/**
- * Schema for modifier input parameters
- */
-const modifierParamsSchema = z.object({
-  userInput: z.string().min(1),
-  currentDiagram: z.string().min(10),
-  diagramType: z.nativeEnum(DiagramType).optional(),
-  context: z.record(z.unknown()).optional()
-});
-
-/**
- * Type definition for modifier parameters
- */
-export type ModifierParams = z.infer<typeof modifierParamsSchema>;
-
-/**
- * Specialized agent for modifying existing PlantUML diagrams
- */
-export class DiagramModifier {
-  private parser;
-
-  constructor() {
-    this.parser = StructuredOutputParser.fromZodSchema(modificationOutputSchema);
-  }
-
-  /**
-   * Modify an existing PlantUML diagram based on user instructions
-   * @param params - Parameters for modification
-   * @returns A promise resolving to the modification result
-   */
-  public async modify(params: ModifierParams): Promise<ModificationResult> {
-    try {
-      // Validate input params
-      const validatedParams = modifierParamsSchema.parse(params);
-      
-      // Detect diagram type if not provided
-      const diagramType = validatedParams.diagramType || 
-        await this.detectDiagramType(validatedParams.currentDiagram);
-      
-      logger.info("Modifying diagram", { diagramType });
-      
-      // Try a simple modification approach first
-      try {
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in modifying PlantUML diagrams based on user instructions.
-          
-          Current diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          User modification request: ${validatedParams.userInput}
-          
-          Modify the diagram according to the user's instructions.
-          Preserve existing structure while implementing the requested changes.
-          Ensure the modified diagram uses correct PlantUML syntax.
-          
-          Modified diagram (full code, starting with @startuml and ending with @enduml):
-        `);
-        
-        // Run the simple modification
-        const simpleModifyChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const modifiedDiagram = await simpleModifyChain.invoke({});
-        
-        // Extract the diagram from the result (it might have extra text)
-        const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
-        const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
-        
-        // If no change was made, retry with stronger emphasis
-        if (diagram.trim() === validatedParams.currentDiagram.trim()) {
-          logger.warn("No changes detected in the diagram, retrying with emphasis");
-          return await this.retryModification(validatedParams, diagramType);
-        }
-        
-        // Create a list of changes
-        const changesPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You have just modified a PlantUML diagram based on this request:
-          "${validatedParams.userInput}"
-          
-          Original diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          Modified diagram:
-          \`\`\`plantuml
-          ${diagram}
-          \`\`\`
-          
-          List only the specific changes you made to the diagram, one per line.
-          Be concise but clear. Start each line with "- ".
-        `);
-        
-        const changesChain = RunnableSequence.from([
-          changesPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const changesText = await changesChain.invoke({});
-        
-        // Convert to array of changes
-        const changes = changesText
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => line.substring(1).trim())
-          .filter(Boolean);
-        
-        // Create explanation
-        const explanationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You've just modified a PlantUML diagram based on this request:
-          "${validatedParams.userInput}"
-          
-          Provide a short explanation of the changes you made (2-3 sentences).
-        `);
-        
-        const explanationChain = RunnableSequence.from([
-          explanationPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const explanation = await explanationChain.invoke({});
-        
-        logger.info("Diagram modification completed (simple approach)", { 
-          diagramType,
-          changes: changes.length
-        });
-        
-        return {
-          diagram,
-          diagramType,
-          changes: changes.length > 0 ? changes : ["Updated diagram as requested"],
-          explanation
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try structured approach
-        logger.warn("Simple diagram modification failed, trying structured approach", { error: simpleError });
-        
-        // Fetch relevant guidelines
-        let guidelinesText = "No specific guidelines available.";
-        try {
-          const guidelines = await readGuidelines(diagramType, { 
-            bestPracticesOnly: true 
-          });
-          
-          // Format guidelines for prompt
-          if (guidelines) {
-            if (Array.isArray(guidelines)) {
-              guidelinesText = guidelines.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            } else if ('sections' in guidelines && Array.isArray(guidelines.sections)) {
-              guidelinesText = guidelines.sections.map(g => `${g.title}:\n${g.content}`).join('\n\n');
-            }
-          }
-        } catch (guidelineError) {
-          logger.error("Error fetching guidelines:", guidelineError);
-        }
-        
-        // Create the modification prompt template
-        const modificationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in modifying PlantUML diagrams based on user instructions.
-          
-          Current diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          User modification request: ${validatedParams.userInput}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Modify the diagram according to the user's instructions.
-          Preserve existing structure while implementing the requested changes.
-          Ensure the modified diagram uses correct PlantUML syntax.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the modification chain
-        const modificationChain = RunnableSequence.from([
-          modificationPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await modificationChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as ModificationResult;
-        
-        // Validate the result has actual changes
-        if (typedResult.diagram === validatedParams.currentDiagram) {
-          // If no changes were made despite user request, try again with stronger emphasis
-          logger.warn("No changes were made to the diagram", {
-            request: validatedParams.userInput
-          });
-          
-          return await this.retryModification(validatedParams, diagramType);
-        }
-        
-        logger.info("Diagram modification completed (structured approach)", { 
-          diagramType: typedResult.diagramType,
-          changes: typedResult.changes.length
-        });
-        
-        return typedResult;
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error("Input validation error:", { errors: error.errors });
-        // Return a fallback response with the original diagram
-        return {
-          diagram: params.currentDiagram || "",
-          diagramType: DiagramType.UNKNOWN,
-          changes: [`Error: Invalid modification parameters: ${error.message}`],
-          explanation: `I couldn't modify the diagram due to validation errors: ${error.message}. Please try again with clearer instructions.`
-        };
-      } else if (error instanceof Error) {
-        logger.error("Error modifying diagram:", { 
-          message: error.message, 
-          stack: error.stack
-        });
-        
-        // Return a fallback response with the original diagram
-        return {
-          diagram: params.currentDiagram,
-          diagramType: DiagramType.UNKNOWN,
-          changes: [`Error: ${error.message}`],
-          explanation: `I encountered an error while modifying the diagram: ${error.message}. Please try again with different instructions.`
-        };
-      } else {
-        logger.error("Unknown error during diagram modification:", { error });
-        
-        // Return a generic fallback with the original diagram
-        return {
-          diagram: params.currentDiagram,
-          diagramType: DiagramType.UNKNOWN,
-          changes: ["Error: Unknown error occurred"],
-          explanation: "I encountered an unexpected error while modifying the diagram. Please try again with different instructions."
-        };
-      }
-    }
-  }
-
-  /**
-   * Retry modification with stronger emphasis on making changes
-   * @param params - Original parameters
-   * @param diagramType - Detected diagram type
-   * @returns Modified result
-   * @private
-   */
-  private async retryModification(
-    params: ModifierParams, 
-    diagramType: DiagramType
-  ): Promise<ModificationResult> {
-    try {
-      // Create a more directive prompt template
-      const retryPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        You are a specialist in modifying PlantUML diagrams based on user instructions.
-        
-        Current diagram:
-        \`\`\`plantuml
-        ${params.currentDiagram}
-        \`\`\`
-        
-        User modification request: ${params.userInput}
-        
-        IMPORTANT: You MUST make the specific changes requested by the user.
-        The previous attempt did not implement any changes.
-        
-        Carefully analyze the diagram and implement the requested modifications.
-        Focus on the specific elements the user wants to change.
-        
-        Modified diagram (full code, starting with @startuml and ending with @enduml):
-      `);
-      
-      // Create the retry chain
-      const retryChain = RunnableSequence.from([
-        retryPrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      // Execute the chain
-      const modifiedDiagram = await retryChain.invoke({});
-      
-      // Extract the diagram from the result (it might have extra text)
-      const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
-      const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
-      
-      // Create a list of changes
-      const changesPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        You have modified a PlantUML diagram based on this request:
-        "${params.userInput}"
-        
-        List the specific changes you made, one per line.
-        Be concise but clear. Start each line with "- ".
-      `);
-      
-      const changesChain = RunnableSequence.from([
-        changesPrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const changesText = await changesChain.invoke({});
-      
-      // Convert to array of changes
-      const changes = changesText
-        .split('\n')
-        .filter(line => line.trim().startsWith('-'))
-        .map(line => line.substring(1).trim())
-        .filter(Boolean);
-      
-      logger.info("Diagram modification retry completed", { 
-        diagramType,
-        changes: changes.length
-      });
-      
-      return {
-        diagram,
-        diagramType,
-        changes: changes.length > 0 ? changes : ["Updated diagram as requested"],
-        explanation: `I've modified the diagram according to your request: "${params.userInput}"`
-      };
-    } catch (retryError) {
-      logger.error("Error in modification retry:", retryError);
-      
-      // Return a fallback with the original diagram
-      return {
-        diagram: params.currentDiagram,
-        diagramType,
-        changes: ["No changes made due to error"],
-        explanation: "I tried to modify the diagram but encountered an error. Please try again with more specific instructions."
-      };
-    }
-  }
-
-  /**
-   * Detect the diagram type from an existing diagram
-   * @param diagram - The current diagram
-   * @returns Detected diagram type
-   * @private
-   */
-  private async detectDiagramType(diagram: string): Promise<DiagramType> {
-    try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the type of the following PlantUML diagram:
-        
-        \`\`\`plantuml
-        ${diagram}
-        \`\`\`
-        
-        Return ONLY one of these types that best matches the diagram:
-        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
-      `);
-      
-      const detectTypeChain = RunnableSequence.from([
-        detectTypePrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectTypeChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, DiagramType> = {
-        "SEQUENCE": DiagramType.SEQUENCE,
-        "CLASS": DiagramType.CLASS,
-        "ACTIVITY": DiagramType.ACTIVITY,
-        "STATE": DiagramType.STATE,
-        "COMPONENT": DiagramType.COMPONENT,
-        "DEPLOYMENT": DiagramType.DEPLOYMENT,
-        "USE_CASE": DiagramType.USE_CASE,
-        "USECASE": DiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": DiagramType.ENTITY_RELATIONSHIP,
-        "ER": DiagramType.ENTITY_RELATIONSHIP
-      };
-      
-      const finalType = diagramTypeMap[detectedType] || DiagramType.UNKNOWN;
-      
-      logger.info("Diagram type detected", { detectedType: finalType });
-      return finalType;
-    } catch (error) {
-      logger.error("Error detecting diagram type:", error);
-      return DiagramType.UNKNOWN;
-    }
-  }
-
-  /**
-   * Invoke the modifier (convenience method for chainable API)
-   * @param params - Modifier parameters
-   * @returns Modifier result
-   */
-  public async invoke(params: ModifierParams): Promise<ModificationResult> {
-    return this.modify(params);
-  }
-}
-
-// Export singleton instance
-export const diagramModifier = new DiagramModifier();
-````
-
 ## File: lib/ai-pipeline/baseChain.ts
 ````typescript
 import { ChatOpenAI } from "@langchain/openai";
@@ -2951,6 +1692,446 @@ export interface Agent<TParams extends BaseAgentParams, TResult extends BaseAgen
    */
   invoke(params: TParams): Promise<TResult>;
 }
+````
+
+## File: lib/knowledge/guidelines/class.md
+````markdown
+# Class Diagram Guidelines
+
+## Basic Principles
+- Use class diagrams to show the structure of a system
+- Classes should represent distinct concepts or entities
+- Relationships show how classes interact or relate
+- Attributes and methods should be relevant to the domain
+
+## Best Practices
+- Keep class names singular and nouns (e.g., "Customer" not "Customers")
+- Use proper visibility markers (+, -, #, ~)
+- Organize classes in logical groups
+- Avoid deep inheritance hierarchies (prefer composition)
+- Include only essential attributes and methods
+
+## Styling Recommendations
+- Use consistent naming conventions
+- Group related classes with packages
+- Use colors to distinguish different types of classes
+- Position associated classes near each other
+````
+
+## File: lib/knowledge/guidelines/index.ts
+````typescript
+import fs from 'fs';
+import path from 'path';
+import { Document } from 'langchain/document';
+import { TextLoader } from 'langchain/document_loaders/fs/text';
+
+
+// Define diagram types
+export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case';
+
+/**
+ * Reads the specified guideline file for a diagram type.
+ * @param diagramType The type of diagram to get guidelines for
+ * @returns The guideline content as a string
+ */
+export async function readGuidelines(diagramType: DiagramType): Promise<string> {
+  try {
+    const filePath = path.join(process.cwd(), `lib/knowledge/guidelines/${diagramType}.md`);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.warn(`No guidelines file found for diagram type: ${diagramType}`);
+      return `No specific guidelines available for ${diagramType} diagrams.`;
+    }
+    
+    // Use TextLoader from LangChain to load the markdown file
+    const loader = new TextLoader(filePath);
+    const docs = await loader.load();
+    
+    // If there's content, return it
+    if (docs.length > 0) {
+      return docs[0].pageContent;
+    }
+    
+    return `No specific guidelines available for ${diagramType} diagrams.`;
+  } catch (error) {
+    console.error(`Error reading guidelines for ${diagramType}:`, error);
+    return `Error loading guidelines for ${diagramType} diagrams.`;
+  }
+}
+
+/**
+ * Gets all available guidelines as documents that can be used for retrieval.
+ * Useful for RAG (Retrieval Augmented Generation) approaches.
+ */
+export async function getAllGuidelinesAsDocuments(): Promise<Document[]> {
+  const guidelineFiles = [
+    'sequence.md',
+    'class.md',
+    'activity.md',
+    'state.md',
+    'component.md',
+    'use-case.md'
+  ];
+  
+  const documents: Document[] = [];
+  
+  for (const file of guidelineFiles) {
+    try {
+      const filePath = path.join(process.cwd(), `lib/knowledge/guidelines/${file}`);
+      
+      if (fs.existsSync(filePath)) {
+        const loader = new TextLoader(filePath);
+        const docs = await loader.load();
+        documents.push(...docs);
+      }
+    } catch (error) {
+      console.error(`Error loading ${file}:`, error);
+    }
+  }
+  
+  return documents;
+}
+
+/**
+ * Gets guidelines for a specific aspect of a diagram type
+ * @param diagramType The type of diagram
+ * @param aspect The specific aspect to get guidelines for (e.g., 'styling', 'best-practices')
+ * @returns The guidelines for the specified aspect
+ */
+export async function getGuidelinesForAspect(
+  diagramType: DiagramType,
+  aspect: string
+): Promise<string> {
+  const fullGuidelines = await readGuidelines(diagramType);
+  
+  // Simple regex-based section extraction
+  // This could be enhanced with more sophisticated parsing
+  const sectionRegex = new RegExp(`## ${aspect}\\s*([\\s\\S]*?)(?=##|$)`, 'i');
+  const match = fullGuidelines.match(sectionRegex);
+  
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  
+  return `No specific guidelines for ${aspect} in ${diagramType} diagrams.`;
+}
+````
+
+## File: lib/knowledge/guidelines/sequence.md
+````markdown
+# Sequence Diagram Guidelines
+
+## Basic Principles
+- Use sequence diagrams to show interactions between objects over time
+- Time flows from top to bottom
+- Participants should be arranged left to right in order of first interaction
+- Keep diagrams focused on a single scenario or use case
+
+## Best Practices
+- Limit diagram to 5-7 participants for readability
+- Use activation bars to clearly show when participants are active
+- Include return messages for clarity
+- Use notes to explain complex logic or conditions
+- Group related messages with boxes or alt/opt fragments
+
+## Styling Recommendations
+- Use colors consistently (actors one color, systems another)
+- Add titles to clearly identify the scenario
+- Consider using skinparam to customize appearance
+- Use numbered messages for complex diagrams
+````
+
+## File: lib/knowledge/index.ts
+````typescript
+import { readGuidelines } from './guidelines';
+import { getTemplate } from './templates'
+
+export {
+  readGuidelines,
+  getTemplate
+};
+````
+
+## File: lib/knowledge/templates/class/repository-pattern.puml
+````
+@startuml Repository Pattern
+' Description: A template showing the Repository design pattern implementation
+' Tags: repository, design pattern, data access
+
+title Repository Pattern
+
+interface "IRepository<T>" {
+  +getById(id: string): T
+  +getAll(): List<T>
+  +add(item: T): void
+  +update(item: T): void
+  +delete(id: string): void
+  +find(predicate: Func<T, bool>): List<T>
+}
+
+class "Repository<T>" {
+  -context: DbContext
+  +Repository(context: DbContext)
+  +getById(id: string): T
+  +getAll(): List<T>
+  +add(item: T): void
+  +update(item: T): void
+  +delete(id: string): void
+  +find(predicate: Func<T, bool>): List<T>
+  #saveChanges(): void
+}
+
+class "UserRepository" {
+  +UserRepository(context: DbContext)
+  +getUserByEmail(email: string): User
+  +getUsersByRole(role: string): List<User>
+  +activateUser(userId: string): void
+  +deactivateUser(userId: string): void
+}
+
+class "User" {
+  -id: string
+  -name: string
+  -email: string
+  -role: string
+  -isActive: boolean
+  +User(name: string, email: string)
+  +activate(): void
+  +deactivate(): void
+}
+
+class "DbContext" {
+  -connection: Connection
+  +Users: DbSet<User>
+  +SaveChanges(): void
+}
+
+IRepository <|.. Repository
+Repository <|-- UserRepository
+UserRepository --> User
+Repository --> DbContext
+
+note bottom of IRepository
+  Generic repository interface
+  for data access operations
+end note
+
+note right of UserRepository
+  Specialized repository with
+  user-specific operations
+end note
+
+@enduml
+````
+
+## File: lib/knowledge/templates/index.ts
+````typescript
+import fs from 'fs';
+import path from 'path';
+import { glob } from 'glob';
+
+// Define diagram types
+export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case';
+
+/**
+ * Interface representing a template metadata
+ */
+export interface TemplateInfo {
+  name: string;
+  description: string;
+  tags: string[];
+  filePath: string;
+  diagramType: DiagramType;
+}
+
+/**
+ * Gets a specific template by diagram type and template name
+ * @param diagramType The type of diagram
+ * @param templateName The name of the template to retrieve
+ * @returns The content of the template file
+ */
+export async function getTemplate(diagramType: DiagramType, templateName: string): Promise<string> {
+  try {
+    const filePath = path.join(
+      process.cwd(), 
+      `lib/knowledge/templates/${diagramType}/${templateName}.puml`
+    );
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.warn(`Template not found: ${templateName} for ${diagramType}`);
+      return '';
+    }
+    
+    // Read the template file
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return content;
+  } catch (error) {
+    console.error(`Error reading template ${templateName} for ${diagramType}:`, error);
+    return '';
+  }
+}
+
+/**
+ * Lists all available templates for a specific diagram type
+ * @param diagramType The type of diagram
+ * @returns Array of template information objects
+ */
+export async function listTemplates(diagramType: DiagramType): Promise<TemplateInfo[]> {
+  try {
+    const templatesDir = path.join(process.cwd(), `lib/knowledge/templates/${diagramType}`);
+    
+    // Check if directory exists
+    if (!fs.existsSync(templatesDir)) {
+      return [];
+    }
+    
+    // Find all .puml files in the directory
+    const templateFiles = await glob(`${templatesDir}/*.puml`);
+    
+    // Process each file to extract metadata
+    const templates: TemplateInfo[] = [];
+    
+    for (const file of templateFiles) {
+      const content = await fs.promises.readFile(file, 'utf-8');
+      const fileName = path.basename(file, '.puml');
+      
+      // Extract description and tags from comments in the template
+      const descriptionMatch = content.match(/'*\s*Description:\s*(.*)/i);
+      const tagsMatch = content.match(/'*\s*Tags:\s*(.*)/i);
+      
+      templates.push({
+        name: fileName,
+        description: descriptionMatch ? descriptionMatch[1].trim() : `${fileName} template`,
+        tags: tagsMatch ? tagsMatch[1].split(',').map(t => t.trim()) : [],
+        filePath: file,
+        diagramType
+      });
+    }
+    
+    return templates;
+  } catch (error) {
+    console.error(`Error listing templates for ${diagramType}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Searches for templates across all diagram types based on a keyword
+ * @param keyword The keyword to search for in template names, descriptions or tags
+ * @returns Array of matching template information objects
+ */
+export async function searchTemplates(keyword: string): Promise<TemplateInfo[]> {
+  const diagramTypes: DiagramType[] = ['sequence', 'class', 'activity', 'state', 'component', 'use-case'];
+  const results: TemplateInfo[] = [];
+  
+  for (const type of diagramTypes) {
+    const templates = await listTemplates(type);
+    const matches = templates.filter(template => 
+      template.name.toLowerCase().includes(keyword.toLowerCase()) ||
+      template.description.toLowerCase().includes(keyword.toLowerCase()) ||
+      template.tags.some(tag => tag.toLowerCase().includes(keyword.toLowerCase()))
+    );
+    
+    results.push(...matches);
+  }
+  
+  return results;
+}
+
+/**
+ * Gets a template by a relevant use case
+ * @param useCase The use case to find templates for (e.g., "authentication", "data flow")
+ * @returns The most relevant template for the use case, or empty string if none found
+ */
+export async function getTemplateForUseCase(useCase: string): Promise<string> {
+  // Search all templates for matching use case
+  const matchingTemplates = await searchTemplates(useCase);
+  
+  if (matchingTemplates.length > 0) {
+    // Sort by relevance (here we just take the first match)
+    // In a real implementation, this could be more sophisticated
+    const bestMatch = matchingTemplates[0];
+    return getTemplate(bestMatch.diagramType, bestMatch.name);
+  }
+  
+  return '';
+}
+````
+
+## File: lib/knowledge/templates/sequence/authnetication.puml
+````
+@startuml Authentication Flow
+title Authentication Sequence
+
+actor User
+participant "Client" as C
+participant "API Gateway" as API
+participant "Auth Service" as Auth
+database "User DB" as DB
+
+User -> C: Enter credentials
+C -> API: POST /login
+API -> Auth: Validate credentials
+Auth -> DB: Query user
+DB --> Auth: Return user data
+Auth -> Auth: Generate JWT
+Auth --> API: Return token
+API --> C: Send token
+C -> C: Store token
+C --> User: Show success
+
+@enduml
+````
+
+## File: lib/knowledge/templates/sequence/crud.pluml
+````
+@startuml CRUD Operations
+title Basic CRUD Operations
+
+actor User
+participant "Frontend" as FE
+participant "API" as API
+database "Database" as DB
+
+group Create
+    User -> FE: Submit new item
+    FE -> API: POST /items
+    API -> DB: Insert item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+group Read
+    User -> FE: Request items
+    FE -> API: GET /items
+    API -> DB: Query items
+    DB --> API: Return items
+    API --> FE: Items data
+    FE --> User: Display items
+end
+
+group Update
+    User -> FE: Modify item
+    FE -> API: PUT /items/{id}
+    API -> DB: Update item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+group Delete
+    User -> FE: Delete item
+    FE -> API: DELETE /items/{id}
+    API -> DB: Remove item
+    DB --> API: Confirm
+    API --> FE: Success response
+    FE --> User: Show confirmation
+end
+
+@enduml
 ````
 
 ## File: lib/utils.ts
@@ -3790,6 +2971,1291 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
     </Card>
   )
 }
+````
+
+## File: lib/ai-pipeline/agents/analyzer.ts
+````typescript
+import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from "@langchain/core/runnables";
+import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
+import { z } from "zod";
+import { model, baseSystemPrompt } from "../baseChain";
+// Import the real DiagramType from the guidelines module
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+import pino from "pino";
+
+// Setup logger
+const logger = pino({
+  browser: {
+    asObject: true
+  }
+});
+
+// Define our analyzer's DiagramType enum (use a different name to avoid conflicts)
+export enum AnalyzerDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
+
+/**
+ * Enum defining types of analysis that can be performed
+ */
+export enum AnalysisType {
+  GENERAL = "general",
+  QUALITY = "quality",
+  COMPONENTS = "components",
+  RELATIONSHIPS = "relationships",
+  COMPLEXITY = "complexity",
+  IMPROVEMENTS = "improvements"
+}
+
+/**
+ * Schema defining the structure of the diagram analysis output
+ */
+const analysisOutputSchema = z.object({
+  diagramType: z.nativeEnum(AnalyzerDiagramType),
+  analysisType: z.nativeEnum(AnalysisType),
+  overview: z.string(),
+  components: z.array(z.object({
+    name: z.string(),
+    type: z.string().optional(),
+    description: z.string().optional()
+  })).optional(),
+  relationships: z.array(z.object({
+    source: z.string(),
+    target: z.string(),
+    type: z.string().optional(),
+    description: z.string().optional()
+  })).optional(),
+  qualityAssessment: z.object({
+    score: z.number().min(1).max(10).optional(),
+    strengths: z.array(z.string()).optional(),
+    weaknesses: z.array(z.string()).optional(),
+    bestPracticesFollowed: z.array(z.string()).optional(),
+    bestPracticesViolated: z.array(z.string()).optional()
+  }).optional(),
+  suggestedImprovements: z.array(z.string()).optional()
+});
+
+/**
+ * Type definition for the analyzer result
+ */
+export type AnalysisResult = z.infer<typeof analysisOutputSchema>;
+
+/**
+ * Schema for analyzer input parameters
+ */
+const analyzerParamsSchema = z.object({
+  userInput: z.string().min(1),
+  diagram: z.string().min(10),
+  analysisType: z.nativeEnum(AnalysisType).optional(),
+  diagramType: z.nativeEnum(AnalyzerDiagramType).optional(),
+  context: z.record(z.unknown()).optional()
+});
+
+/**
+ * Type definition for analyzer parameters
+ */
+export type AnalyzerParams = z.infer<typeof analyzerParamsSchema>;
+
+/**
+ * Helper function to map our analyzer diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: AnalyzerDiagramType): GuidelinesType {
+  switch(type) {
+    case AnalyzerDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case AnalyzerDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case AnalyzerDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case AnalyzerDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case AnalyzerDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case AnalyzerDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case AnalyzerDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
+
+/**
+ * Specialized agent for analyzing PlantUML diagrams
+ */
+export class DiagramAnalyzer {
+  private parser;
+
+  constructor() {
+    this.parser = StructuredOutputParser.fromZodSchema(analysisOutputSchema);
+  }
+
+  /**
+   * Analyze a PlantUML diagram based on user requirements
+   * @param params - Parameters for analysis
+   * @returns A promise resolving to the analysis result
+   */
+  public async analyze(params: AnalyzerParams): Promise<AnalysisResult> {
+    try {
+      // Validate input params
+      const validatedParams = analyzerParamsSchema.parse(params);
+      
+      // Detect diagram type if not provided
+      const diagramType = validatedParams.diagramType || 
+        await this.detectDiagramType(validatedParams.diagram);
+      
+      // Determine analysis type from user input if not provided
+      const analysisType = validatedParams.analysisType || 
+        await this.detectAnalysisType(validatedParams.userInput);
+      
+      logger.info("Analyzing diagram", { diagramType, analysisType });
+      
+      // Try a simple analysis approach first
+      try {
+        // Create a simple analysis prompt
+        const simplePrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in analyzing PlantUML diagrams.
+          
+          Analyze this PlantUML diagram:
+          \`\`\`plantuml
+          ${validatedParams.diagram}
+          \`\`\`
+          
+          User's analysis request: ${validatedParams.userInput}
+          
+          Focus on ${analysisType} analysis.
+          
+          Provide a comprehensive analysis that includes:
+          1. An overview of what the diagram shows
+          2. Key components and their relationships
+          3. Strengths of the diagram
+          4. Potential areas for improvement
+          
+          Analysis:
+        `);
+        
+        // Run the simple analysis
+        const simpleAnalysisChain = RunnableSequence.from([
+          simplePrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const analysis = await simpleAnalysisChain.invoke({});
+        
+        // Return a properly formatted result
+        logger.info("Diagram analysis completed (simple approach)", { 
+          diagramType,
+          analysisType
+        });
+        
+        return {
+          diagramType,
+          analysisType,
+          overview: analysis,
+          qualityAssessment: {
+            strengths: [],
+            weaknesses: []
+          },
+          suggestedImprovements: []
+        };
+        
+      } catch (simpleError) {
+        // If simple approach fails, log and try structured approach
+        logger.warn("Simple diagram analysis failed, trying structured approach", { error: simpleError });
+        
+        // Fetch relevant guidelines
+        let guidelinesText = "No specific guidelines available.";
+        try {
+          // Convert our enum to the expected type for readGuidelines
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          
+          // Call readGuidelines with the right type
+          const guidelines = await readGuidelines(guidelinesType);
+          
+          // Format guidelines for prompt
+          if (guidelines && typeof guidelines === 'string') {
+            guidelinesText = guidelines;
+          }
+        } catch (guidelineError) {
+          logger.error("Error fetching guidelines:", guidelineError);
+        }
+        
+        // Create the analysis prompt template
+        const analysisPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in analyzing PlantUML diagrams.
+          
+          Diagram to analyze:
+          \`\`\`plantuml
+          ${validatedParams.diagram}
+          \`\`\`
+          
+          User analysis request: ${validatedParams.userInput}
+          
+          Analysis type: ${analysisType}
+          Diagram type: ${diagramType}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Analyze the diagram based on the analysis type and user request.
+          Provide detailed and insightful analysis.
+          
+          ${this.parser.getFormatInstructions()}
+        `);
+        
+        // Create the analysis chain
+        const analysisChain = RunnableSequence.from([
+          analysisPrompt,
+          model,
+          this.parser
+        ]);
+        
+        // Execute the chain
+        const result = await analysisChain.invoke({});
+        
+        // Ensure result has the expected type structure
+        const typedResult = result as unknown as AnalysisResult;
+        
+        logger.info("Diagram analysis completed (structured approach)", { 
+          diagramType: typedResult.diagramType,
+          analysisType: typedResult.analysisType
+        });
+        
+        return typedResult;
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.error("Input validation error:", { errors: error.errors });
+        // Return a fallback response with a minimal analysis
+        return {
+          diagramType: AnalyzerDiagramType.UNKNOWN,
+          analysisType: AnalysisType.GENERAL,
+          overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
+        };
+      } else if (error instanceof Error) {
+        logger.error("Error analyzing diagram:", { 
+          message: error.message, 
+          stack: error.stack
+        });
+        
+        // Return a fallback response with a minimal analysis
+        return {
+          diagramType: AnalyzerDiagramType.UNKNOWN,
+          analysisType: AnalysisType.GENERAL,
+          overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
+        };
+      } else {
+        logger.error("Unknown error during diagram analysis:", { error });
+        
+        // Return a generic fallback
+        return {
+          diagramType: AnalyzerDiagramType.UNKNOWN,
+          analysisType: AnalysisType.GENERAL,
+          overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
+        };
+      }
+    }
+  }
+
+  /**
+   * Detect the diagram type from an existing diagram
+   * @param diagram - The current diagram
+   * @returns Detected diagram type
+   * @private
+   */
+  private async detectDiagramType(diagram: string): Promise<AnalyzerDiagramType> {
+    try {
+      const detectTypePrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        Determine the type of the following PlantUML diagram:
+        
+        \`\`\`plantuml
+        ${diagram}
+        \`\`\`
+        
+        Return ONLY one of these types that best matches the diagram:
+        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
+      `);
+      
+      const detectTypeChain = RunnableSequence.from([
+        detectTypePrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      const result = await detectTypeChain.invoke({});
+      const detectedType = String(result).trim().toUpperCase();
+      
+      // Map the result to a valid DiagramType
+      const diagramTypeMap: Record<string, AnalyzerDiagramType> = {
+        "SEQUENCE": AnalyzerDiagramType.SEQUENCE,
+        "CLASS": AnalyzerDiagramType.CLASS,
+        "ACTIVITY": AnalyzerDiagramType.ACTIVITY,
+        "STATE": AnalyzerDiagramType.STATE,
+        "COMPONENT": AnalyzerDiagramType.COMPONENT,
+        "DEPLOYMENT": AnalyzerDiagramType.DEPLOYMENT,
+        "USE_CASE": AnalyzerDiagramType.USE_CASE,
+        "USECASE": AnalyzerDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": AnalyzerDiagramType.ENTITY_RELATIONSHIP,
+        "ER": AnalyzerDiagramType.ENTITY_RELATIONSHIP
+      };
+      
+      const finalType = diagramTypeMap[detectedType] || AnalyzerDiagramType.UNKNOWN;
+      
+      logger.info("Diagram type detected", { detectedType: finalType });
+      return finalType;
+    } catch (error) {
+      logger.error("Error detecting diagram type:", error);
+      return AnalyzerDiagramType.UNKNOWN;
+    }
+  }
+
+  /**
+   * Detect the analysis type based on user input
+   * @param userInput - The user's input message
+   * @returns Detected analysis type
+   * @private
+   */
+  private async detectAnalysisType(userInput: string): Promise<AnalysisType> {
+    try {
+      const detectAnalysisPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        Determine the most appropriate type of analysis based on the user's request:
+        
+        User request: ${userInput}
+        
+        Select the MOST appropriate analysis type from these options:
+        - GENERAL: Overall assessment of the diagram
+        - QUALITY: Assessment of diagram quality and best practices
+        - COMPONENTS: Inventory and explanation of diagram components
+        - RELATIONSHIPS: Analysis of relationships between components
+        - COMPLEXITY: Assessment of diagram complexity
+        - IMPROVEMENTS: Suggestions for improving the diagram
+        
+        Return ONLY one of these types (just the word).
+      `);
+      
+      const detectAnalysisChain = RunnableSequence.from([
+        detectAnalysisPrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      const result = await detectAnalysisChain.invoke({});
+      const detectedType = String(result).trim().toUpperCase();
+      
+      // Map the result to a valid AnalysisType
+      const analysisTypeMap: Record<string, AnalysisType> = {
+        "GENERAL": AnalysisType.GENERAL,
+        "QUALITY": AnalysisType.QUALITY,
+        "COMPONENTS": AnalysisType.COMPONENTS,
+        "RELATIONSHIPS": AnalysisType.RELATIONSHIPS,
+        "COMPLEXITY": AnalysisType.COMPLEXITY,
+        "IMPROVEMENTS": AnalysisType.IMPROVEMENTS
+      };
+      
+      const finalType = analysisTypeMap[detectedType] || AnalysisType.GENERAL;
+      
+      logger.info("Analysis type detected", { detectedType: finalType });
+      return finalType;
+    } catch (error) {
+      logger.error("Error detecting analysis type:", error);
+      return AnalysisType.GENERAL;
+    }
+  }
+
+  /**
+   * Invoke the analyzer (convenience method for chainable API)
+   * @param params - Analyzer parameters
+   * @returns Analyzer result
+   */
+  public async invoke(params: AnalyzerParams): Promise<AnalysisResult> {
+    return this.analyze(params);
+  }
+}
+
+// Export singleton instance
+export const diagramAnalyzer = new DiagramAnalyzer();
+````
+
+## File: lib/ai-pipeline/agents/generator.ts
+````typescript
+import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from "@langchain/core/runnables";
+import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
+import { z } from "zod";
+import { model, baseSystemPrompt } from "../baseChain";
+// Import the DiagramType from guidelines with an alias to avoid conflicts
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+// Fix the import for templates
+import { listTemplates } from "../../knowledge/templates";
+import pino from "pino";
+
+// Setup logger
+const logger = pino({
+  browser: {
+    asObject: true
+  }
+});
+
+/**
+ * Our local enum for diagram types used in the generator
+ */
+export enum GeneratorDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
+
+/**
+ * Schema defining the structure of the diagram generation output
+ */
+const generationOutputSchema = z.object({
+  diagram: z.string().min(10),
+  diagramType: z.nativeEnum(GeneratorDiagramType),
+  explanation: z.string(),
+  suggestions: z.array(z.string()).optional()
+});
+
+/**
+ * Type definition for the generator result
+ */
+export type GenerationResult = z.infer<typeof generationOutputSchema>;
+
+/**
+ * Schema for generator input parameters
+ */
+const generatorParamsSchema = z.object({
+  userInput: z.string().min(1),
+  diagramType: z.nativeEnum(GeneratorDiagramType).optional(),
+  context: z.record(z.unknown()).optional()
+});
+
+/**
+ * Type definition for generator parameters
+ */
+export type GeneratorParams = z.infer<typeof generatorParamsSchema>;
+
+/**
+ * Helper function to map our generator diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: GeneratorDiagramType): GuidelinesType {
+  switch(type) {
+    case GeneratorDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case GeneratorDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case GeneratorDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case GeneratorDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case GeneratorDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case GeneratorDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case GeneratorDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
+
+/**
+ * Specialized agent for generating PlantUML diagrams from user requirements
+ */
+export class DiagramGenerator {
+  private parser;
+
+  constructor() {
+    this.parser = StructuredOutputParser.fromZodSchema(generationOutputSchema);
+  }
+
+  /**
+   * Generate a new PlantUML diagram based on user requirements
+   * @param params - Parameters for generation
+   * @returns A promise resolving to the generation result
+   */
+  public async generate(params: GeneratorParams): Promise<GenerationResult> {
+    try {
+      // Validate input params
+      const validatedParams = generatorParamsSchema.parse(params);
+      
+      // Determine diagram type from input or context
+      const diagramType = validatedParams.diagramType || 
+        await this.detectDiagramType(validatedParams.userInput);
+      
+      logger.info("Generating diagram with type", { diagramType });
+      
+      // Try a simpler generation approach first for robustness
+      try {
+        // Create a simple generation prompt
+        const simplePrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in creating PlantUML diagrams based on user requirements.
+          
+          User requirements: ${validatedParams.userInput}
+          
+          Diagram type: ${diagramType}
+          
+          Create a PlantUML diagram that satisfies these requirements.
+          The diagram should start with @startuml and end with @enduml.
+          Focus on proper syntax and clarity.
+          
+          PlantUML Diagram:
+        `);
+        
+        // Run the simple generation
+        const simpleGenerationChain = RunnableSequence.from([
+          simplePrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const simpleResult = await simpleGenerationChain.invoke({});
+        
+        // Extract the diagram from the result (it might have extra text)
+        const diagramMatch = simpleResult.match(/@startuml[\s\S]*?@enduml/);
+        const diagram = diagramMatch ? diagramMatch[0] : simpleResult;
+        
+        // Create a simple explanation
+        const explainPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You've just created this PlantUML diagram based on these requirements:
+          Requirements: ${validatedParams.userInput}
+          
+          Diagram:
+          ${diagram}
+          
+          Provide a short explanation of the diagram you created (about 2-3 sentences).
+        `);
+        
+        const explainChain = RunnableSequence.from([
+          explainPrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const explanation = await explainChain.invoke({});
+        
+        // Return a properly formatted result
+        logger.info("Diagram generation completed (simple approach)", { 
+          diagramType,
+          diagramLength: diagram.length
+        });
+        
+        return {
+          diagram,
+          diagramType,
+          explanation,
+          suggestions: []
+        };
+        
+      } catch (simpleError) {
+        // If simple approach fails, log and try advanced approach
+        logger.warn("Simple diagram generation failed, trying full approach", { error: simpleError });
+        
+        // Fetch relevant guidelines and templates
+        let guidelines, templates;
+        try {
+          // Convert our enum to the expected type for guidelines
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          
+          // Get guidelines and templates
+          guidelines = await readGuidelines(guidelinesType);
+          
+          // Get templates for the appropriate diagram type
+          templates = await listTemplates(mapToGuidelinesType(diagramType));
+        } catch (resourceError) {
+          logger.error("Error fetching guidelines or templates:", resourceError);
+          guidelines = null;
+          templates = [];
+        }
+        
+        // Format guidelines for prompt
+        let guidelinesText = "No specific guidelines available.";
+        if (guidelines && typeof guidelines === 'string') {
+          guidelinesText = guidelines;
+        }
+        
+        // Format templates for prompt (optional, addressing the unused variable warning)
+        let templatesText = "No specific templates available for this diagram type.";
+        if (templates && templates.length > 0) {
+          templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
+        }
+        
+        // Create the generation prompt template
+        const generationPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in creating PlantUML diagrams based on user requirements.
+          
+          User requirements: ${validatedParams.userInput}
+          
+          Diagram type: ${diagramType}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Available Templates:
+          ${templatesText}
+          
+          Based on the requirements, create a detailed PlantUML diagram.
+          Focus on clarity, proper syntax, and following best practices.
+          
+          ${this.parser.getFormatInstructions()}
+        `);
+        
+        // Create the generation chain
+        const generationChain = RunnableSequence.from([
+          generationPrompt,
+          model,
+          this.parser
+        ]);
+        
+        // Execute the chain
+        const result = await generationChain.invoke({});
+        
+        // Ensure result has the expected type structure
+        const typedResult = result as unknown as GenerationResult;
+        
+        logger.info("Diagram generation completed (advanced approach)", { 
+          diagramType: typedResult.diagramType,
+          diagramLength: typedResult.diagram ? typedResult.diagram.length : 0
+        });
+        
+        return typedResult;
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.error("Input validation error:", { errors: error.errors });
+        // Return a fallback response with an error diagram
+        return {
+          diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
+          diagramType: GeneratorDiagramType.UNKNOWN,
+          explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
+        };
+      } else if (error instanceof Error) {
+        logger.error("Error generating diagram:", { 
+          message: error.message, 
+          stack: error.stack
+        });
+        
+        // Return a fallback response with an error diagram
+        return {
+          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
+          diagramType: GeneratorDiagramType.UNKNOWN,
+          explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
+        };
+      } else {
+        logger.error("Unknown error during diagram generation:", { error });
+        
+        // Return a generic fallback response
+        return {
+          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
+          diagramType: GeneratorDiagramType.UNKNOWN,
+          explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
+        };
+      }
+    }
+  }
+
+  /**
+   * Detect the diagram type from user input
+   * @param userInput - The user's input message
+   * @returns Detected diagram type
+   * @private
+   */
+  private async detectDiagramType(userInput: string): Promise<GeneratorDiagramType> {
+    try {
+      const detectTypePrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        Determine the most appropriate PlantUML diagram type based on the user's request:
+        
+        User request: ${userInput}
+        
+        Valid diagram types:
+        - SEQUENCE: for interactions between components over time
+        - CLASS: for system structure and relationships
+        - ACTIVITY: for workflows and processes
+        - STATE: for state transitions and behaviors
+        - COMPONENT: for system components and interfaces
+        - DEPLOYMENT: for physical deployment of components
+        - USE_CASE: for system/actor interactions
+        - ENTITY_RELATIONSHIP: for data modeling
+        
+        Return ONLY one of these types that best matches the user's request.
+      `);
+      
+      const detectTypeChain = RunnableSequence.from([
+        detectTypePrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      const result = await detectTypeChain.invoke({});
+      const detectedType = String(result).trim().toUpperCase();
+      
+      // Map the result to a valid DiagramType
+      const diagramTypeMap: Record<string, GeneratorDiagramType> = {
+        "SEQUENCE": GeneratorDiagramType.SEQUENCE,
+        "CLASS": GeneratorDiagramType.CLASS,
+        "ACTIVITY": GeneratorDiagramType.ACTIVITY,
+        "STATE": GeneratorDiagramType.STATE,
+        "COMPONENT": GeneratorDiagramType.COMPONENT,
+        "DEPLOYMENT": GeneratorDiagramType.DEPLOYMENT,
+        "USE_CASE": GeneratorDiagramType.USE_CASE,
+        "USECASE": GeneratorDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": GeneratorDiagramType.ENTITY_RELATIONSHIP,
+        "ER": GeneratorDiagramType.ENTITY_RELATIONSHIP
+      };
+      
+      const finalType = diagramTypeMap[detectedType] || GeneratorDiagramType.SEQUENCE;
+      
+      logger.info("Diagram type detected", { detectedType: finalType });
+      return finalType;
+    } catch (error) {
+      logger.error("Error detecting diagram type:", error);
+      // Default to SEQUENCE if detection fails
+      return GeneratorDiagramType.SEQUENCE;
+    }
+  }
+
+  /**
+   * Invoke the generator (convenience method for chainable API)
+   * @param params - Generator parameters
+   * @returns Generator result
+   */
+  public async invoke(params: GeneratorParams): Promise<GenerationResult> {
+    return this.generate(params);
+  }
+}
+
+// Export singleton instance for easier imports
+export const diagramGenerator = new DiagramGenerator();
+````
+
+## File: lib/ai-pipeline/agents/modifier.ts
+````typescript
+import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from "@langchain/core/runnables";
+import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
+import { z } from "zod";
+import { model, baseSystemPrompt } from "../baseChain";
+// Import the DiagramType from guidelines with an alias to avoid conflicts
+import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+import pino from "pino";
+
+// Setup logger
+const logger = pino({
+  browser: {
+    asObject: true
+  }
+});
+
+/**
+ * Our local enum for diagram types used in the modifier
+ */
+export enum ModifierDiagramType {
+  SEQUENCE = "SEQUENCE",
+  CLASS = "CLASS",
+  ACTIVITY = "ACTIVITY",
+  STATE = "STATE",
+  COMPONENT = "COMPONENT",
+  DEPLOYMENT = "DEPLOYMENT",
+  USE_CASE = "USE_CASE",
+  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
+  UNKNOWN = "UNKNOWN"
+}
+
+/**
+ * Schema defining the structure of the diagram modification output
+ */
+const modificationOutputSchema = z.object({
+  diagram: z.string().min(10),
+  diagramType: z.nativeEnum(ModifierDiagramType),
+  changes: z.array(z.string()).min(1),
+  explanation: z.string()
+});
+
+/**
+ * Type definition for the modifier result
+ */
+export type ModificationResult = z.infer<typeof modificationOutputSchema>;
+
+/**
+ * Schema for modifier input parameters
+ */
+const modifierParamsSchema = z.object({
+  userInput: z.string().min(1),
+  currentDiagram: z.string().min(10),
+  diagramType: z.nativeEnum(ModifierDiagramType).optional(),
+  context: z.record(z.unknown()).optional()
+});
+
+/**
+ * Type definition for modifier parameters
+ */
+export type ModifierParams = z.infer<typeof modifierParamsSchema>;
+
+/**
+ * Helper function to map our modifier diagram type to the guidelines diagram type
+ */
+function mapToGuidelinesType(type: ModifierDiagramType): GuidelinesType {
+  switch(type) {
+    case ModifierDiagramType.SEQUENCE: 
+      return 'sequence' as GuidelinesType;
+    case ModifierDiagramType.CLASS: 
+      return 'class' as GuidelinesType;
+    case ModifierDiagramType.ACTIVITY: 
+      return 'activity' as GuidelinesType;
+    case ModifierDiagramType.STATE: 
+      return 'state' as GuidelinesType;
+    case ModifierDiagramType.COMPONENT: 
+      return 'component' as GuidelinesType;
+    case ModifierDiagramType.USE_CASE: 
+      return 'use-case' as GuidelinesType;
+    case ModifierDiagramType.ENTITY_RELATIONSHIP: 
+      return 'entity_relationship' as GuidelinesType;
+    default:
+      return 'sequence' as GuidelinesType; // Default fallback
+  }
+}
+
+/**
+ * Specialized agent for modifying existing PlantUML diagrams
+ */
+export class DiagramModifier {
+  private parser;
+
+  constructor() {
+    this.parser = StructuredOutputParser.fromZodSchema(modificationOutputSchema);
+  }
+
+  /**
+   * Modify an existing PlantUML diagram based on user instructions
+   * @param params - Parameters for modification
+   * @returns A promise resolving to the modification result
+   */
+  public async modify(params: ModifierParams): Promise<ModificationResult> {
+    try {
+      // Validate input params
+      const validatedParams = modifierParamsSchema.parse(params);
+      
+      // Detect diagram type if not provided
+      const diagramType = validatedParams.diagramType || 
+        await this.detectDiagramType(validatedParams.currentDiagram);
+      
+      logger.info("Modifying diagram", { diagramType });
+      
+      // Try a simple modification approach first
+      try {
+        const simplePrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in modifying PlantUML diagrams based on user instructions.
+          
+          Current diagram:
+          \`\`\`plantuml
+          ${validatedParams.currentDiagram}
+          \`\`\`
+          
+          User modification request: ${validatedParams.userInput}
+          
+          Modify the diagram according to the user's instructions.
+          Preserve existing structure while implementing the requested changes.
+          Ensure the modified diagram uses correct PlantUML syntax.
+          
+          Modified diagram (full code, starting with @startuml and ending with @enduml):
+        `);
+        
+        // Run the simple modification
+        const simpleModifyChain = RunnableSequence.from([
+          simplePrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const modifiedDiagram = await simpleModifyChain.invoke({});
+        
+        // Extract the diagram from the result (it might have extra text)
+        const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
+        const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
+        
+        // If no change was made, retry with stronger emphasis
+        if (diagram.trim() === validatedParams.currentDiagram.trim()) {
+          logger.warn("No changes detected in the diagram, retrying with emphasis");
+          return await this.retryModification(validatedParams, diagramType);
+        }
+        
+        // Create a list of changes
+        const changesPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You have just modified a PlantUML diagram based on this request:
+          "${validatedParams.userInput}"
+          
+          Original diagram:
+          \`\`\`plantuml
+          ${validatedParams.currentDiagram}
+          \`\`\`
+          
+          Modified diagram:
+          \`\`\`plantuml
+          ${diagram}
+          \`\`\`
+          
+          List only the specific changes you made to the diagram, one per line.
+          Be concise but clear. Start each line with "- ".
+        `);
+        
+        const changesChain = RunnableSequence.from([
+          changesPrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const changesText = await changesChain.invoke({});
+        
+        // Convert to array of changes
+        const changes = changesText
+          .split('\n')
+          .filter(line => line.trim().startsWith('-'))
+          .map(line => line.substring(1).trim())
+          .filter(Boolean);
+        
+        // Create explanation
+        const explanationPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You've just modified a PlantUML diagram based on this request:
+          "${validatedParams.userInput}"
+          
+          Provide a short explanation of the changes you made (2-3 sentences).
+        `);
+        
+        const explanationChain = RunnableSequence.from([
+          explanationPrompt,
+          model,
+          new StringOutputParser()
+        ]);
+        
+        const explanation = await explanationChain.invoke({});
+        
+        logger.info("Diagram modification completed (simple approach)", { 
+          diagramType,
+          changes: changes.length
+        });
+        
+        return {
+          diagram,
+          diagramType,
+          changes: changes.length > 0 ? changes : ["Updated diagram as requested"],
+          explanation
+        };
+        
+      } catch (simpleError) {
+        // If simple approach fails, log and try structured approach
+        logger.warn("Simple diagram modification failed, trying structured approach", { error: simpleError });
+        
+        // Fetch relevant guidelines
+        let guidelinesText = "No specific guidelines available.";
+        try {
+          // Convert our enum to the expected type for guidelines
+          
+          const guidelinesType = mapToGuidelinesType(diagramType);
+          logger.info("Fetching guidelines for diagram type", { diagramType, guidelinesType });
+          
+          
+          // Get the guidelines
+          const guidelines = await readGuidelines(guidelinesType);
+          
+          // Format guidelines for prompt
+          if (guidelines && typeof guidelines === 'string') {
+            guidelinesText = guidelines;
+          }
+        } catch (guidelineError) {
+          logger.error("Error fetching guidelines:", guidelineError);
+        }
+        
+        // Create the modification prompt template
+        const modificationPrompt = PromptTemplate.fromTemplate(`
+          ${baseSystemPrompt}
+          
+          You are a specialist in modifying PlantUML diagrams based on user instructions.
+          
+          Current diagram:
+          \`\`\`plantuml
+          ${validatedParams.currentDiagram}
+          \`\`\`
+          
+          User modification request: ${validatedParams.userInput}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Modify the diagram according to the user's instructions.
+          Preserve existing structure while implementing the requested changes.
+          Ensure the modified diagram uses correct PlantUML syntax.
+          
+          ${this.parser.getFormatInstructions()}
+        `);
+        
+        // Create the modification chain
+        const modificationChain = RunnableSequence.from([
+          modificationPrompt,
+          model,
+          this.parser
+        ]);
+        
+        // Execute the chain
+        const result = await modificationChain.invoke({});
+        
+        // Ensure result has the expected type structure
+        const typedResult = result as unknown as ModificationResult;
+        
+        // Validate the result has actual changes
+        if (typedResult.diagram === validatedParams.currentDiagram) {
+          // If no changes were made despite user request, try again with stronger emphasis
+          logger.warn("No changes were made to the diagram", {
+            request: validatedParams.userInput
+          });
+          
+          return await this.retryModification(validatedParams, diagramType);
+        }
+        
+        logger.info("Diagram modification completed (structured approach)", { 
+          diagramType: typedResult.diagramType,
+          changes: typedResult.changes ? typedResult.changes.length : 0
+        });
+        
+        return typedResult;
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.error("Input validation error:", { errors: error.errors });
+        // Return a fallback response with the original diagram
+        return {
+          diagram: params.currentDiagram || "",
+          diagramType: ModifierDiagramType.UNKNOWN,
+          changes: [`Error: Invalid modification parameters: ${error.message}`],
+          explanation: `I couldn't modify the diagram due to validation errors: ${error.message}. Please try again with clearer instructions.`
+        };
+      } else if (error instanceof Error) {
+        logger.error("Error modifying diagram:", { 
+          message: error.message, 
+          stack: error.stack
+        });
+        
+        // Return a fallback response with the original diagram
+        return {
+          diagram: params.currentDiagram,
+          diagramType: ModifierDiagramType.UNKNOWN,
+          changes: [`Error: ${error.message}`],
+          explanation: `I encountered an error while modifying the diagram: ${error.message}. Please try again with different instructions.`
+        };
+      } else {
+        logger.error("Unknown error during diagram modification:", { error });
+        
+        // Return a generic fallback with the original diagram
+        return {
+          diagram: params.currentDiagram,
+          diagramType: ModifierDiagramType.UNKNOWN,
+          changes: ["Error: Unknown error occurred"],
+          explanation: "I encountered an unexpected error while modifying the diagram. Please try again with different instructions."
+        };
+      }
+    }
+  }
+
+  /**
+   * Retry modification with stronger emphasis on making changes
+   * @param params - Original parameters
+   * @param diagramType - Detected diagram type
+   * @returns Modified result
+   * @private
+   */
+  private async retryModification(
+    params: ModifierParams, 
+    diagramType: ModifierDiagramType
+  ): Promise<ModificationResult> {
+    try {
+      // Create a more directive prompt template
+      const retryPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        You are a specialist in modifying PlantUML diagrams based on user instructions.
+        
+        Current diagram:
+        \`\`\`plantuml
+        ${params.currentDiagram}
+        \`\`\`
+        
+        User modification request: ${params.userInput}
+        
+        IMPORTANT: You MUST make the specific changes requested by the user.
+        The previous attempt did not implement any changes.
+        
+        Carefully analyze the diagram and implement the requested modifications.
+        Focus on the specific elements the user wants to change.
+        
+        Modified diagram (full code, starting with @startuml and ending with @enduml):
+      `);
+      
+      // Create the retry chain
+      const retryChain = RunnableSequence.from([
+        retryPrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      // Execute the chain
+      const modifiedDiagram = await retryChain.invoke({});
+      
+      // Extract the diagram from the result (it might have extra text)
+      const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
+      const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
+      
+      // Create a list of changes
+      const changesPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        You have modified a PlantUML diagram based on this request:
+        "${params.userInput}"
+        
+        List the specific changes you made, one per line.
+        Be concise but clear. Start each line with "- ".
+      `);
+      
+      const changesChain = RunnableSequence.from([
+        changesPrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      const changesText = await changesChain.invoke({});
+      
+      // Convert to array of changes
+      const changes = changesText
+        .split('\n')
+        .filter(line => line.trim().startsWith('-'))
+        .map(line => line.substring(1).trim())
+        .filter(Boolean);
+      
+      logger.info("Diagram modification retry completed", { 
+        diagramType,
+        changes: changes.length
+      });
+      
+      return {
+        diagram,
+        diagramType,
+        changes: changes.length > 0 ? changes : ["Updated diagram as requested"],
+        explanation: `I've modified the diagram according to your request: "${params.userInput}"`
+      };
+    } catch (retryError) {
+      logger.error("Error in modification retry:", retryError);
+      
+      // Return a fallback with the original diagram
+      return {
+        diagram: params.currentDiagram,
+        diagramType,
+        changes: ["No changes made due to error"],
+        explanation: "I tried to modify the diagram but encountered an error. Please try again with more specific instructions."
+      };
+    }
+  }
+
+  /**
+   * Detect the diagram type from an existing diagram
+   * @param diagram - The current diagram
+   * @returns Detected diagram type
+   * @private
+   */
+  private async detectDiagramType(diagram: string): Promise<ModifierDiagramType> {
+    try {
+      const detectTypePrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        Determine the type of the following PlantUML diagram:
+        
+        \`\`\`plantuml
+        ${diagram}
+        \`\`\`
+        
+        Return ONLY one of these types that best matches the diagram:
+        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
+      `);
+      
+      const detectTypeChain = RunnableSequence.from([
+        detectTypePrompt,
+        model,
+        new StringOutputParser()
+      ]);
+      
+      const result = await detectTypeChain.invoke({});
+      const detectedType = String(result).trim().toUpperCase();
+      
+      // Map the result to a valid DiagramType
+      const diagramTypeMap: Record<string, ModifierDiagramType> = {
+        "SEQUENCE": ModifierDiagramType.SEQUENCE,
+        "CLASS": ModifierDiagramType.CLASS,
+        "ACTIVITY": ModifierDiagramType.ACTIVITY,
+        "STATE": ModifierDiagramType.STATE,
+        "COMPONENT": ModifierDiagramType.COMPONENT,
+        "DEPLOYMENT": ModifierDiagramType.DEPLOYMENT,
+        "USE_CASE": ModifierDiagramType.USE_CASE,
+        "USECASE": ModifierDiagramType.USE_CASE,
+        "ENTITY_RELATIONSHIP": ModifierDiagramType.ENTITY_RELATIONSHIP,
+        "ER": ModifierDiagramType.ENTITY_RELATIONSHIP
+      };
+      
+      const finalType = diagramTypeMap[detectedType] || ModifierDiagramType.UNKNOWN;
+      
+      logger.info("Diagram type detected", { detectedType: finalType });
+      return finalType;
+    } catch (error) {
+      logger.error("Error detecting diagram type:", error);
+      return ModifierDiagramType.UNKNOWN;
+    }
+  }
+
+  /**
+   * Invoke the modifier (convenience method for chainable API)
+   * @param params - Modifier parameters
+   * @returns Modifier result
+   */
+  public async invoke(params: ModifierParams): Promise<ModificationResult> {
+    return this.modify(params);
+  }
+}
+
+// Export singleton instance
+export const diagramModifier = new DiagramModifier();
 ````
 
 ## File: lib/ai-pipeline/contextManager.ts
@@ -4725,6 +5191,9 @@ export default {
 ````json
 {
   "compilerOptions": {
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./",
     "noImplicitAny": false,
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -4797,6 +5266,7 @@ export default {
     "@types/react-dom": "^18.3.1",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
+    "pino-pretty": "^13.0.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

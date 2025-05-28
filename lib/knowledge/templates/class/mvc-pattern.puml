@@ -1,0 +1,72 @@
+@startuml MVC Pattern
+' Description: Model-View-Controller architectural pattern
+' Tags: mvc, architecture, design pattern
+
+title Model-View-Controller Pattern
+
+package "Model" {
+  class "UserModel" {
+    -id: int
+    -username: string
+    -email: string
+    -createdAt: DateTime
+    +getUserById(id: int): User
+    +createUser(username: string, email: string): User
+    +updateUser(id: int, data: UserData): boolean
+    +deleteUser(id: int): boolean
+  }
+  
+  class "Database" {
+    +executeQuery(query: string): ResultSet
+    +connect(): Connection
+    +disconnect(): void
+  }
+}
+
+package "View" {
+  class "UserListView" {
+    +render(users: List<User>): void
+    +showError(message: string): void
+    +showSuccess(message: string): void
+  }
+  
+  class "UserDetailsView" {
+    +render(user: User): void
+    +enableEditMode(): void
+    +showError(message: string): void
+  }
+}
+
+package "Controller" {
+  class "UserController" {
+    -model: UserModel
+    -listView: UserListView
+    -detailsView: UserDetailsView
+    +UserController(model: UserModel, listView: UserListView, detailsView: UserDetailsView)
+    +showAllUsers(): void
+    +showUserDetails(id: int): void
+    +createUser(data: UserData): void
+    +updateUser(id: int, data: UserData): void
+    +deleteUser(id: int): void
+  }
+}
+
+UserModel --> Database
+UserController --> UserModel
+UserController --> UserListView
+UserController --> UserDetailsView
+
+note bottom of UserModel
+  Handles data and business logic
+end note
+
+note bottom of UserListView
+  Displays data to user
+end note
+
+note bottom of UserController
+  Processes user input and 
+  updates Model and View
+end note
+
+@enduml
