@@ -9,6 +9,7 @@ dotenv.config();
 // Define the type for the model configuration
 const model: ChatOpenAI = new ChatOpenAI({ model: "gpt-4o-2024-08-06" });
 
+
 // Base system prompt that all chains will extend
 const baseSystemPrompt: string = `You are an AI assistant specialized in PlantUML diagrams.`;
 
