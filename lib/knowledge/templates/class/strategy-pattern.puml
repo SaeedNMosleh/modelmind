@@ -1,0 +1,68 @@
+@startuml Strategy Pattern
+' Description: Strategy design pattern implementation
+' Tags: strategy, design pattern, behavioral pattern
+
+title Strategy Design Pattern
+
+interface "PaymentStrategy" {
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
+}
+
+class "CreditCardPayment" {
+  -cardNumber: string
+  -expiryDate: string
+  -cvv: string
+  -cardholderName: string
+  +CreditCardPayment(cardNumber: string, expiryDate: string, cvv: string, name: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
+}
+
+class "PayPalPayment" {
+  -email: string
+  -password: string
+  -isLoggedIn: boolean
+  +PayPalPayment(email: string, password: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +login(): boolean
+  +getPaymentMethod(): string
+}
+
+class "BankTransferPayment" {
+  -accountNumber: string
+  -bankCode: string
+  -accountName: string
+  +BankTransferPayment(accountNumber: string, bankCode: string, accountName: string)
+  +pay(amount: double): boolean
+  +validate(): boolean
+  +getPaymentMethod(): string
+}
+
+class "PaymentContext" {
+  -strategy: PaymentStrategy
+  +PaymentContext(strategy: PaymentStrategy)
+  +setStrategy(strategy: PaymentStrategy): void
+  +executePayment(amount: double): boolean
+  +getSelectedPaymentMethod(): string
+}
+
+PaymentStrategy <|.. CreditCardPayment
+PaymentStrategy <|.. PayPalPayment
+PaymentStrategy <|.. BankTransferPayment
+PaymentContext o-- PaymentStrategy
+
+note right of PaymentStrategy
+  Defines the interface for 
+  all payment strategies
+end note
+
+note bottom of PaymentContext
+  Uses the strategy without being
+  coupled to concrete implementations
+end note
+
+@enduml

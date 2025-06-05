@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./",
     "noImplicitAny": false,
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
