@@ -10,8 +10,9 @@ import {
   PromptMetadata, 
   AgentType, 
   PromptOperation, 
-  PromptEnvironment 
+  PromptEnvironment,  
 } from './types';
+import { DiagramType } from '../knowledge/guidelines';
 import pino from 'pino';
 
 // Setup logger
@@ -23,11 +24,17 @@ const logger = pino({
 
 // Schema for validating JSON prompt files
 const promptFileSchema = z.object({
-  metadata: z.object({
-    id: z.string(),
+  metadata: z.object({    id: z.string(),
     name: z.string(),
     agentType: z.nativeEnum(AgentType),
-    diagramType: z.string().optional(),
+    diagramType: z.union([
+      z.literal('sequence'),
+      z.literal('class'),
+      z.literal('activity'),
+      z.literal('state'),
+      z.literal('component'),
+      z.literal('use-case')
+    ]).optional(), // Define using literals for type union
     operation: z.nativeEnum(PromptOperation),
     version: z.string(),
     author: z.string().optional(),
@@ -110,8 +117,7 @@ export class PromptRegistry {
       // Read and parse the prompt file
       const content = await fs.promises.readFile(promptFile, 'utf-8');
       const parsed = JSON.parse(content);
-      
-      // Validate against schema
+        // Validate against schema
       const prompt = promptFileSchema.parse(parsed);
       
       // Convert dates from strings if they came from JSON
@@ -122,7 +128,7 @@ export class PromptRegistry {
           createdAt: new Date(prompt.metadata.createdAt),
           updatedAt: new Date(prompt.metadata.updatedAt)
         }
-      };
+      } as PromptTemplate;
       
       // Add to cache
       this.cache.set(promptId, promptTemplate);
@@ -146,7 +152,7 @@ export class PromptRegistry {
   async getPrompt(
     agentType: AgentType,
     operation: PromptOperation,
-    diagramType?: string,
+    diagramType?: DiagramType, // Changed from string to DiagramType
     environment: PromptEnvironment = PromptEnvironment.DEVELOPMENT
   ): Promise<PromptTemplate> {
     try {
@@ -158,22 +164,20 @@ export class PromptRegistry {
         try {
           const content = await fs.promises.readFile(file, 'utf-8');
           const parsed = JSON.parse(content);
-          const prompt = promptFileSchema.parse(parsed);
-          
-          // Check if this prompt matches our criteria
+          const prompt = promptFileSchema.parse(parsed);          // Check if this prompt matches our criteria
           if (
             prompt.metadata.operation === operation &&
-            prompt.metadata.environments.includes(environment) &&
+            (prompt.metadata.environments as PromptEnvironment[]).includes(environment) &&
             (!diagramType || prompt.metadata.diagramType === diagramType)
           ) {
             candidates.push({
               ...prompt,
               metadata: {
                 ...prompt.metadata,
-                createdAt: new Date(prompt.metadata.createdAt),
-                updatedAt: new Date(prompt.metadata.updatedAt)
+                createdAt: new Date(prompt.metadata.createdAt as string | number | Date),
+                updatedAt: new Date(prompt.metadata.updatedAt as string | number | Date)
               }
-            });
+            } as PromptTemplate);
           }
         } catch (error) {
           logger.warn(`Skipping invalid prompt file ${file}:`, error);
@@ -209,9 +213,10 @@ export class PromptRegistry {
       });
       
       return candidates[0];
-    } catch (error) {
+    } catch (error: unknown) { // Type annotation for error
       logger.error(`Failed to get prompt for ${agentType}/${operation}:`, error);
-      throw new Error(`Failed to get prompt for ${agentType}/${operation}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get prompt for ${agentType}/${operation}: ${errorMessage}`);
     }
   }
 
@@ -277,7 +282,7 @@ export class PromptRegistry {
   async listPrompts(
     agentType?: AgentType,
     operation?: PromptOperation,
-    diagramType?: string
+    diagramType?: DiagramType // Changed from string to DiagramType
   ): Promise<PromptMetadata[]> {
     try {
       const agentTypes = agentType ? [agentType] : Object.values(AgentType);
@@ -296,12 +301,11 @@ export class PromptRegistry {
             if (
               (!operation || prompt.metadata.operation === operation) &&
               (!diagramType || prompt.metadata.diagramType === diagramType)
-            ) {
-              promptMetadata.push({
+            ) {              promptMetadata.push({
                 ...prompt.metadata,
-                createdAt: new Date(prompt.metadata.createdAt),
-                updatedAt: new Date(prompt.metadata.updatedAt)
-              });
+                createdAt: new Date(prompt.metadata.createdAt as string | number | Date),
+                updatedAt: new Date(prompt.metadata.updatedAt as string | number | Date)
+              } as PromptMetadata);
             }
           } catch (error) {
             logger.warn(`Skipping invalid prompt file ${file}:`, error);
@@ -311,9 +315,10 @@ export class PromptRegistry {
       }
       
       return promptMetadata;
-    } catch (error) {
+    } catch (error: unknown) { // Type annotation for error
       logger.error('Failed to list prompts:', error);
-      throw new Error(`Failed to list prompts: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to list prompts: ${errorMessage}`);
     }
   }
 
