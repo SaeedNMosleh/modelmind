@@ -125,8 +125,7 @@ export class ContextManager {
     };
     
     this.messages.push(message);
-    
-    // Only try to use memory if it was successfully initialized
+      // Only try to use memory if it was successfully initialized
     if (this.memory) {
       try {
         // Add to LangChain memory
@@ -135,19 +134,50 @@ export class ContextManager {
           await this.memory.saveContext({ input: content }, { output: "" });
           this.isMemoryInitialized = true;
         } else if (role === "assistant" && this.isMemoryInitialized) {
-          // For assistant messages, update the last output if memory is initialized
-          const memoryVariables = await this.memory.loadMemoryVariables({});
-          const chatHistory = memoryVariables.conversation_history || [];
-          
-          // Only try to update if we have history
-          if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-            const lastMessage = chatHistory[chatHistory.length - 1];
-            if (lastMessage && typeof lastMessage.content === 'string') {
+          try {
+            // For assistant messages, update the last output if memory is initialized
+            const memoryVariables = await this.memory.loadMemoryVariables({});
+            const chatHistory = memoryVariables.conversation_history || [];
+            
+            // Only try to update if we have history and it's properly structured
+            if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+              const lastMessage = chatHistory[chatHistory.length - 1];
+              
+              // More robust checking of message structure
+              if (lastMessage && 
+                  (typeof lastMessage.content === 'string' || 
+                   (lastMessage.input && typeof lastMessage.input === 'string'))) {
+                
+                const inputContent = typeof lastMessage.content === 'string' 
+                  ? lastMessage.content 
+                  : (lastMessage.input || "");
+                
+                await this.memory.saveContext(
+                  { input: inputContent }, 
+                  { output: content }
+                );
+              } else {
+                // If we can't find a valid last message, just add this as a new entry
+                logger.info("No valid last message found in memory, adding as new entry");
+                await this.memory.saveContext(
+                  { input: `[Assistant message at ${new Date().toISOString()}]` }, 
+                  { output: content }
+                );
+              }
+            } else {
+              logger.info("No chat history found in memory, initializing with current message");
               await this.memory.saveContext(
-                { input: lastMessage.content }, 
+                { input: `[Assistant message at ${new Date().toISOString()}]` }, 
                 { output: content }
               );
             }
+          } catch (memoryError) {
+            logger.error("Error accessing memory variables:", memoryError);
+            // Fallback: Just save as a new entry
+            await this.memory.saveContext(
+              { input: `[Assistant fallback at ${new Date().toISOString()}]` }, 
+              { output: content }
+            );
           }
         }
       } catch (error) {

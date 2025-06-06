@@ -87,10 +87,11 @@ export async function classifyIntent(params: InputProcessorParams): Promise<Inte
         User request: ${userInput}
         
         ${conversationHistory}
-        
-        Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
+          Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
         
         Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
+        
+        If you cannot clearly determine the user's intent, respond with UNKNOWN.
       `);
       
       // Create the simple classification chain with string output

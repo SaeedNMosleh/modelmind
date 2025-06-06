@@ -142,124 +142,67 @@ export class DiagramAnalyzer {
       
       logger.info("Analyzing diagram", { diagramType, analysisType });
       
-      // Try a simple analysis approach first
+      // Fetch relevant guidelines
+      let guidelinesText = "No specific guidelines available.";
       try {
-        // Create a simple analysis prompt
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in analyzing PlantUML diagrams.
-          
-          Analyze this PlantUML diagram:
-          \`\`\`plantuml
-          ${validatedParams.diagram}
-          \`\`\`
-          
-          User's analysis request: ${validatedParams.userInput}
-          
-          Focus on ${analysisType} analysis.
-          
-          Provide a comprehensive analysis that includes:
-          1. An overview of what the diagram shows
-          2. Key components and their relationships
-          3. Strengths of the diagram
-          4. Potential areas for improvement
-          
-          Analysis:
-        `);
+        // Convert our enum to the expected type for readGuidelines
+        const guidelinesType = mapToGuidelinesType(diagramType);
         
-        // Run the simple analysis
-        const simpleAnalysisChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
+        // Call readGuidelines with the right type
+        const guidelines = await readGuidelines(guidelinesType);
         
-        const analysis = await simpleAnalysisChain.invoke({});
-        
-        // Return a properly formatted result
-        logger.info("Diagram analysis completed (simple approach)", { 
-          diagramType,
-          analysisType
-        });
-        
-        return {
-          diagramType,
-          analysisType,
-          overview: analysis,
-          qualityAssessment: {
-            strengths: [],
-            weaknesses: []
-          },
-          suggestedImprovements: []
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try structured approach
-        logger.warn("Simple diagram analysis failed, trying structured approach", { error: simpleError });
-        
-        // Fetch relevant guidelines
-        let guidelinesText = "No specific guidelines available.";
-        try {
-          // Convert our enum to the expected type for readGuidelines
-          const guidelinesType = mapToGuidelinesType(diagramType);
-          
-          // Call readGuidelines with the right type
-          const guidelines = await readGuidelines(guidelinesType);
-          
-          // Format guidelines for prompt
-          if (guidelines && typeof guidelines === 'string') {
-            guidelinesText = guidelines;
-          }
-        } catch (guidelineError) {
-          logger.error("Error fetching guidelines:", guidelineError);
+        // Format guidelines for prompt
+        if (guidelines && typeof guidelines === 'string') {
+          guidelinesText = guidelines;
         }
-        
-        // Create the analysis prompt template
-        const analysisPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in analyzing PlantUML diagrams.
-          
-          Diagram to analyze:
-          \`\`\`plantuml
-          ${validatedParams.diagram}
-          \`\`\`
-          
-          User analysis request: ${validatedParams.userInput}
-          
-          Analysis type: ${analysisType}
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Analyze the diagram based on the analysis type and user request.
-          Provide detailed and insightful analysis.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the analysis chain
-        const analysisChain = RunnableSequence.from([
-          analysisPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await analysisChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as AnalysisResult;
-        
-        logger.info("Diagram analysis completed (structured approach)", { 
-          diagramType: typedResult.diagramType,
-          analysisType: typedResult.analysisType
-        });
-        
-        return typedResult;
+      } catch (guidelineError) {
+        logger.error("Error fetching guidelines:", guidelineError);
       }
+      
+      // Create the analysis prompt template
+      const analysisPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        You are a specialist in analyzing PlantUML diagrams.
+        
+        Diagram to analyze:
+        \`\`\`plantuml
+        ${validatedParams.diagram}
+        \`\`\`
+        
+        User analysis request: ${validatedParams.userInput}
+        
+        Analysis type: ${analysisType}
+        Diagram type: ${diagramType}
+        
+        PlantUML Guidelines:
+        ${guidelinesText}
+        
+        Analyze the diagram based on the analysis type and user request.
+        Provide detailed and insightful analysis.
+        
+        ${this.parser.getFormatInstructions()}
+      `);
+      
+      // Create the analysis chain
+      const analysisChain = RunnableSequence.from([
+        analysisPrompt,
+        model,
+        this.parser
+      ]);
+      
+      // Execute the chain
+      const result = await analysisChain.invoke({});
+      
+      // Ensure result has the expected type structure
+      const typedResult = result as unknown as AnalysisResult;
+      
+      logger.info("Diagram analysis completed", { 
+        diagramType: typedResult.diagramType,
+        analysisType: typedResult.analysisType
+      });
+      
+      return typedResult;
     } catch (error) {
       if (error instanceof z.ZodError) {
         logger.error("Input validation error:", { errors: error.errors });
