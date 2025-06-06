@@ -110,147 +110,76 @@ export class DiagramGenerator {
       
       logger.info("Generating diagram with type", { diagramType });
       
-      // Try a simpler generation approach first for robustness
+      // Fetch relevant guidelines and templates
+      let guidelines, templates;
       try {
-        // Create a simple generation prompt
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in creating PlantUML diagrams based on user requirements.
-          
-          User requirements: ${validatedParams.userInput}
-          
-          Diagram type: ${diagramType}
-          
-          Create a PlantUML diagram that satisfies these requirements.
-          The diagram should start with @startuml and end with @enduml.
-          Focus on proper syntax and clarity.
-          
-          PlantUML Diagram:
-        `);
+        // Convert our enum to the expected type for guidelines
+        const guidelinesType = mapToGuidelinesType(diagramType);
         
-        // Run the simple generation
-        const simpleGenerationChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
+        // Get guidelines and templates
+        guidelines = await readGuidelines(guidelinesType);
         
-        const simpleResult = await simpleGenerationChain.invoke({});
-        
-        // Extract the diagram from the result (it might have extra text)
-        const diagramMatch = simpleResult.match(/@startuml[\s\S]*?@enduml/);
-        const diagram = diagramMatch ? diagramMatch[0] : simpleResult;
-        
-        // Create a simple explanation
-        const explainPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You've just created this PlantUML diagram based on these requirements:
-          Requirements: ${validatedParams.userInput}
-          
-          Diagram:
-          ${diagram}
-          
-          Provide a short explanation of the diagram you created (about 2-3 sentences).
-        `);
-        
-        const explainChain = RunnableSequence.from([
-          explainPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const explanation = await explainChain.invoke({});
-        
-        // Return a properly formatted result
-        logger.info("Diagram generation completed (simple approach)", { 
-          diagramType,
-          diagramLength: diagram.length
-        });
-        
-        return {
-          diagram,
-          diagramType,
-          explanation,
-          suggestions: []
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try advanced approach
-        logger.warn("Simple diagram generation failed, trying full approach", { error: simpleError });
-        
-        // Fetch relevant guidelines and templates
-        let guidelines, templates;
-        try {
-          // Convert our enum to the expected type for guidelines
-          const guidelinesType = mapToGuidelinesType(diagramType);
-          
-          // Get guidelines and templates
-          guidelines = await readGuidelines(guidelinesType);
-          
-          // Get templates for the appropriate diagram type
-          templates = await listTemplates(mapToGuidelinesType(diagramType));
-        } catch (resourceError) {
-          logger.error("Error fetching guidelines or templates:", resourceError);
-          guidelines = null;
-          templates = [];
-        }
-        
-        // Format guidelines for prompt
-        let guidelinesText = "No specific guidelines available.";
-        if (guidelines && typeof guidelines === 'string') {
-          guidelinesText = guidelines;
-        }
-        
-        // Format templates for prompt (optional, addressing the unused variable warning)
-        let templatesText = "No specific templates available for this diagram type.";
-        if (templates && templates.length > 0) {
-          templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
-        }
-        
-        // Create the generation prompt template
-        const generationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in creating PlantUML diagrams based on user requirements.
-          
-          User requirements: ${validatedParams.userInput}
-          
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Available Templates:
-          ${templatesText}
-          
-          Based on the requirements, create a detailed PlantUML diagram.
-          Focus on clarity, proper syntax, and following best practices.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the generation chain
-        const generationChain = RunnableSequence.from([
-          generationPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await generationChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as GenerationResult;
-        
-        logger.info("Diagram generation completed (advanced approach)", { 
-          diagramType: typedResult.diagramType,
-          diagramLength: typedResult.diagram ? typedResult.diagram.length : 0
-        });
-        
-        return typedResult;
+        // Get templates for the appropriate diagram type
+        templates = await listTemplates(mapToGuidelinesType(diagramType));
+      } catch (resourceError) {
+        logger.error("Error fetching guidelines or templates:", resourceError);
+        guidelines = null;
+        templates = [];
       }
+      
+      // Format guidelines for prompt
+      let guidelinesText = "No specific guidelines available.";
+      if (guidelines && typeof guidelines === 'string') {
+        guidelinesText = guidelines;
+      }
+      
+      // Format templates for prompt
+      let templatesText = "No specific templates available for this diagram type.";
+      if (templates && templates.length > 0) {
+        templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
+      }
+      
+      // Create the generation prompt template
+      const generationPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        You are a specialist in creating PlantUML diagrams based on user requirements.
+        
+        User requirements: ${validatedParams.userInput}
+        
+        Diagram type: ${diagramType}
+        
+        PlantUML Guidelines:
+        ${guidelinesText}
+        
+        Available Templates:
+        ${templatesText}
+        
+        Based on the requirements, create a detailed PlantUML diagram.
+        Focus on clarity, proper syntax, and following best practices.
+        
+        ${this.parser.getFormatInstructions()}
+      `);
+      
+      // Create the generation chain
+      const generationChain = RunnableSequence.from([
+        generationPrompt,
+        model,
+        this.parser
+      ]);
+      
+      // Execute the chain
+      const result = await generationChain.invoke({});
+      
+      // Ensure result has the expected type structure
+      const typedResult = result as unknown as GenerationResult;
+      
+      logger.info("Diagram generation completed", { 
+        diagramType: typedResult.diagramType,
+        diagramLength: typedResult.diagram ? typedResult.diagram.length : 0
+      });
+      
+      return typedResult;
     } catch (error) {
       if (error instanceof z.ZodError) {
         logger.error("Input validation error:", { errors: error.errors });

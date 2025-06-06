@@ -19,30 +19,72 @@ interface ChatMessage {
   content: string
 }
 
-export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfaceProps) {
-  // Initialize the chat hook
-  const { input, handleInputChange, handleSubmit } = useChat({
-    api: "/api/chatopenai",
+// API mode types
+type ApiMode = "freeform" | "advanced"
+
+export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfaceProps) {  // State for API mode toggle
+  const [apiMode, setApiMode] = useState<ApiMode>("freeform")
+  
+  // Persist API mode preference in localStorage
+  useEffect(() => {
+    // Load saved preference on initial mount
+    const savedMode = localStorage.getItem('modelMind.apiMode') as ApiMode | null;
+    if (savedMode) {
+      setApiMode(savedMode);
+    }
+  }, []);
+  
+  // Save preference when it changes
+  useEffect(() => {
+    localStorage.setItem('modelMind.apiMode', apiMode);
+  }, [apiMode]);
+    // Initialize the chat hook with dynamic API endpoint
+  const { input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: apiMode === "freeform" ? "/api/chatopenai" : "/api/pipeline",
     body: {
       currentScript,
     },
     onResponse: async (response) => {
       try {
         const text = await response.text()
-        const { mandatory, optional } = JSON.parse(text)
-
-        if (mandatory.type === "message") {
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            { id: Date.now().toString(), role: "assistant", content: mandatory.content },
-          ])
+        const responseData = JSON.parse(text)
+        
+        // Handle different response formats based on the API mode
+        if (apiMode === "freeform") {
+          // Handle chatopenai format
+          const { mandatory, optional } = responseData
+          
+          if (mandatory.type === "message") {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { id: Date.now().toString(), role: "assistant", content: mandatory.content },
+            ])
+          }
+          
+          if (optional && optional.type === "script" && optional.content !== "") {
+            onScriptGenerated(optional.content)
+          }
+          
+          return mandatory.content        } else {
+          // Handle pipeline format - normalize casing from ResponseType enum
+          const responseType = responseData.type?.toLowerCase();
+          
+          if (responseType === "script") {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { id: Date.now().toString(), role: "assistant", content: responseData.explanation || responseData.content },
+            ])
+            
+            onScriptGenerated(responseData.content)
+          } else if (responseType === "message" || responseType === "error") {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { id: Date.now().toString(), role: "assistant", content: responseData.content },
+            ])
+          }
+          
+          return responseData.content
         }
-
-        if (optional && optional.type === "script" && optional.content !== "") {
-          onScriptGenerated(optional.content)
-        }
-
-        return mandatory.content
       } catch (error) {
         console.error("Failed to parse response:", error)
         return response.statusText
@@ -97,9 +139,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
         }
       });
     }
-  }, [messages]);
-
-  const onSubmit = useCallback(
+  }, [messages]);  const onSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
       const userMessage = input.trim()
@@ -252,8 +292,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       <ScrollArea 
         ref={messageContainerRef} 
         className="flex-1 pr-2 pl-2 py-4 overflow-y-auto"
-      >
-        {messages.map((message) => (
+      >        {messages.map((message) => (
           <div 
             key={message.id} 
             className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2`} // Reduced margins and padding
@@ -291,6 +330,22 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
             </p>
           </div>
         ))}
+        
+        {isLoading && (
+          <div className="message-assistant mb-2 p-2"> 
+            <div className="flex items-center mb-1">
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#2A3046]">
+                <Bot size={12} className="text-[#79DBC7]" />
+              </div>
+              <div className="ml-1 text-xs font-semibold">
+                <span className="text-[#79DBC7]">Assistant</span>
+              </div>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-tight ml-7 text-[#DFFFF6] opacity-70">
+              Thinking...
+            </p>
+          </div>
+        )}
       </ScrollArea>
       
       <form onSubmit={onSubmit} className="mt-2 mb-2 px-2">
@@ -329,8 +384,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                 color: "transparent", 
               }}
             />
-            
-            {/* New bottom toolbar area for action buttons */}
+              {/* New bottom toolbar area for action buttons */}
             <div className="absolute bottom-0 left-0 right-0 h-10 bg-[#1C2032] border-t border-[#384364] rounded-b-md flex items-center justify-between px-3">
               {/* Left side - formatting controls */}
               <div className="flex items-center space-x-2 text-gray-400">
@@ -340,8 +394,9 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                 <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert list">
                   <ListOrdered size={16} />
                 </button>
-                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert image">                  
-                  <Image size={16}/>
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert image">
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image size={16} aria-hidden="true"/>
                 </button>
                 <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert link">
                   <Link size={16} />
@@ -349,6 +404,37 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                 <button type="button" className="hover:text-gray-200 transition-colors" aria-label="AI suggestions">
                   <Sparkles size={16} />
                 </button>
+                  {/* API Mode Toggle */}
+                <div className="flex items-center space-x-1 ml-2 border-l border-[#384364] pl-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setApiMode("freeform")}
+                    className={`px-2 py-0.5 rounded text-xs flex items-center ${
+                      apiMode === "freeform" 
+                        ? "bg-blue-600 text-white" 
+                        : "bg-transparent text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Free form mode"
+                    title="Free form conversation mode"
+                  >
+                    <Sparkles size={12} className="mr-1" />
+                    <span>Free Form</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setApiMode("advanced")}
+                    className={`px-2 py-0.5 rounded text-xs flex items-center ${
+                      apiMode === "advanced" 
+                        ? "bg-indigo-600 text-white" 
+                        : "bg-transparent text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Advanced AI mode"
+                    title="Advanced AI pipeline with specialized diagram generation"
+                  >
+                    <Sparkles size={12} className="mr-1" />
+                    <span>Advanced</span>
+                  </button>
+                </div>
               </div>
               
               {/* Right side - send button */}

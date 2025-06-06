@@ -109,189 +109,76 @@ export class DiagramModifier {
       
       logger.info("Modifying diagram", { diagramType });
       
-      // Try a simple modification approach first
+      // Fetch relevant guidelines
+      let guidelinesText = "No specific guidelines available.";
       try {
-        const simplePrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in modifying PlantUML diagrams based on user instructions.
-          
-          Current diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          User modification request: ${validatedParams.userInput}
-          
-          Modify the diagram according to the user's instructions.
-          Preserve existing structure while implementing the requested changes.
-          Ensure the modified diagram uses correct PlantUML syntax.
-          
-          Modified diagram (full code, starting with @startuml and ending with @enduml):
-        `);
+        // Convert our enum to the expected type for guidelines
+        const guidelinesType = mapToGuidelinesType(diagramType);
+        logger.info("Fetching guidelines for diagram type", { diagramType, guidelinesType });
         
-        // Run the simple modification
-        const simpleModifyChain = RunnableSequence.from([
-          simplePrompt,
-          model,
-          new StringOutputParser()
-        ]);
+        // Get the guidelines
+        const guidelines = await readGuidelines(guidelinesType);
         
-        const modifiedDiagram = await simpleModifyChain.invoke({});
-        
-        // Extract the diagram from the result (it might have extra text)
-        const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
-        const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
-        
-        // If no change was made, retry with stronger emphasis
-        if (diagram.trim() === validatedParams.currentDiagram.trim()) {
-          logger.warn("No changes detected in the diagram, retrying with emphasis");
-          return await this.retryModification(validatedParams, diagramType);
+        // Format guidelines for prompt
+        if (guidelines && typeof guidelines === 'string') {
+          guidelinesText = guidelines;
         }
-        
-        // Create a list of changes
-        const changesPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You have just modified a PlantUML diagram based on this request:
-          "${validatedParams.userInput}"
-          
-          Original diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          Modified diagram:
-          \`\`\`plantuml
-          ${diagram}
-          \`\`\`
-          
-          List only the specific changes you made to the diagram, one per line.
-          Be concise but clear. Start each line with "- ".
-        `);
-        
-        const changesChain = RunnableSequence.from([
-          changesPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const changesText = await changesChain.invoke({});
-        
-        // Convert to array of changes
-        const changes = changesText
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => line.substring(1).trim())
-          .filter(Boolean);
-        
-        // Create explanation
-        const explanationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You've just modified a PlantUML diagram based on this request:
-          "${validatedParams.userInput}"
-          
-          Provide a short explanation of the changes you made (2-3 sentences).
-        `);
-        
-        const explanationChain = RunnableSequence.from([
-          explanationPrompt,
-          model,
-          new StringOutputParser()
-        ]);
-        
-        const explanation = await explanationChain.invoke({});
-        
-        logger.info("Diagram modification completed (simple approach)", { 
-          diagramType,
-          changes: changes.length
-        });
-        
-        return {
-          diagram,
-          diagramType,
-          changes: changes.length > 0 ? changes : ["Updated diagram as requested"],
-          explanation
-        };
-        
-      } catch (simpleError) {
-        // If simple approach fails, log and try structured approach
-        logger.warn("Simple diagram modification failed, trying structured approach", { error: simpleError });
-        
-        // Fetch relevant guidelines
-        let guidelinesText = "No specific guidelines available.";
-        try {
-          // Convert our enum to the expected type for guidelines
-          
-          const guidelinesType = mapToGuidelinesType(diagramType);
-          logger.info("Fetching guidelines for diagram type", { diagramType, guidelinesType });
-          
-          
-          // Get the guidelines
-          const guidelines = await readGuidelines(guidelinesType);
-          
-          // Format guidelines for prompt
-          if (guidelines && typeof guidelines === 'string') {
-            guidelinesText = guidelines;
-          }
-        } catch (guidelineError) {
-          logger.error("Error fetching guidelines:", guidelineError);
-        }
-        
-        // Create the modification prompt template
-        const modificationPrompt = PromptTemplate.fromTemplate(`
-          ${baseSystemPrompt}
-          
-          You are a specialist in modifying PlantUML diagrams based on user instructions.
-          
-          Current diagram:
-          \`\`\`plantuml
-          ${validatedParams.currentDiagram}
-          \`\`\`
-          
-          User modification request: ${validatedParams.userInput}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Modify the diagram according to the user's instructions.
-          Preserve existing structure while implementing the requested changes.
-          Ensure the modified diagram uses correct PlantUML syntax.
-          
-          ${this.parser.getFormatInstructions()}
-        `);
-        
-        // Create the modification chain
-        const modificationChain = RunnableSequence.from([
-          modificationPrompt,
-          model,
-          this.parser
-        ]);
-        
-        // Execute the chain
-        const result = await modificationChain.invoke({});
-        
-        // Ensure result has the expected type structure
-        const typedResult = result as unknown as ModificationResult;
-        
-        // Validate the result has actual changes
-        if (typedResult.diagram === validatedParams.currentDiagram) {
-          // If no changes were made despite user request, try again with stronger emphasis
-          logger.warn("No changes were made to the diagram", {
-            request: validatedParams.userInput
-          });
-          
-          return await this.retryModification(validatedParams, diagramType);
-        }
-        
-        logger.info("Diagram modification completed (structured approach)", { 
-          diagramType: typedResult.diagramType,
-          changes: typedResult.changes ? typedResult.changes.length : 0
-        });
-        
-        return typedResult;
+      } catch (guidelineError) {
+        logger.error("Error fetching guidelines:", guidelineError);
       }
+      
+      // Create the modification prompt template
+      const modificationPrompt = PromptTemplate.fromTemplate(`
+        ${baseSystemPrompt}
+        
+        You are a specialist in modifying PlantUML diagrams based on user instructions.
+        
+        Current diagram:
+        \`\`\`plantuml
+        ${validatedParams.currentDiagram}
+        \`\`\`
+        
+        User modification request: ${validatedParams.userInput}
+        
+        PlantUML Guidelines:
+        ${guidelinesText}
+        
+        Modify the diagram according to the user's instructions.
+        Preserve existing structure while implementing the requested changes.
+        Ensure the modified diagram uses correct PlantUML syntax.
+        
+        ${this.parser.getFormatInstructions()}
+      `);
+      
+      // Create the modification chain
+      const modificationChain = RunnableSequence.from([
+        modificationPrompt,
+        model,
+        this.parser
+      ]);
+      
+      // Execute the chain
+      const result = await modificationChain.invoke({});
+      
+      // Ensure result has the expected type structure
+      const typedResult = result as unknown as ModificationResult;
+      
+      // Validate the result has actual changes
+      if (typedResult.diagram === validatedParams.currentDiagram) {
+        // If no changes were made despite user request, try again with stronger emphasis
+        logger.warn("No changes were made to the diagram", {
+          request: validatedParams.userInput
+        });
+        
+        return await this.retryModification(validatedParams, diagramType);
+      }
+      
+      logger.info("Diagram modification completed", { 
+        diagramType: typedResult.diagramType,
+        changes: typedResult.changes ? typedResult.changes.length : 0
+      });
+      
+      return typedResult;
     } catch (error) {
       if (error instanceof z.ZodError) {
         logger.error("Input validation error:", { errors: error.errors });

@@ -118,13 +118,16 @@ export async function POST(req: NextRequest) {
             diagram: contextManager.getCurrentDiagram(),
             context: contextData
           });
-          break;
-
-        default:
+          break;        default:
           // Handle unknown intent with a fallback response
           logger.warn("Unknown intent detected", { intent: intentClassification.intent });
           result = { 
-            overview: "I'm not sure what you'd like me to do with the diagram. Could you please clarify if you want me to create a new diagram, modify the existing one, or analyze it?"
+            overview: "I'm not sure what you'd like me to do with the diagram. Could you please clarify if you want me to create a new diagram, modify the existing one, or analyze it?",
+            qualityAssessment: {
+              strengths: [],
+              weaknesses: []
+            },
+            suggestedImprovements: []
           };
           break;
       }
@@ -146,15 +149,16 @@ export async function POST(req: NextRequest) {
       }
 
       // Return the formatted response
-      return NextResponse.json(formattedResponse);
-    } catch (processingError) {
+      return NextResponse.json(formattedResponse);    } catch (processingError) {
       logger.error("Error processing user request:", processingError);
       
       // Add error message to context
       await contextManager.addMessage(
         'assistant',
         "I encountered an error processing your request. Please try again."
-      );
+      ).catch(err => {
+        logger.error("Failed to add assistant message to context:", err);
+      });
       
       // Return error response
       return NextResponse.json({
