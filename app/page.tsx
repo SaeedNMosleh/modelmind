@@ -100,7 +100,7 @@ export default function Home() {
             icon={<MessageSquare className="w-5 h-5 text-indigo-400" />}
             defaultExpanded={chatExpanded}
             onToggle={setChatExpanded}
-            className={`transition-all duration-300 ${chatExpanded ? 'w-1/3 min-w-[300px]' : 'w-auto min-w-[50px]'}`}
+            className={`transition-all duration-300 ${chatExpanded ? 'w-1/5 min-w-[250px]' : 'w-auto min-w-[50px]'}`}
           >
             <ChatInterface onScriptGenerated={setScript} currentScript={script} />
           </CollapsiblePanel>
@@ -130,9 +130,9 @@ export default function Home() {
               // If both other panels are collapsed, take up most space
               (!chatExpanded && !editorExpanded) ? 'flex-1' :
               // If one other panel is collapsed, take up more space
-              (!chatExpanded || !editorExpanded) ? 'w-2/3' :
-              // Default state
-              'w-1/3 min-w-[300px]'
+              (!chatExpanded || !editorExpanded) ? 'w-3/5' :
+              // Default state - increased from w-1/3 to w-2/5
+              'w-2/5 min-w-[300px]'
             }`}
           >
             <Preview 

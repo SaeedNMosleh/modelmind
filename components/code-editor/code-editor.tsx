@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { Editor, useMonaco, loader } from "@monaco-editor/react"
 import { Card, CardContent } from "@/components/ui/card"
-import { isValidPlantUML } from "@/lib/utils/plantuml"
+// import { isValidPlantUML } from "@/lib/utils/plantuml" // Removed as not used
 import type { editor } from 'monaco-editor'
 
 // Configure Monaco loader with default dark theme
@@ -32,19 +32,23 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
         base: 'vs-dark',
         inherit: true,
         rules: [
-          // VS Code-like syntax highlighting colors
-          { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },    // blue
-          { token: 'comment', foreground: '6A9955' },                       // green
-          { token: 'string', foreground: 'CE9178' },                        // orange/brown
-          { token: 'tag', foreground: '4EC9B0' },                           // teal
-          { token: 'operator', foreground: 'D4D4D4' },                      // light gray
-          { token: 'constant', foreground: '4FC1FF' },                      // light blue
-          { token: 'number', foreground: 'B5CEA8' },                        // light green
-          { token: 'preprocessor', foreground: 'C586C0' },                  // purple
-          { token: 'delimiter', foreground: 'D4D4D4' },                     // light gray
-          { token: 'comment.block', foreground: '6A9955' },                 // green
-          { token: 'string.escape', foreground: 'D7BA7D' },                 // gold
-          { token: 'string.invalid', foreground: 'F14C4C' },                // red
+          // PlantUML specific syntax highlighting - VSCode style
+          { token: 'keyword.control', foreground: 'C586C0', fontStyle: 'bold' },     // Purple for control flow
+          { token: 'keyword.directive', foreground: 'C586C0', fontStyle: 'italic' }, // Purple for preprocessor
+          { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },             // Blue for keywords
+          { token: 'keyword.operator', foreground: 'D4D4D4', fontStyle: 'bold' },    // White for arrows/operators
+          { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },           // Green for comments
+          { token: 'comment.block', foreground: '6A9955', fontStyle: 'italic' },     // Green for block comments
+          { token: 'string', foreground: 'CE9178' },                                 // Orange for strings
+          { token: 'string.other', foreground: '4EC9B0' },                           // Teal for HTML-like tags
+          { token: 'string.invalid', foreground: 'F44747' },                         // Red for invalid strings
+          { token: 'tag', foreground: '4EC9B0', fontStyle: 'bold' },                 // Teal for tags
+          { token: 'type', foreground: '4EC9B0' },                                   // Teal for stereotypes
+          { token: 'constant.numeric', foreground: '4FC1FF' },                       // Light blue for colors
+          { token: 'number', foreground: 'B5CEA8' },                                 // Light green for numbers
+          { token: 'identifier', foreground: '9CDCFE' },                             // Light blue for identifiers
+          { token: 'delimiter', foreground: 'D4D4D4' },                              // Light gray for delimiters
+          { token: 'operator', foreground: 'D4D4D4' },                               // Light gray for operators
         ],
         colors: {
           // VS Code dark theme colors
@@ -70,43 +74,142 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
       if (!monaco.languages.getLanguages().some(lang => lang.id === 'plantuml')) {
         monaco.languages.register({ id: 'plantuml' })
         
+        // Set language configuration for proper bracket matching, auto-closing, etc.
+        monaco.languages.setLanguageConfiguration('plantuml', {
+          comments: {
+            lineComment: "//",
+            blockComment: ["/*", "*/"]
+          },
+          brackets: [
+            ['{', '}'],
+            ['[', ']'],
+            ['(', ')'],
+            ['<<', '>>']
+          ],
+          autoClosingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"' },
+            { open: "'", close: "'" },
+            { open: '<<', close: '>>' },
+            { open: '<', close: '>' }
+          ],
+          surroundingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"' },
+            { open: "'", close: "'" },
+            { open: '<', close: '>' }
+          ],
+          folding: {
+            markers: {
+              start: /@start(uml|mindmap|wbs|salt|sequence|activity|class|object|component|state|deployment|timing|network|yaml|json|gantt)/,
+              end: /@end(uml|mindmap|wbs|salt|sequence|activity|class|object|component|state|deployment|timing|network|yaml|json|gantt)/
+            }
+          },
+          indentationRules: {
+            increaseIndentPattern: /^.*(\{|\(|\[|<<|note\s+(left|right|top|bottom)|alt|else|opt|loop|par|break|critical|group).*$/,
+            decreaseIndentPattern: /^.*(\}|\)|\]|>>|end\s+(note|alt|else|opt|loop|par|break|critical|group)).*$/
+          }
+        })
+        
+        // Add basic completion provider for PlantUML keywords
+        monaco.languages.registerCompletionItemProvider('plantuml', {
+          provideCompletionItems: () => {
+            const word = { startColumn: 1, endColumn: 1, startLineNumber: 1, endLineNumber: 1 }
+            const suggestions = [
+              // Diagram start/end
+              { label: '@startuml', kind: monaco.languages.CompletionItemKind.Keyword, insertText: '@startuml\n\n@enduml', detail: 'Start UML diagram', range: word },
+              { label: '@enduml', kind: monaco.languages.CompletionItemKind.Keyword, insertText: '@enduml', detail: 'End UML diagram', range: word },
+              
+              // Common entities
+              { label: 'actor', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'actor ${1:name}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'participant', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'participant ${1:name}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'database', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'database ${1:name}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'class', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'class ${1:Name} {\n\t${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              
+              // Arrows
+              { label: '-->', kind: monaco.languages.CompletionItemKind.Operator, insertText: '-->', detail: 'Solid arrow', range: word },
+              { label: '->>', kind: monaco.languages.CompletionItemKind.Operator, insertText: '->>', detail: 'Async message', range: word },
+              { label: '<--', kind: monaco.languages.CompletionItemKind.Operator, insertText: '<--', detail: 'Return message', range: word },
+              
+              // Control structures
+              { label: 'alt', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'alt ${1:condition}\n\t${2}\nelse\n\t${3}\nend', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'loop', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'loop ${1:condition}\n\t${2}\nend', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'note', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'note ${1|left,right,over|} : ${2:note text}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              
+              // Common modifiers
+              { label: 'activate', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'activate ${1:participant}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word },
+              { label: 'deactivate', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'deactivate ${1:participant}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range: word }
+            ]
+            
+            return { suggestions }
+          }
+        })
+        
         // Define VS Code-like syntax highlighting rules for PlantUML
         monaco.languages.setMonarchTokensProvider('plantuml', {
-          defaultToken: 'invalid',
+          defaultToken: '',
+          ignoreCase: true,
           tokenizer: {
             root: [
-              // Keywords - improved regex pattern
-              [/@(start|end)(uml|mindmap|wbs|salt|sequence|activity|class|object|component)/, 'keyword'],
+              // Start/End tags
+              [/@(start|end)(uml|mindmap|wbs|salt|sequence|activity|class|object|component|state|deployment|timing|network|yaml|json|gantt)\b/, 'keyword.control'],
               
-              // Other PlantUML keywords - expanded list with VS Code style patterns
-              [/\b(actor|participant|database|boundary|control|entity|collections|queue|usecase|class|interface|enum|annotation|abstract|package|namespace|state|object|artifact|folder|rectangle|card|cloud|file|node|frame|storage|agent|stack|together|as|left|right|of|on|link|note|ref|autonumber|title|end title|end note|legend|end legend|skinparam|scale|top|bottom|across|ref|over|activate|deactivate|destroy|create|alt|else|opt|loop|par|break|critical|group)\b/, 'keyword'],
+              // PlantUML specific keywords
+              [/\b(actor|participant|database|boundary|control|entity|collections|queue|usecase|class|interface|enum|annotation|abstract|package|namespace|state|object|artifact|folder|rectangle|card|cloud|file|node|frame|storage|agent|stack)\b/, 'keyword'],
+              
+              // Control flow and modifiers
+              [/\b(together|as|left|right|of|on|link|note|ref|autonumber|title|end\s+title|end\s+note|legend|end\s+legend|skinparam|scale|top|bottom|across|over|activate|deactivate|destroy|create|hide|show|remove)\b/, 'keyword'],
+              
+              // Sequence diagram specific
+              [/\b(alt|else|opt|loop|par|break|critical|group|end|return)\b/, 'keyword.control'],
+              
+              // Colors and styling
+              [/\b(color|back|line)\b/, 'keyword'],
               
               // Preprocessor directives
-              [/!include|!pragma|!define/, 'preprocessor'],
+              [/!(include|pragma|define|undef|ifdef|ifndef|endif)\b/, 'keyword.directive'],
               
               // Comments
-              [/'.*$/, 'comment'],
+              [/\'.*$/, 'comment'],
               [/\/\/.*$/, 'comment'],
-              [/\/\*/, { token: 'comment.block', next: '@comment' }],
+              [/\/\*/, 'comment.block', '@comment'],
               
               // Strings
               [/"([^"\\]|\\.)*$/, 'string.invalid'],
-              [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
+              [/"/, 'string', '@string_double'],
+              [/'([^'\\]|\\.)*$/, 'string.invalid'],
+              [/'/, 'string', '@string_single'],
               
               // Numbers
-              [/\d+/, 'number'],
+              [/\b\d+(\.\d+)?\b/, 'number'],
               
-              // Arrows with better pattern matching
-              [/-+(>|>>|\/|\\\\|\\|\|)?-*/, 'operator'],
-              [/<-+(>|\/|\\\\|\\|\|)?-*/, 'operator'],
-              [/<->|<-->>?/, 'operator'],
+              // Arrows and relationships - comprehensive patterns
+              [/(-+>|<-+|<->|<<-+|>>-+|-+>>|-+<<|\|>|<\||\*-+|-+\*|o-+|-+o|\.-+|-+\.|=+>|<=+|<=>|#-+|-+#)/, 'keyword.operator'],
+              [/(\.+>|<\.+|\.+\||\.+\.|::|:>|<:|\|\||--|==|##)/, 'keyword.operator'],
               
-              // Tags/Color Codes
-              [/<[^>]+>/, 'tag'],
-              [/#[0-9a-fA-F]{6}/, 'constant'],
+              // Color codes
+              [/#[0-9a-fA-F]{3,8}\b/, 'constant.numeric'],
               
-              // Symbols
-              [/[\[\]{}():]/, 'delimiter'],
+              // Tags and styling
+              [/<(color|size|b|i|u|s|back|img)([^>]*)>/, 'tag'],
+              [/<\/?(color|size|b|i|u|s|back|img)>/, 'tag'],
+              [/<[^>]+>/, 'string.other'],
+              
+              // Stereotypes
+              [/<<[^>]+>>/, 'type'],
+              
+              // Identifiers with special characters
+              [/\w+/, 'identifier'],
+              
+              // Delimiters
+              [/[\[\]{}():;,]/, 'delimiter'],
+              
+              // Operators
+              [/[=+\-*\/]/, 'operator'],
             ],
             
             comment: [
@@ -116,10 +219,16 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
               [/[\/*]/, 'comment']
             ],
             
-            string: [
+            string_double: [
               [/[^\\"]+/, 'string'],
-              [/\\./, 'string.escape'],
-              [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+              [/\\./, 'string.escape.invalid'],
+              [/"/, 'string', '@pop']
+            ],
+            
+            string_single: [
+              [/[^\\']+/, 'string'],
+              [/\\./, 'string.escape.invalid'],
+              [/'/, 'string', '@pop']
             ]
           }
         });
@@ -154,32 +263,22 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
     }
   };
   
-  // Validate PlantUML on change
+  // Track decoration IDs to properly manage them
+  const decorationIdsRef = useRef<string[]>([])
+  
+  // Handle editor change without problematic validation decorations
   const handleEditorChange = (value: string | undefined) => {
     const newValue = value || "";
     onChange(newValue);
     
-    // Check if valid PlantUML
-    const isValid = isValidPlantUML(newValue);
-    
-    // Set validation decorations if needed
-    if (editorRef.current && !isValid && newValue.length > 0 && monaco) {
-      // Add a subtle indicator if missing tags
-      if (!newValue.includes('@startuml')) {
-        // Create a proper Range instance
-        const range = new monaco.Range(1, 1, 1, 1);
-        
-        editorRef.current.deltaDecorations([], [{
-          range: range,
-          options: {
-            isWholeLine: true,
-            className: 'errorDecoration',
-            glyphMarginClassName: 'errorGlyphMargin',
-            hoverMessage: { value: 'Missing @startuml tag' }
-          }
-        }]);
-      }
+    // Clear any existing decorations that might be causing issues
+    if (editorRef.current && monaco && decorationIdsRef.current.length > 0) {
+      editorRef.current.deltaDecorations(decorationIdsRef.current, []);
+      decorationIdsRef.current = [];
     }
+    
+    // Optional: You can add subtle validation indicators here if needed
+    // For now, we'll rely on the preview panel to show validation errors
   };
 
   return (
@@ -193,26 +292,89 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
           onChange={handleEditorChange}
           theme="vscodeTheme"
           options={{
-            fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",
+            // Font settings to match VSCode
+            fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
             fontSize: 14,
+            fontWeight: "400",
+            lineHeight: 1.4,
+            fontLigatures: true,
+            
+            // Line settings
             lineNumbers: "on",
+            lineNumbersMinChars: 3,
+            renderLineHighlight: "all",
+            
+            // Editor behavior
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             wordWrap: "on",
+            wordWrapColumn: 120,
             tabSize: 2,
+            insertSpaces: true,
             automaticLayout: true,
+            
+            // Code folding (now with proper language configuration)
             folding: true,
+            foldingHighlight: true,
+            showFoldingControls: 'mouseover',
+            
+            // Bracket matching
             matchBrackets: "always",
-            renderLineHighlight: "all",
+            autoClosingBrackets: "always",
+            autoClosingQuotes: "always",
+            autoSurround: "languageDefined",
+            
+            // Cursor and selection
             cursorBlinking: "smooth",
             cursorSmoothCaretAnimation: "on",
+            cursorStyle: "line",
+            cursorWidth: 2,
+            
+            // Scrolling
             smoothScrolling: true,
+            mouseWheelScrollSensitivity: 1,
+            
+            // IntelliSense and suggestions
+            quickSuggestions: {
+              other: true,
+              comments: false,
+              strings: true
+            },
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnCommitCharacter: true,
+            acceptSuggestionOnEnter: "on",
+            
+            // Indentation guides
+            renderIndentGuides: true,
+            highlightActiveIndentGuide: true,
+            
+            // Whitespace
+            renderWhitespace: "selection",
+            
+            // Scrollbar
             scrollbar: {
-              verticalScrollbarSize: 10,
-              horizontalScrollbarSize: 10,
-              verticalSliderSize: 10,
-              horizontalSliderSize: 10,
+              verticalScrollbarSize: 12,
+              horizontalScrollbarSize: 12,
+              verticalSliderSize: 12,
+              horizontalSliderSize: 12,
               alwaysConsumeMouseWheel: false,
+            },
+            
+            // Selection
+            selectionHighlight: true,
+            occurrencesHighlight: "off",
+            codeLens: false,
+            
+            // Accessibility
+            accessibilitySupport: "auto",
+            
+            // Performance
+            disableMonospaceOptimizations: false,
+            
+            // Validation
+            parameterHints: {
+              enabled: true,
+              cycle: false
             }
           }}
           beforeMount={(monaco) => {

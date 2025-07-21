@@ -126,7 +126,7 @@ body {
 /* Custom components */
 @layer components {
   .main-container {
-    @apply container mx-auto px-2 py-2 flex flex-col h-[calc(100vh-80px)];
+    @apply w-full px-4 py-2 flex flex-col h-[calc(100vh-80px)];
   }
   
   .panel-container {
@@ -298,14 +298,14 @@ body {
   border-left: 2px solid #5E85E2;
 }
 
-/* Custom styling for error decoration */
+/* Custom styling for error decoration - disabled to prevent red background issues */
 .errorDecoration {
-  background-color: rgba(255, 0, 0, 0.1);
-  border-bottom: 2px dotted #F14C4C;
+  /* background-color: rgba(255, 0, 0, 0.1); */
+  /* border-bottom: 2px dotted #F14C4C; */
 }
 
 .errorGlyphMargin {
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23F14C4C' /><path d='M8 4v6M8 11v1' stroke='white' stroke-width='1.5' /></svg>") no-repeat center center;
+  /* background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23F14C4C' /><path d='M8 4v6M8 11v1' stroke='white' stroke-width='1.5' /></svg>") no-repeat center center; */
 }
 
 /* Collapsible panel animation */

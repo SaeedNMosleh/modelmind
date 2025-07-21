@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { useCallback, useState, useEffect, useRef, useMemo} from "react"
 import { useIsomorphicLayoutEffect } from 'react-use'
-import { User, Bot, Send, Code, ListOrdered, Image, Link, Sparkles } from 'lucide-react'
+import { User, Bot, Send, Image, Paperclip, MessageCircle, Zap } from 'lucide-react'
 
 interface ChatInterfaceProps {
   onScriptGenerated: (script: string) => void
@@ -386,30 +386,21 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
             />
               {/* New bottom toolbar area for action buttons */}
             <div className="absolute bottom-0 left-0 right-0 h-10 bg-[#1C2032] border-t border-[#384364] rounded-b-md flex items-center justify-between px-3">
-              {/* Left side - formatting controls */}
+              {/* Left side - only image and attachment icons */}
               <div className="flex items-center space-x-2 text-gray-400">
-                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert code">
-                  <Code size={16} />
-                </button>
-                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert list">
-                  <ListOrdered size={16} />
-                </button>
                 <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert image">
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image size={16} aria-hidden="true"/>
+                  <Image size={16} />
                 </button>
-                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Insert link">
-                  <Link size={16} />
+                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="Add attachment">
+                  <Paperclip size={16} />
                 </button>
-                <button type="button" className="hover:text-gray-200 transition-colors" aria-label="AI suggestions">
-                  <Sparkles size={16} />
-                </button>
-                  {/* API Mode Toggle */}
+                  {/* API Mode Toggle - Responsive */}
                 <div className="flex items-center space-x-1 ml-2 border-l border-[#384364] pl-2">
                   <button 
                     type="button" 
                     onClick={() => setApiMode("freeform")}
-                    className={`px-2 py-0.5 rounded text-xs flex items-center ${
+                    className={`px-2 py-0.5 rounded text-xs flex items-center transition-all ${
                       apiMode === "freeform" 
                         ? "bg-blue-600 text-white" 
                         : "bg-transparent text-gray-400 hover:text-gray-200"
@@ -417,13 +408,14 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                     aria-label="Free form mode"
                     title="Free form conversation mode"
                   >
-                    <Sparkles size={12} className="mr-1" />
-                    <span>Free Form</span>
+                    <MessageCircle size={12} className="mr-1" />
+                    <span className="hidden sm:inline lg:hidden">Free</span>
+                    <span className="hidden lg:inline">Free form</span>
                   </button>
                   <button 
                     type="button" 
                     onClick={() => setApiMode("advanced")}
-                    className={`px-2 py-0.5 rounded text-xs flex items-center ${
+                    className={`px-2 py-0.5 rounded text-xs flex items-center transition-all ${
                       apiMode === "advanced" 
                         ? "bg-indigo-600 text-white" 
                         : "bg-transparent text-gray-400 hover:text-gray-200"
@@ -431,8 +423,9 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                     aria-label="Advanced AI mode"
                     title="Advanced AI pipeline with specialized diagram generation"
                   >
-                    <Sparkles size={12} className="mr-1" />
-                    <span>Advanced</span>
+                    <Zap size={12} className="mr-1" />
+                    <span className="hidden sm:inline lg:hidden">Adv</span>
+                    <span className="hidden lg:inline">Advanced</span>
                   </button>
                 </div>
               </div>
