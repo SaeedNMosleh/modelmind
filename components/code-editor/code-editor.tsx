@@ -345,8 +345,10 @@ export function CodeEditor({ value, onChange }: CodeEditorProps) {
             acceptSuggestionOnEnter: "on",
             
             // Indentation guides
-            renderIndentGuides: true,
-            highlightActiveIndentGuide: true,
+            guides: {
+              indentation: true,
+              highlightActiveIndentation: true
+            },
             
             // Whitespace
             renderWhitespace: "selection",
