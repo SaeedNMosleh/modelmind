@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 4. **Ambiguity Handling:**  
    If the user’s request is unclear, ask clarifying questions in the "message" object. If no modification or creation of a diagram is necessary, do not include the \`script\` object.`,
       },
-      //...messages.slice(0, -1), //Keep all messages except the last one as history
+      ...messages.slice(0, -1), //Keep all messages except the last one as history
       {
         role: lastMessage.role,
         content: `${lastMessage.content}\n\nCurrent script in editor: ${currentScript}`,

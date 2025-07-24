@@ -6,7 +6,23 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "ts-node scripts/seed-database.ts full",
+    "seed:prompts": "ts-node scripts/seed-database.ts prompts",
+    "seed:test-cases": "ts-node scripts/seed-database.ts test-cases",
+    "seed:production": "ts-node scripts/seed-database.ts production",
+    "seed:interactive": "ts-node scripts/seed-database.ts interactive",
+    "seed:stats": "ts-node scripts/seed-database.ts stats",
+    "seed:validate": "ts-node scripts/seed-database.ts validate",
+    "seed:cleanup": "ts-node scripts/seed-database.ts cleanup --confirm",
+    "migrate": "ts-node scripts/migrate-from-pipeline.ts migrate",
+    "migrate:quick": "ts-node scripts/migrate-from-pipeline.ts quick-seed",
+    "migrate:dry-run": "ts-node scripts/migrate-from-pipeline.ts migrate --dry-run",
+    "migrate:validate": "ts-node scripts/migrate-from-pipeline.ts validate",
+    "backup": "ts-node scripts/backup-prompts.ts create",
+    "backup:compress": "ts-node scripts/backup-prompts.ts create --compress",
+    "backup:list": "ts-node scripts/backup-prompts.ts list",
+    "restore": "ts-node scripts/backup-prompts.ts restore"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.0",
@@ -48,11 +64,16 @@
     "@types/node": "^20",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
+    "commander": "^12.1.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
+    "inquirer": "^12.1.0",
     "pino-pretty": "^13.0.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
