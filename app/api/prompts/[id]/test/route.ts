@@ -18,6 +18,11 @@ import pino from 'pino';
 
 const logger = pino({ name: 'prompt-test-execution-api' });
 
+// Extended TestExecutionOptions with test-specific fields
+interface PromptTestExecutionOptions extends TestExecutionOptions {
+  testCaseIds?: string[];
+}
+
 const TestExecutionSchema = z.object({
   testCaseIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
   environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.DEVELOPMENT),
@@ -51,7 +56,7 @@ export async function POST(
       return createValidationErrorResponse(validation.error.errors);
     }
 
-    const options: TestExecutionOptions = validation.data;
+    const options: PromptTestExecutionOptions = validation.data;
 
     const prompt = await Prompt.findById(params.id);
     
@@ -162,11 +167,12 @@ export async function POST(
       });
     }
     
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error occurred');
     logger.error({
       promptId: params.id,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     }, 'Test execution failed');
     
     return handleApiError(error);

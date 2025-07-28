@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/database/connection';
 import { Prompt } from '@/lib/database/models/prompt';
-import { TestCase } from '@/lib/database/models/testCase';
-import { TestResult } from '@/lib/database/models/testResult';
-import { PromptMetrics } from '@/lib/database/models/promptMetrics';
-import { PromptFilters, PromptSortOptions, ApiResponse, PaginatedResponse } from '@/lib/prompt-mgmt/types';
+import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { PromptFilters, PromptSortOptions, ApiResponse, PaginatedResponse, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { filterPrompts, sortPrompts } from '@/lib/prompt-mgmt/utils';
 import pino from 'pino';
 
@@ -24,10 +22,10 @@ export async function GET(request: NextRequest) {
     
     // Parse filters
     const filters: PromptFilters = {
-      agentType: searchParams.get('agentType')?.split(',') as any,
-      diagramType: searchParams.get('diagramType')?.split(',') as any,
-      operation: searchParams.get('operation')?.split(',') as any,
-      environment: searchParams.get('environment')?.split(',') as any,
+      agentType: searchParams.get('agentType')?.split(',') as AgentType[],
+      diagramType: searchParams.get('diagramType')?.split(',') as DiagramType[],
+      operation: searchParams.get('operation')?.split(',') as PromptOperation[],
+      environment: searchParams.get('environment')?.split(',') as PromptEnvironment[],
       isProduction: searchParams.get('isProduction') ? searchParams.get('isProduction') === 'true' : undefined,
       tags: searchParams.get('tags')?.split(','),
       search: searchParams.get('search') || undefined
@@ -35,8 +33,8 @@ export async function GET(request: NextRequest) {
     
     // Parse sort options
     const sort: PromptSortOptions = {
-      field: (searchParams.get('sortField') as any) || 'updatedAt',
-      direction: (searchParams.get('sortDirection') as any) || 'desc'
+      field: (searchParams.get('sortField') as PromptSortOptions['field']) || 'updatedAt',
+      direction: (searchParams.get('sortDirection') as PromptSortOptions['direction']) || 'desc'
     };
     
     // Build aggregation pipeline for enhanced prompt data
@@ -115,7 +113,7 @@ export async function GET(request: NextRequest) {
     const total = sortedPrompts.length;
     const paginatedPrompts = sortedPrompts.slice(skip, skip + limit);
     
-    const response: PaginatedResponse<any> = {
+    const response: PaginatedResponse<PromptMgmtPrompt> = {
       success: true,
       data: paginatedPrompts,
       meta: {

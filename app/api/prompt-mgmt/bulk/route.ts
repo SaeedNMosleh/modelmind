@@ -6,6 +6,7 @@ import { TestResult } from '@/lib/database/models/testResult';
 import { BulkOperation, BulkOperationResult, ApiResponse } from '@/lib/prompt-mgmt/types';
 import { exportPromptData } from '@/lib/prompt-mgmt/utils';
 import pino from 'pino';
+import { PipelineStage } from 'mongoose';
 
 const logger = pino();
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
         return await executeBulkExport(bulkOperation.promptIds, bulkOperation.options);
         
       case 'test':
-        return await executeBulkTest(bulkOperation.promptIds, result, bulkOperation.options);
+        return await executeBulkTest(bulkOperation.promptIds, result);
         
       default:
         return NextResponse.json(
@@ -190,7 +191,7 @@ async function executeBulkDelete(promptIds: string[], result: BulkOperationResul
 async function executeBulkDuplicate(
   promptIds: string[],
   result: BulkOperationResult,
-  options?: Record<string, any>
+  options?: Record<string, unknown>
 ) {
   const nameSuffix = options?.nameSuffix || ' (Copy)';
   
@@ -264,10 +265,10 @@ async function executeBulkDuplicate(
 }
 
 // Bulk export prompts
-async function executeBulkExport(promptIds: string[], options?: Record<string, any>) {
+async function executeBulkExport(promptIds: string[], options?: Record<string, unknown>) {
   try {
     // Fetch prompts with related data if requested
-    let aggregationPipeline: any[] = [
+    const aggregationPipeline: PipelineStage[] = [
       { $match: { _id: { $in: promptIds.map(id => ({ $oid: id })) } } }
     ];
     
@@ -305,11 +306,11 @@ async function executeBulkExport(promptIds: string[], options?: Record<string, a
     // Filter versions if requested
     if (!options?.includeVersions) {
       prompts.forEach(prompt => {
-        prompt.versions = prompt.versions.filter((v: any) => v.isActive);
+        prompt.versions = prompt.versions.filter((v: { isActive: boolean }) => v.isActive);
       });
     }
     
-    const format = options?.format || 'json';
+    const format = options?.format as 'json' | 'csv' | 'yaml' || 'json';
     const exportData = exportPromptData(prompts, format);
     
     // Set appropriate headers
@@ -347,8 +348,7 @@ async function executeBulkExport(promptIds: string[], options?: Record<string, a
 // Bulk test execution (simplified - returns execution IDs)
 async function executeBulkTest(
   promptIds: string[],
-  result: BulkOperationResult,
-  options?: Record<string, any>
+  result: BulkOperationResult
 ) {
   const executionIds: string[] = [];
   

@@ -2,10 +2,10 @@ import { NextRequest } from 'next/server';
 import { connectToDatabase, TestCase } from '@/lib/database';
 import { 
   createSuccessResponse, 
-  createErrorResponse, 
   handleApiError,
   withTimeout,
   createValidationErrorResponse
+  // createErrorResponse - removed unused import
 } from '@/lib/api/responses';
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { z } from 'zod';
@@ -18,17 +18,17 @@ const BulkTestCaseSchema = z.object({
   testCases: z.array(z.object({
     name: z.string().min(1).max(200),
     description: z.string().max(1000).optional().default(''),
-    vars: z.record(z.any()),
+    vars: z.record(z.unknown()),
     assert: z.array(z.object({
       type: z.string(),
-      value: z.any().optional(),
+      value: z.unknown().optional(),
       threshold: z.number().optional(),
       provider: z.string().optional(),
       rubric: z.string().optional(),
       metric: z.string().optional()
     })).min(1),
     tags: z.array(z.string()).default([]),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.unknown()).optional()
   })).min(1).max(50),
   replaceExisting: z.boolean().default(false)
 });

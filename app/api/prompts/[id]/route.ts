@@ -88,9 +88,9 @@ export async function PUT(
     if (newVersion) {
       try {
         prompt.addVersion(newVersion);
-      } catch (versionError: any) {
+      } catch (versionError: Error | unknown) {
         return createErrorResponse(
-          versionError.message,
+          versionError instanceof Error ? versionError.message : 'Unknown version error',
           'VERSION_ERROR',
           400
         );

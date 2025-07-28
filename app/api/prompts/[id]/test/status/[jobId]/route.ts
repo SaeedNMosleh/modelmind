@@ -7,6 +7,7 @@ import {
 import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { PromptFooExecutionResult } from '@/lib/testing/types';
 import pino from 'pino';
 
 const logger = pino({ name: 'test-status-api' });
@@ -35,8 +36,34 @@ export async function GET(
       );
     }
 
-    let result = null;
-    let report = null;
+    let result: PromptFooExecutionResult | null = null;
+    let report: {
+      summary: {
+        totalTests: number;
+        successfulTests: number;
+        failedTests: number;
+        successRate: number;
+        averageScore: number;
+        averageLatencyMs: number;
+        totalTokensUsed: number;
+        totalCost: number;
+        tokenBreakdown: {
+          prompt: number;
+          completion: number;
+        };
+      };
+      failures: Array<{
+        testIndex: number;
+        testVars: Record<string, unknown>;
+        error: string;
+        failedAssertions: Array<{
+          type: string;
+          reason: string;
+          score: number;
+        }>;
+      }>;
+      recommendations: string[];
+    } | null = null;
 
     if (job.status === 'completed') {
       const promptFooResult = promptFooRunner.getJobResult(params.jobId);
@@ -83,11 +110,11 @@ export async function GET(
 
     return createSuccessResponse(response);
     
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     logger.error({
       jobId: params.jobId,
       promptId: params.id,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }, 'Failed to get test execution status');
     
     return createErrorResponse(
@@ -143,11 +170,11 @@ export async function DELETE(
       cleaned: true
     });
     
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     logger.error({
       jobId: params.jobId,
       promptId: params.id,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }, 'Failed to cleanup test execution job');
     
     return createErrorResponse(

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { connectToDatabase, Prompt, TestCase, TestResult } from '@/lib/database';
+import { connectToDatabase, Prompt, TestCase, TestResult, IPrompt, IPromptVersion, ITestCase, ITestResult } from '@/lib/database';
 import { 
   createSuccessResponse, 
   createErrorResponse, 
@@ -17,6 +17,12 @@ import { z } from 'zod';
 import pino from 'pino';
 
 const logger = pino({ name: 'prompt-comparison-test-api' });
+
+// Extended TestExecutionOptions with comparison-specific fields
+interface ComparisonTestExecutionOptions extends TestExecutionOptions {
+  testCaseIds?: string[];
+  useExistingResults?: boolean;
+}
 
 const ComparisonTestSchema = z.object({
   testCaseIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
@@ -59,7 +65,7 @@ export async function POST(
       return createValidationErrorResponse(validation.error.errors);
     }
 
-    const options: TestExecutionOptions = {
+    const options: ComparisonTestExecutionOptions = {
       ...validation.data,
       async: false
     };
@@ -237,12 +243,13 @@ export async function POST(
 
     return createSuccessResponse(comparison);
     
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     logger.error({
       prompt1Id: params.id1,
       prompt2Id: params.id2,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     }, 'Prompt comparison test failed');
     
     return handleApiError(error);
@@ -250,9 +257,9 @@ export async function POST(
 }
 
 function generateComparison(
-  prompt1: any, prompt2: any,
-  version1: any, version2: any,
-  testCases: any[], results1: any[], results2: any[]
+  prompt1: IPrompt, prompt2: IPrompt,
+  version1: IPromptVersion, version2: IPromptVersion,
+  testCases: ITestCase[], results1: ITestResult[], results2: ITestResult[]
 ): TestComparisonResult {
   const comparison: TestComparisonResult = {
     prompt1: {

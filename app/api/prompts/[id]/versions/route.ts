@@ -27,7 +27,11 @@ export async function GET(
 
     const prompt = await Prompt.findById(params.id)
       .select('versions currentVersion name')
-      .lean();
+      .lean() as unknown as { 
+        versions: Array<{ createdAt: Date }>;
+        currentVersion: string;
+        name: string;
+      };
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -82,9 +86,9 @@ export async function POST(
     try {
       prompt.addVersion(validation.data);
       await prompt.save();
-    } catch (versionError: any) {
+    } catch (versionError: Error | unknown) {
       return createErrorResponse(
-        versionError.message,
+        versionError instanceof Error ? versionError.message : String(versionError),
         'VERSION_ERROR',
         400
       );

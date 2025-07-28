@@ -4,10 +4,12 @@ import { Prompt } from '@/lib/database/models/prompt';
 import { TestCase } from '@/lib/database/models/testCase';
 import { TestResult } from '@/lib/database/models/testResult';
 import { TestExecutionRequest, TestExecutionResponse, ApiResponse } from '@/lib/prompt-mgmt/types';
-import { runPromptTest } from '@/lib/testing/promptfoo-runner';
+import { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
+import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
 import pino from 'pino';
 
 const logger = pino();
+const promptFooRunner = new PromptFooRunner();
 
 // Store for tracking running tests (in production, use Redis or similar)
 const runningTests = new Map<string, TestExecutionResponse>();
@@ -150,10 +152,10 @@ export async function GET(
 // Async function to execute tests
 async function executeTestsAsync(
   executionId: string,
-  prompt: any,
-  version: any,
-  testCases: any[],
-  variables?: Record<string, any>
+  prompt: IPrompt,
+  version: { version: string; template: string },
+  testCases: ITestCase[],
+  variables?: Record<string, unknown>
 ) {
   const testExecution = runningTests.get(executionId);
   if (!testExecution) return;
@@ -172,32 +174,57 @@ async function executeTestsAsync(
         logger.info(`Executing test case: ${testCase.name}`);
         
         // Merge test case variables with provided variables
-        const testVars = { ...testCase.vars, ...variables };
+        const testVars = { ...testCase.vars, ...(variables || {}) };
         
         // Run the test using PromptFoo
-        const result = await runPromptTest({
-          template: version.template,
-          variables: testVars,
-          assertions: testCase.assert
-        });
+        const { result } = await promptFooRunner.executeTests(
+          prompt,
+          [testCase],
+          {
+            provider: 'openai',
+            saveResults: true,
+            environment: PromptEnvironment.DEVELOPMENT
+          }
+        );
+        
+        if (!result) {
+          throw new Error('Test execution failed to return results');
+        }
+        
+        // Extract test result data from the first result (we only ran one test)
+        const testRun = result.results[0];
+        const tokenUsage = testRun.response.tokenUsage || { total: 0, prompt: 0, completion: 0 };
+        const assertions = testRun.gradingResult ? [
+          {
+            type: testRun.gradingResult.assertion?.type || 'custom',
+            passed: testRun.gradingResult.pass,
+            score: testRun.gradingResult.score,
+            reason: testRun.gradingResult.reason,
+            expected: testRun.gradingResult.assertion?.value || '',
+            actual: testRun.response.output
+          }
+        ] : [];
         
         // Create test result record
         const testResult = new TestResult({
           testCaseId: testCase._id,
           promptId: prompt._id,
           promptVersion: version.version,
-          success: result.success,
-          score: result.score || 0,
-          latencyMs: result.latencyMs || 0,
-          tokensUsed: result.tokensUsed || 0,
-          cost: result.cost || 0,
-          response: result.output || '',
-          error: result.error,
-          assertions: result.assertions || [],
+          success: testRun.success,
+          score: testRun.score || 0,
+          latencyMs: testRun.response.latencyMs || 0,
+          tokensUsed: tokenUsage.total,
+          cost: testRun.response.cost || 0,
+          response: testRun.response.output || '',
+          error: testRun.gradingResult?.reason || '',
+          assertions: assertions,
           metadata: {
             executionId,
             variables: testVars,
-            ...result.metadata
+            provider: 'openai',
+            model: 'gpt-4',
+            timestamp: new Date(),
+            environment: PromptEnvironment.DEVELOPMENT
           }
         });
         
@@ -207,19 +234,22 @@ async function executeTestsAsync(
         testExecution.results!.push({
           testCaseId: testCase._id.toString(),
           testCaseName: testCase.name,
-          status: result.success ? 'passed' : 'failed',
-          score: result.score || 0,
-          executionTime: result.latencyMs || 0,
-          output: result.output,
-          error: result.error,
-          assertions: result.assertions || [],
-          metadata: result.metadata
+          status: testRun.success ? 'passed' : 'failed',
+          score: testRun.score || 0,
+          executionTime: testRun.response.latencyMs || 0,
+          output: testRun.response.output,
+          error: testRun.gradingResult?.reason || '',
+          assertions: assertions,
+          metadata: {
+            provider: 'openai',
+            model: 'gpt-4'
+          }
         });
         
         // Update progress
         testExecution.progress = Math.round(((i + 1) / testCases.length) * 100);
         
-        logger.info(`Test case ${testCase.name} completed: ${result.success ? 'PASSED' : 'FAILED'}`);
+        logger.info(`Test case ${testCase.name} completed: ${testRun.success ? 'PASSED' : 'FAILED'}`);
         
       } catch (testError) {
         logger.error(`Error executing test case ${testCase.name}:`, testError);

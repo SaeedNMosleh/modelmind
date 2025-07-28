@@ -187,12 +187,13 @@ export async function POST(
       }
     });
     
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error occurred');
     logger.error({
       promptId: params.id,
       testCaseId: params.testCaseId,
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     }, 'Single test execution failed');
     
     return handleApiError(error);

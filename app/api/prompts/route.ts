@@ -5,7 +5,7 @@ import {
   createErrorResponse, 
   handleApiError,
   withTimeout,
-  parsePaginationParams,
+  // parsePaginationParams - unused
   createPaginationMeta,
   createValidationErrorResponse
 } from '@/lib/api/responses';
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       tags
     } = queryValidation.data;
 
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
     
     if (agentType) filter.agentType = agentType;
     if (diagramType) filter.diagramType = { $in: [diagramType] };
@@ -55,11 +55,13 @@ export async function GET(request: NextRequest) {
     }
 
     const sortOrder = order === 'asc' ? 1 : -1;
-    const sortObj: any = { [sort]: sortOrder };
+    // Type for mongoose sort must be an object with keys as field names and values as 1 or -1
+    // Using Record<string, -1 | 1> for mongoose sort compatibility
+    const sortObj = { [sort]: sortOrder };
 
     const [prompts, total] = await Promise.all([
       Prompt.find(filter)
-        .sort(sortObj)
+        .sort(sortObj as Record<string, -1 | 1>) // Cast to specific sort order type
         .skip((page - 1) * limit)
         .limit(limit)
         .select('-versions.template')

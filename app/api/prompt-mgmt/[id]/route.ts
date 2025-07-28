@@ -157,7 +157,7 @@ export async function PUT(
     
     updatableFields.forEach(field => {
       if (updateData[field] !== undefined) {
-        (existingPrompt as any)[field] = updateData[field];
+        (existingPrompt as Record<string, unknown>)[field] = updateData[field];
       }
     });
     

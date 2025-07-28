@@ -54,9 +54,9 @@ export async function PUT(
     try {
       prompt.activateVersion(params.version);
       await prompt.save();
-    } catch (activationError: any) {
+    } catch (activationError: Error | unknown) {
       return createErrorResponse(
-        activationError.message,
+        activationError instanceof Error ? activationError.message : 'Unknown activation error',
         'ACTIVATION_ERROR',
         400
       );

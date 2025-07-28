@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { connectToDatabase, Prompt, TestCase, TestResult } from '@/lib/database';
 import { 
   createSuccessResponse, 
@@ -9,7 +8,7 @@ import pino from 'pino';
 
 const logger = pino({ name: 'prompts-health-api' });
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const startTime = Date.now();
   
   try {
@@ -74,10 +73,10 @@ export async function GET(request: NextRequest) {
       ])
     ]);
 
-    const agentTypeCounts = promptStats[0]?.byAgentType?.reduce((acc: any, item: any) => {
+    const agentTypeCounts = promptStats[0]?.byAgentType?.reduce((acc: Record<string, number>, item: { agentType: string }) => {
       acc[item.agentType] = (acc[item.agentType] || 0) + 1;
       return acc;
-    }, {}) || {};
+    }, {} as Record<string, number>) || {};
 
     const healthData = {
       status: 'healthy',
@@ -127,15 +126,16 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse(healthData);
     
-  } catch (error: any) {
-    logger.error({ error: error.message, stack: error.stack }, 'Health check failed');
+  } catch (error: Error | unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message, stack: err.stack }, 'Health check failed');
     
     return createErrorResponse(
       'Health check failed',
       'HEALTH_CHECK_ERROR',
       503,
       {
-        error: error.message,
+        error: err.message,
         responseTimeMs: Date.now() - startTime
       }
     );

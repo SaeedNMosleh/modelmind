@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     
     const { environment, agentType, diagramType, includeTemplate, format } = queryValidation.data;
 
-    const filter: any = {
+    const filter: Record<string, unknown> = {
       environments: { $in: [environment] }
     };
     
@@ -113,7 +113,12 @@ export async function GET(request: NextRequest) {
       format
     }, 'Retrieved active prompts');
 
-    const response: any = {
+    const response: {
+      environment: PromptEnvironment;
+      count: number;
+      prompts: unknown[];
+      promptfooConfig?: unknown;
+    } = {
       environment,
       count: activePrompts.length,
       prompts: activePrompts
