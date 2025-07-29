@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
 import { ITestResult, PromptEnvironment, CreateTestResultInput } from '../types';
 
@@ -314,6 +314,6 @@ TestResultSchema.statics.getAggregatedMetrics = async function(
   };
 };
 
-export const TestResult = models.TestResult || model<ITestResult>('TestResult', TestResultSchema);
+export const TestResult = mongoose.models.TestResult || model<ITestResult>('TestResult', TestResultSchema);
 
 export default TestResult;

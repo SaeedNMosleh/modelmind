@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
 import {
   IPrompt,
@@ -204,6 +204,6 @@ PromptSchema.methods.getVersion = function(version: string): IPromptVersion | nu
   return this.versions.find((v: IPromptVersion) => v.version === version) || null;
 };
 
-export const Prompt = models.Prompt || model<IPrompt>('Prompt', PromptSchema);
+export const Prompt = mongoose.models.Prompt || model<IPrompt>('Prompt', PromptSchema);
 
 export default Prompt;

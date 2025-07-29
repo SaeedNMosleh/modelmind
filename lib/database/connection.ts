@@ -1,18 +1,26 @@
 import mongoose from 'mongoose';
 import pino from 'pino';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const logger = pino({ name: 'database' });
 
 declare global {
-  var mongoose: any;
+  // We need to use interface declaration merging instead of 'var' with 'any'
+  interface Global {
+    mongoose: {
+      conn: mongoose.Connection | null;
+      promise: Promise<mongoose.Connection> | null;
+    } | undefined;
+  }
 }
 
 const MONGODB_URI = process.env.MONGODB_URI;
-
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
 }
 
+// Use the typed global interface
 let cached = global.mongoose;
 
 if (!cached) {

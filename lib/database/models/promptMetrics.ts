@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
 import { IPromptMetrics, PromptEnvironment, CreatePromptMetricsInput } from '../types';
 
@@ -293,7 +293,7 @@ PromptMetricsSchema.statics.createFromTestResults = async function(
   timestamp: Date,
   environment: PromptEnvironment
 ) {
-  const TestResult = models.TestResult;
+  const TestResult = mongoose.models.TestResult;
   if (!TestResult) {
     throw new Error('TestResult model not found');
   }
@@ -394,6 +394,6 @@ function getPeriodEnd(periodStart: Date, period: 'hour' | 'day' | 'week' | 'mont
   return date;
 }
 
-export const PromptMetrics = models.PromptMetrics || model<IPromptMetrics>('PromptMetrics', PromptMetricsSchema);
+export const PromptMetrics = mongoose.models.PromptMetrics || model<IPromptMetrics>('PromptMetrics', PromptMetricsSchema);
 
 export default PromptMetrics;

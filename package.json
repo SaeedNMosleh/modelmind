@@ -1,5 +1,6 @@
 {
   "name": "modelmind-v1",
+  "type": "module",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,22 +8,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node scripts/seed-database.ts full",
-    "seed:prompts": "ts-node scripts/seed-database.ts prompts",
-    "seed:test-cases": "ts-node scripts/seed-database.ts test-cases",
-    "seed:production": "ts-node scripts/seed-database.ts production",
-    "seed:interactive": "ts-node scripts/seed-database.ts interactive",
-    "seed:stats": "ts-node scripts/seed-database.ts stats",
-    "seed:validate": "ts-node scripts/seed-database.ts validate",
-    "seed:cleanup": "ts-node scripts/seed-database.ts cleanup --confirm",
-    "migrate": "ts-node scripts/migrate-from-pipeline.ts migrate",
-    "migrate:quick": "ts-node scripts/migrate-from-pipeline.ts quick-seed",
-    "migrate:dry-run": "ts-node scripts/migrate-from-pipeline.ts migrate --dry-run",
-    "migrate:validate": "ts-node scripts/migrate-from-pipeline.ts validate",
-    "backup": "ts-node scripts/backup-prompts.ts create",
-    "backup:compress": "ts-node scripts/backup-prompts.ts create --compress",
-    "backup:list": "ts-node scripts/backup-prompts.ts list",
-    "restore": "ts-node scripts/backup-prompts.ts restore"
+    "db:init": "tsx scripts/db-init.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:migrate:force": "tsx scripts/db-migrate.ts --force",
+    "db:backup": "tsx scripts/db-backup.ts",
+    "db:backup:no-compress": "tsx scripts/db-backup.ts --no-compress",
+    "db:restore": "tsx scripts/db-restore.ts",
+    "db:validate": "tsx scripts/db-validate.ts",
+    "db:reset": "tsx scripts/db-reset.ts",
+    "db:reset:init": "tsx scripts/db-reset.ts --init",
+    "db:reset:force": "tsx scripts/db-reset.ts --force",
+    "db:list-backups": "tsx scripts/db-list-backups.ts",
+    "db:list-backups:simple": "tsx scripts/db-list-backups.ts --simple"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.0",
@@ -85,6 +82,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

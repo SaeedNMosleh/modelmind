@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
 import { ITestCase, IPromptFooAssertion, CreateTestCaseInput } from '../types';
 
@@ -199,6 +199,6 @@ TestCaseSchema.methods.validate = function(callback?: any) {
   return true;
 };
 
-export const TestCase = models.TestCase || model<ITestCase>('TestCase', TestCaseSchema);
+export const TestCase = mongoose.models.TestCase || model<ITestCase>('TestCase', TestCaseSchema);
 
 export default TestCase;
