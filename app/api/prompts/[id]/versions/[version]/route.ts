@@ -31,7 +31,13 @@ export async function GET(
 
     const prompt = await Prompt.findById(params.id)
       .select('name agentType operation versions currentVersion')
-      .lean();
+      .lean() as unknown as {
+        name: string;
+        agentType: string;
+        operation: string;
+        versions: Array<{ version: string; [key: string]: unknown }>;
+        currentVersion: string;
+      };
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');

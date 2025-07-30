@@ -1,20 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
   Save, 
   Play, 
-  Eye, 
   AlertCircle, 
   CheckCircle2,
   FileText,
   Settings,
   Loader2
 } from 'lucide-react';
-import { PromptMgmtPrompt, PromptFormData, TemplateValidationResult } from '@/lib/prompt-mgmt/types';
+import { PromptMgmtPrompt, PromptFormData, TemplateValidationResult, PromptMgmtVersion } from '@/lib/prompt-mgmt/types';
 import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
+// import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -36,7 +35,7 @@ import {
 import { MonacoEditor } from '@/components/prompt-mgmt/MonacoEditor';
 import { PromptPreview } from '@/components/prompt-mgmt/PromptPreview';
 import { VariableEditor } from '@/components/prompt-mgmt/VariableEditor';
-import { validateTemplate, extractTemplateVariables } from '@/lib/prompt-mgmt/utils';
+import { validateTemplate } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 export default function PromptEditPage() {
@@ -50,7 +49,7 @@ export default function PromptEditPage() {
     name: '',
     agentType: AgentType.GENERATOR,
     diagramType: [],
-    operation: PromptOperation.GENERATE,
+    operation: PromptOperation.GENERATION,
     environments: [PromptEnvironment.DEVELOPMENT],
     tags: [],
     template: '',
@@ -64,7 +63,7 @@ export default function PromptEditPage() {
   const [validationResult, setValidationResult] = useState<TemplateValidationResult | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState('template');
-  const [previewVariables, setPreviewVariables] = useState<Record<string, any>>({});
+  const [previewVariables, setPreviewVariables] = useState<Record<string, unknown>>({});
   const [autoSave, setAutoSave] = useState(true);
   
   // Fetch existing prompt for editing
@@ -81,7 +80,7 @@ export default function PromptEditPage() {
           }
           
           const currentVersion = data.data.versions.find(
-            (v: any) => v.version === data.data.currentVersion
+            (v: PromptMgmtVersion) => v.version === data.data.currentVersion
           );
           
           setPrompt(data.data);
@@ -114,7 +113,7 @@ export default function PromptEditPage() {
       setValidationResult(result);
       
       // Update preview variables based on extracted variables
-      const newVariables: Record<string, any> = {};
+      const newVariables: Record<string, unknown> = {};
       result.variables.forEach(variable => {
         if (!previewVariables[variable.name]) {
           newVariables[variable.name] = variable.defaultValue || 
@@ -129,25 +128,10 @@ export default function PromptEditPage() {
       });
       setPreviewVariables(newVariables);
     }
-  }, [formData.template]);
+  }, [formData.template, previewVariables]);
   
-  // Auto-save functionality
-  useEffect(() => {
-    if (!autoSave || !isDirty || isNew) return;
-    
-    const timer = setTimeout(() => {
-      handleSave(true);
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, [formData, isDirty, autoSave, isNew]);
-  
-  const updateFormData = (updates: Partial<PromptFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
-    setIsDirty(true);
-  };
-  
-  const handleSave = async (isAutoSave = false) => {
+  // Save function
+  const handleSave = useCallback(async (isAutoSave = false) => {
     if (!validationResult?.isValid && !isAutoSave) {
       alert('Please fix template validation errors before saving');
       return;
@@ -197,6 +181,22 @@ export default function PromptEditPage() {
     } finally {
       setSaving(false);
     }
+  }, [formData, isNew, promptId, router, validationResult]);
+  
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSave || !isDirty || isNew) return;
+    
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      handleSave(true);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [formData, isDirty, autoSave, isNew, handleSave]);
+
+  const updateFormData = (updates: Partial<PromptFormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+    setIsDirty(true);
   };
   
   const handleTest = async () => {
@@ -305,7 +305,7 @@ export default function PromptEditPage() {
             variant="outline" 
             size="sm" 
             onClick={handleTest}
-            disabled={saving || (validationResult && !validationResult.isValid)}
+            disabled={saving || !!(validationResult && !validationResult.isValid)}
           >
             <Play className="h-4 w-4 mr-2" />
             Test
@@ -421,7 +421,7 @@ export default function PromptEditPage() {
               <PromptPreview
                 prompt={{
                   ...formData,
-                  _id: promptId as any,
+                  _id: promptId,
                   versions: [{
                     version: '1.0.0',
                     template: formData.template,
@@ -432,7 +432,7 @@ export default function PromptEditPage() {
                   createdAt: new Date(),
                   updatedAt: new Date(),
                   isProduction: false
-                } as any}
+                } as unknown as PromptMgmtPrompt}
                 variables={previewVariables}
                 onVariablesChange={setPreviewVariables}
                 showVariableEditor
@@ -444,7 +444,7 @@ export default function PromptEditPage() {
                 variables={validationResult?.variables || []}
                 values={previewVariables}
                 onChange={setPreviewVariables}
-                onVariableUpdate={(variableId, updates) => {
+                onVariableUpdate={() => {
                   // Handle variable metadata updates
                 }}
               />

@@ -9,6 +9,7 @@ import {
   createValidationErrorResponse
 } from '@/lib/api/responses';
 import { CreateVersionSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import pino from 'pino';
 
 const logger = pino({ name: 'prompt-versions-api' });
@@ -74,7 +75,7 @@ export async function POST(
     const validation = CreateVersionSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const prompt = await Prompt.findById(params.id);

@@ -34,7 +34,7 @@ export interface IPromptVersion {
   changelog: string;
   createdAt: Date;
   isActive: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IPrompt extends Document {
@@ -50,12 +50,12 @@ export interface IPrompt extends Document {
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IPromptFooAssertion {
   type: string;
-  value?: any;
+  value?: unknown;
   threshold?: number;
   provider?: string;
   rubric?: string;
@@ -67,13 +67,13 @@ export interface ITestCase extends Document {
   promptId: Types.ObjectId;
   name: string;
   description: string;
-  vars: Record<string, any>;
+  vars: Record<string, unknown>;
   assert: IPromptFooAssertion[];
   tags: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ITestResult extends Document {
@@ -100,7 +100,7 @@ export interface ITestResult extends Document {
     temperature?: number;
     timestamp: Date;
     environment: PromptEnvironment;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   createdAt: Date;
 }
@@ -133,15 +133,15 @@ export interface IPromptFooConfig {
   }>;
   providers: Array<{
     id: string;
-    config: Record<string, any>;
+    config: Record<string, unknown>;
   }>;
   tests: Array<{
-    vars: Record<string, any>;
+    vars: Record<string, unknown>;
     assert: IPromptFooAssertion[];
     description?: string;
   }>;
   defaultTest?: {
-    vars?: Record<string, any>;
+    vars?: Record<string, unknown>;
     assert?: IPromptFooAssertion[];
   };
   outputPath?: string;
@@ -159,7 +159,7 @@ export interface IPromptFooResult {
       id: string;
       template: string;
     };
-    vars: Record<string, any>;
+    vars: Record<string, unknown>;
     response: {
       output: string;
       tokenUsage?: {

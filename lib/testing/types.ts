@@ -18,6 +18,17 @@ export interface TestExecutionJob {
   };
 }
 
+export interface ProviderConfig {
+  model?: string;
+  apiKey?: string;
+  baseURL?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  organization?: string;
+  options?: Record<string, unknown>;
+}
+
 export interface PromptFooConfig {
   prompts: Array<{
     id: string;
@@ -25,15 +36,15 @@ export interface PromptFooConfig {
   }>;
   providers: Array<{
     id: string;
-    config: Record<string, any>;
+    config: ProviderConfig;
   }>;
   tests: Array<{
-    vars: Record<string, any>;
+    vars: Record<string, unknown>;
     assert: IPromptFooAssertion[];
     description?: string;
   }>;
   defaultTest?: {
-    vars?: Record<string, any>;
+    vars?: Record<string, unknown>;
     assert?: IPromptFooAssertion[];
   };
   outputPath?: string;
@@ -51,7 +62,7 @@ export interface PromptFooExecutionResult {
       id: string;
       template: string;
     };
-    vars: Record<string, any>;
+    vars: Record<string, unknown>;
     response: {
       output: string;
       tokenUsage?: {
@@ -167,15 +178,27 @@ export interface TestExecutionOptions {
   customEvaluators?: string[];
 }
 
+export interface EvaluatorContext {
+  promptTemplate: string;
+  testCaseName?: string;
+  testCaseDescription?: string;
+  variables: Record<string, unknown>;
+  expectedResult?: unknown;
+  model?: string;
+  provider?: string;
+}
+
+export interface EvaluatorResult {
+  pass: boolean;
+  score: number;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface CustomEvaluatorConfig {
   name: string;
   description: string;
-  handler: (output: string, context: any) => Promise<{
-    pass: boolean;
-    score: number;
-    reason?: string;
-    metadata?: Record<string, any>;
-  }>;
+  handler: (output: string, context: EvaluatorContext) => Promise<EvaluatorResult>;
 }
 
 export interface TestAnalytics {

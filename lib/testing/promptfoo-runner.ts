@@ -45,9 +45,9 @@ export class PromptFooRunner {
         const result = await this.runTestsSync(job, prompt, testCases, options);
         return { jobId, result };
       }
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       job.status = 'failed';
-      job.error = error.message;
+      job.error = error instanceof Error ? error.message : String(error);
       job.completedAt = new Date();
       this.activeJobs.set(jobId, job);
       throw error;
@@ -116,16 +116,16 @@ export class PromptFooRunner {
         failedTests: job.metadata.failedTests
       }, 'Async test execution completed');
 
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       job.status = 'failed';
-      job.error = error.message;
+      job.error = error instanceof Error ? error.message : String(error);
       job.completedAt = new Date();
       this.activeJobs.set(job.id, job);
       
       logger.error({
         jobId: job.id,
-        error: error.message,
-        stack: error.stack
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
       }, 'Async test execution failed');
     }
   }
@@ -204,15 +204,15 @@ export class PromptFooRunner {
           }, 'PromptFoo execution completed successfully');
 
           resolve(result);
-        } catch (parseError: any) {
+        } catch (parseError: Error | unknown) {
           logger.error({
-            error: parseError.message,
+            error: parseError instanceof Error ? parseError.message : String(parseError),
             outputPath,
             stdout,
             stderr
           }, 'Failed to parse PromptFoo output');
           
-          reject(new Error(`Failed to parse PromptFoo output: ${parseError.message}`));
+          reject(new Error(`Failed to parse PromptFoo output: ${parseError instanceof Error ? parseError.message : String(parseError)}`));
         }
       });
 
@@ -274,11 +274,11 @@ export class PromptFooRunner {
         });
         
         results.push({ promptId: prompt._id.toString(), jobId });
-      } catch (error: any) {
+      } catch (error: Error | unknown) {
         results.push({ 
           promptId: prompt._id.toString(), 
           jobId: '', 
-          error: error.message 
+          error: error instanceof Error ? error.message : String(error) 
         });
       }
     }

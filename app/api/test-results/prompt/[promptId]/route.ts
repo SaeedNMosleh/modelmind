@@ -6,10 +6,10 @@ import {
   handleApiError,
   withTimeout,
   createNotFoundResponse,
-  parsePaginationParams,
   createPaginationMeta
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
 import pino from 'pino';
@@ -69,7 +69,7 @@ export async function GET(
         'Invalid query parameters',
         'VALIDATION_ERROR',
         400,
-        queryValidation.error.errors
+        zodErrorsToValidationDetails(queryValidation.error.errors)
       );
     }
 
@@ -92,20 +92,21 @@ export async function GET(
       return createNotFoundResponse('Prompt');
     }
 
-    const filter: any = { promptId: params.promptId };
+    // Define filter with proper MongoDB filter type
+    const filter: Record<string, unknown> = { promptId: params.promptId };
     
     if (version) filter.promptVersion = version;
     if (environment) filter['metadata.environment'] = environment;
     if (typeof success === 'boolean') filter.success = success;
     
     if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = startDate;
-      if (endDate) filter.createdAt.$lte = endDate;
+      filter.createdAt = {} as Record<string, Date>;
+      if (startDate) (filter.createdAt as Record<string, Date>).$gte = startDate;
+      if (endDate) (filter.createdAt as Record<string, Date>).$lte = endDate;
     }
 
     const sortOrder = order === 'asc' ? 1 : -1;
-    const sortObj: any = { [sort]: sortOrder };
+    const sortObj: Record<string, 1 | -1> = { [sort]: sortOrder };
 
     const populateOptions = includeTestCase 
       ? [

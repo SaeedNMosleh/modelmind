@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { fileURLToPath } from 'url';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
 import { TestCase } from '../lib/database/models/testCase';
@@ -297,7 +298,9 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+const __filename = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === __filename) {
   main();
 }
 

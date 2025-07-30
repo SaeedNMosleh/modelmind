@@ -5,13 +5,11 @@ import {
   BarChart3, 
   TrendingUp, 
   Users, 
-  Clock, 
   Target,
   Zap,
   Calendar,
   RefreshCw,
-  Download,
-  Filter
+  Download
 } from 'lucide-react';
 import { PromptStats, PromptAnalytics as PromptAnalyticsType } from '@/lib/prompt-mgmt/types';
 import { Button } from '@/components/ui/button';
@@ -20,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDuration, formatTimestamp } from '@/lib/prompt-mgmt/utils';
+import { formatDuration } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 interface PromptAnalyticsProps {
@@ -56,6 +54,7 @@ export function PromptAnalytics({
         }
       } catch (err) {
         setError('Failed to load analytics data');
+        console.error('Analytics fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -218,7 +217,7 @@ export function PromptAnalytics({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {usage.popularVariables.slice(0, 5).map((variable, index) => (
+                {usage.popularVariables.slice(0, 5).map((variable) => (
                   <div key={variable.name} className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline" className="font-mono text-xs">
@@ -504,6 +503,13 @@ export function PromptAnalytics({
           </Button>
         </div>
       </div>
+      
+      {/* Error display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
+          {error}
+        </div>
+      )}
       
       {/* Overview Metrics */}
       <MetricsOverview />

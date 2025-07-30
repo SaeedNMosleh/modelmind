@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Eye, 
-  Code, 
+  // Code, - Unused
   Play, 
   Copy, 
   Check, 
@@ -11,18 +11,19 @@ import {
   FileText,
   Settings,
   Expand,
-  Compress
+  // Compress - Use Compass instead
+  Compass
 } from 'lucide-react';
-import { PromptMgmtPrompt, PromptMgmtVersion, TemplateVariable } from '@/lib/prompt-mgmt/types';
+import { PromptMgmtPrompt, PromptMgmtVersion } from '@/lib/prompt-mgmt/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; - Unused
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
+// import { Separator } from '@/components/ui/separator'; - Unused
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { extractTemplateVariables, formatTimestamp } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
@@ -30,8 +31,8 @@ import { cn } from '@/lib/utils';
 interface PromptPreviewProps {
   prompt: PromptMgmtPrompt;
   version?: PromptMgmtVersion;
-  variables?: Record<string, any>;
-  onVariablesChange?: (variables: Record<string, any>) => void;
+  variables?: Record<string, unknown>;
+  onVariablesChange?: (variables: Record<string, unknown>) => void;
   showMetadata?: boolean;
   showVariables?: boolean;
   showVariableEditor?: boolean;
@@ -53,7 +54,7 @@ export function PromptPreview({
   const [copied, setCopied] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [testVariables, setTestVariables] = useState<Record<string, any>>(variables);
+  const [testVariables, setTestVariables] = useState<Record<string, unknown>>(variables);
   
   // Use the specified version or the current one
   const activeVersion = version || prompt.versions.find(v => v.version === prompt.currentVersion);
@@ -82,7 +83,7 @@ export function PromptPreview({
   }, [template, templateVariables, testVariables, variables]);
   
   // Handle variable changes
-  const handleVariableChange = (name: string, value: any) => {
+  const handleVariableChange = (name: string, value: unknown) => {
     const updated = { ...testVariables, [name]: value };
     setTestVariables(updated);
     onVariablesChange?.(updated);
@@ -141,7 +142,7 @@ export function PromptPreview({
                 <div className="flex items-center space-x-2">
                   <Switch
                     id={`var-${variable.name}`}
-                    checked={testVariables[variable.name] || false}
+                    checked={Boolean(testVariables[variable.name])}
                     onCheckedChange={(checked) => handleVariableChange(variable.name, checked)}
                   />
                   <span className="text-sm">
@@ -177,7 +178,7 @@ export function PromptPreview({
                 <Input
                   id={`var-${variable.name}`}
                   type={variable.type === 'number' ? 'number' : 'text'}
-                  value={testVariables[variable.name] || ''}
+                  value={String(testVariables[variable.name] || '')}
                   onChange={(e) => {
                     const value = variable.type === 'number' 
                       ? parseFloat(e.target.value) || 0
@@ -232,7 +233,7 @@ export function PromptPreview({
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
               >
-                {isExpanded ? <Compress className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
+                {isExpanded ? <Compass className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
               </Button>
               
               <Button

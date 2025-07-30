@@ -8,6 +8,7 @@ import {
   createNotFoundResponse,
   createValidationErrorResponse
 } from '@/lib/api/responses';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { testResultParser } from '@/lib/testing/result-parser';
@@ -62,7 +63,7 @@ export async function POST(
     const validation = ComparisonTestSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const options: ComparisonTestExecutionOptions = {

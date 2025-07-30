@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -26,7 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TestCaseEditor } from '@/components/prompt-mgmt/TestCaseEditor';
 import { TestResults } from '@/components/prompt-mgmt/TestResults';
-import { formatDuration, formatTimestamp } from '@/lib/prompt-mgmt/utils';
+import { formatDuration } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 export default function TestManagementPage() {
@@ -38,41 +38,11 @@ export default function TestManagementPage() {
   const [prompt, setPrompt] = useState<PromptMgmtPrompt | null>(null);
   const [currentExecution, setCurrentExecution] = useState<TestExecutionResponse | null>(null);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   
-  // Fetch prompt and execution status
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch prompt details
-        const promptResponse = await fetch(`/api/prompt-mgmt/${promptId}`);
-        const promptData = await promptResponse.json();
-        
-        if (promptData.success) {
-          setPrompt(promptData.data);
-        }
-        
-        // If we have a jobId, fetch execution status
-        if (jobId) {
-          await pollExecutionStatus(jobId);
-        }
-        
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, [promptId, jobId]);
-  
   // Poll execution status if running
-  const pollExecutionStatus = async (executionId: string) => {
+  const pollExecutionStatus = useCallback(async (executionId: string) => {
     try {
       const response = await fetch(`/api/prompts/${promptId}/test/status/${executionId}`);
       const data = await response.json();
@@ -95,7 +65,32 @@ export default function TestManagementPage() {
     } catch (err) {
       console.error('Failed to poll execution status:', err);
     }
-  };
+  }, [promptId]);
+  
+  // Fetch prompt and execution status
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch prompt details
+        const promptResponse = await fetch(`/api/prompt-mgmt/${promptId}`);
+        const promptData = await promptResponse.json();
+        
+        if (promptData.success) {
+          setPrompt(promptData.data);
+        }
+        
+        // If we have a jobId, fetch execution status
+        if (jobId) {
+          await pollExecutionStatus(jobId);
+        }
+        
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      }
+    };
+    
+    fetchData();
+  }, [promptId, jobId, pollExecutionStatus]);
   
   const handleRunTests = async () => {
     if (!prompt) return;
@@ -172,7 +167,6 @@ export default function TestManagementPage() {
   
   const passedTests = testResults.filter(r => r.status === 'passed').length;
   const failedTests = testResults.filter(r => r.status === 'failed' || r.status === 'error').length;
-  const passRate = testResults.length ? (passedTests / testResults.length) * 100 : 0;
   
   return (
     <div className="container mx-auto p-6 space-y-6">

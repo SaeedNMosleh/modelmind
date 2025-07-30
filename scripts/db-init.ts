@@ -10,9 +10,22 @@ import {
   DiagramType, 
   PromptOperation, 
   PromptEnvironment,
-  IPromptFooAssertion 
+  IPromptFooAssertion
 } from '../lib/database/types';
 import pino from 'pino';
+import { Types } from 'mongoose';
+
+// Define a simpler interface for creating test cases without the Document methods
+interface TestCaseTemplate {
+  promptId: Types.ObjectId;
+  name: string;
+  description: string;
+  vars: Record<string, unknown>;
+  assert: IPromptFooAssertion[];
+  tags: string[];
+  isActive: boolean;
+  metadata?: Record<string, unknown>;
+}
 
 const logger = pino({ name: 'db-init' });
 
@@ -91,20 +104,20 @@ async function initializeCollections(): Promise<InitStats> {
     // Initialize empty metrics collection structure (no records, just ensure collection exists)
     const metricsCollection = PromptMetrics.collection;
     await metricsCollection.createIndex(
-      { promptId: 1, promptVersion: 1, period: 1, timestamp: 1 },
+      { promptId: 1, promptVersion: 1, period: 1, timestamp: 1 } as Record<string, number>,
       { background: true }
     );
     stats.indexes++;
 
     // Create additional useful indexes
     const indexes = [
-      { collection: Prompt.collection, index: { name: 1 }, options: { unique: true, background: true } },
-      { collection: Prompt.collection, index: { agentType: 1, diagramType: 1 }, options: { background: true } },
-      { collection: Prompt.collection, index: { isProduction: 1 }, options: { background: true } },
-      { collection: TestCase.collection, index: { promptId: 1 }, options: { background: true } },
-      { collection: TestCase.collection, index: { isActive: 1 }, options: { background: true } },
-      { collection: TestResult.collection, index: { promptId: 1, promptVersion: 1 }, options: { background: true } },
-      { collection: TestResult.collection, index: { createdAt: -1 }, options: { background: true } }
+      { collection: Prompt.collection, index: { name: 1 } as Record<string, number>, options: { unique: true, background: true } },
+      { collection: Prompt.collection, index: { agentType: 1, diagramType: 1 } as Record<string, number>, options: { background: true } },
+      { collection: Prompt.collection, index: { isProduction: 1 } as Record<string, number>, options: { background: true } },
+      { collection: TestCase.collection, index: { promptId: 1 } as Record<string, number>, options: { background: true } },
+      { collection: TestCase.collection, index: { isActive: 1 } as Record<string, number>, options: { background: true } },
+      { collection: TestResult.collection, index: { promptId: 1, promptVersion: 1 } as Record<string, number>, options: { background: true } },
+      { collection: TestResult.collection, index: { createdAt: -1 } as Record<string, number>, options: { background: true } }
     ];
 
     for (const { collection, index, options } of indexes) {
@@ -276,7 +289,7 @@ If you cannot clearly determine the user's intent, respond with UNKNOWN.`,
 async function createTestCaseTemplates() {
   // Get the created prompts to reference their IDs
   const prompts = await Prompt.find({ 'metadata.initialized': true });
-  const testCases = [];
+  const testCases: TestCaseTemplate[] = [];
 
   const baseAssertions: IPromptFooAssertion[] = [
     {
@@ -422,7 +435,7 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (process.argv[1] === import.meta.url.substring(7)) {
   main();
 }
 

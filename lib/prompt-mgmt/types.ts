@@ -1,4 +1,4 @@
-import { IPrompt, IPromptVersion, ITestCase, ITestResult, AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../database/types';
+import { IPrompt, IPromptVersion, AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../database/types';
 
 // UI-specific types for prompt management
 export interface PromptMgmtPrompt extends Omit<IPrompt, 'versions'> {
@@ -61,7 +61,7 @@ export interface TestExecutionRequest {
   promptId: string;
   version?: string;
   testCaseIds?: string[];
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
 }
 
 export interface TestExecutionResponse {
@@ -78,16 +78,16 @@ export interface TestResult {
   status: 'passed' | 'failed' | 'error';
   score: number;
   executionTime: number;
-  output?: any;
+  output?: unknown;
   error?: string;
   assertions: AssertionResult[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AssertionResult {
   type: string;
-  expected: any;
-  actual: any;
+  expected: unknown;
+  actual: unknown;
   passed: boolean;
   score: number;
   message?: string;
@@ -139,8 +139,8 @@ export interface TemplateVariable {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description?: string;
   required: boolean;
-  defaultValue?: any;
-  examples?: any[];
+  defaultValue?: unknown;
+  examples?: unknown[];
   validation?: VariableValidation;
 }
 
@@ -150,7 +150,7 @@ export interface VariableValidation {
   maxLength?: number;
   min?: number;
   max?: number;
-  enum?: any[];
+  enum?: unknown[];
 }
 
 export interface TemplateValidationResult {
@@ -176,7 +176,7 @@ export interface ValidationWarning extends ValidationError {
 export interface BulkOperation {
   type: 'activate' | 'deactivate' | 'delete' | 'test' | 'export' | 'duplicate';
   promptIds: string[];
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 export interface BulkOperationResult {
@@ -240,7 +240,7 @@ export interface TrendData {
 export interface RealtimeUpdate {
   type: 'prompt_updated' | 'test_completed' | 'version_created' | 'collaboration_event';
   promptId: string;
-  data: any;
+  data: unknown;
   timestamp: Date;
   userId?: string;
 }
@@ -249,7 +249,7 @@ export interface CollaborationEvent {
   type: 'user_joined' | 'user_left' | 'cursor_moved' | 'selection_changed';
   userId: string;
   userName: string;
-  data: any;
+  data: unknown;
 }
 
 // Export/Import types
@@ -272,7 +272,7 @@ export interface ImportResult {
 }
 
 // API Response types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -305,23 +305,23 @@ export interface PromptFormData {
   tags: string[];
   template: string;
   changelog: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TestCaseFormData {
   name: string;
   description: string;
-  vars: Record<string, any>;
+  vars: Record<string, unknown>;
   assert: Array<{
     type: string;
-    value?: any;
+    value?: unknown;
     threshold?: number;
     provider?: string;
     rubric?: string;
     metric?: string;
   }>;
   tags: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // UI State types
@@ -342,6 +342,6 @@ export interface EditorState {
   isValid: boolean;
   validationResult?: TemplateValidationResult;
   variables: TemplateVariable[];
-  previewData?: Record<string, any>;
+  previewData?: Record<string, unknown>;
   collaborators: CollaborationEvent[];
 }

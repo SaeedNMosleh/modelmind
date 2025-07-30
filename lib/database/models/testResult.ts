@@ -1,6 +1,7 @@
 import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
-import { ITestResult, PromptEnvironment, CreateTestResultInput } from '../types';
+import { ITestResult, PromptEnvironment } from '../types';
+import { TestResultModel } from './testResult.types';
 
 export const TestResultValidationSchema = z.object({
   testCaseId: z.string().refine(val => mongoose.Types.ObjectId.isValid(val), 'Invalid test case ID'),
@@ -178,7 +179,40 @@ TestResultSchema.statics.createFromPromptFoo = function(
   testCaseId: string,
   promptId: string,
   promptVersion: string,
-  promptFooResult: any,
+  promptFooResult: {
+    success?: boolean;
+    score?: number;
+    response?: {
+      latencyMs?: number;
+      tokenUsage?: {
+        total?: number;
+      };
+      cost?: number;
+      output?: string;
+    };
+    error?: string;
+    gradingResult?: Array<{
+      assertion?: {
+        type?: string;
+      };
+      pass?: boolean;
+      score?: number;
+      reason?: string;
+    }> | {
+      assertion?: {
+        type?: string;
+      };
+      pass?: boolean;
+      score?: number;
+      reason?: string;
+    };
+    metadata?: {
+      provider?: string;
+      model?: string;
+      temperature?: number;
+      [key: string]: unknown;
+    };
+  },
   environment: PromptEnvironment = PromptEnvironment.DEVELOPMENT
 ) {
   const assertions = promptFooResult.gradingResult ? 
@@ -189,14 +223,14 @@ TestResultSchema.statics.createFromPromptFoo = function(
     testCaseId,
     promptId,
     promptVersion,
-    success: promptFooResult.success,
+    success: promptFooResult.success || false,
     score: promptFooResult.score || 0,
     latencyMs: promptFooResult.response?.latencyMs || 0,
     tokensUsed: promptFooResult.response?.tokenUsage?.total || 0,
     cost: promptFooResult.response?.cost || 0,
     response: promptFooResult.response?.output || '',
     error: promptFooResult.error,
-    assertions: assertions.map((assertion: any) => ({
+    assertions: assertions.map((assertion) => ({
       type: assertion.assertion?.type || 'unknown',
       passed: assertion.pass || false,
       score: assertion.score || 0,
@@ -240,7 +274,19 @@ TestResultSchema.statics.getAggregatedMetrics = async function(
   startDate?: Date,
   endDate?: Date
 ) {
-  const matchConditions: any = { promptId: new mongoose.Types.ObjectId(promptId) };
+  interface MatchConditions {
+    promptId: mongoose.Types.ObjectId;
+    promptVersion?: string;
+    'metadata.environment'?: PromptEnvironment;
+    createdAt?: {
+      $gte?: Date;
+      $lte?: Date;
+    };
+  }
+
+  const matchConditions: MatchConditions = { 
+    promptId: new mongoose.Types.ObjectId(promptId) 
+  };
   
   if (promptVersion) matchConditions.promptVersion = promptVersion;
   if (environment) matchConditions['metadata.environment'] = environment;
@@ -314,6 +360,6 @@ TestResultSchema.statics.getAggregatedMetrics = async function(
   };
 };
 
-export const TestResult = mongoose.models.TestResult || model<ITestResult>('TestResult', TestResultSchema);
+export const TestResult = (mongoose.models.TestResult || model<ITestResult, TestResultModel>('TestResult', TestResultSchema)) as TestResultModel;
 
 export default TestResult;

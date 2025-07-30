@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import pino from 'pino';
+import { ZodIssue } from 'zod';
 
 const logger = pino({ name: 'api' });
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: ValidationErrorDetails;
   };
   meta?: {
     page?: number;
@@ -18,6 +19,15 @@ export interface ApiResponse<T = any> {
     hasNext?: boolean;
     hasPrev?: boolean;
   };
+}
+
+export interface ValidationErrorDetails {
+  [field: string]: {
+    message: string;
+    path?: string;
+    value?: unknown;
+    type?: string;
+  }
 }
 
 export function createSuccessResponse<T>(
@@ -35,7 +45,7 @@ export function createErrorResponse(
   message: string,
   code: string = 'INTERNAL_ERROR',
   status: number = 500,
-  details?: any
+  details?: ValidationErrorDetails
 ): NextResponse<ApiResponse> {
   logger.error({ code, message, details, status }, 'API Error');
   
@@ -53,7 +63,7 @@ export function createErrorResponse(
 }
 
 export function createValidationErrorResponse(
-  details: any
+  details: ValidationErrorDetails
 ): NextResponse<ApiResponse> {
   return createErrorResponse(
     'Validation failed',
@@ -99,26 +109,51 @@ export function createRateLimitResponse(): NextResponse<ApiResponse> {
   );
 }
 
-export function handleApiError(error: any): NextResponse<ApiResponse> {
-  if (error.name === 'ValidationError') {
-    return createValidationErrorResponse(error.errors);
+// ValidationError interface for MongoDB/Mongoose validation errors
+interface ValidationError {
+  errors: ValidationErrorDetails;
+  name: 'ValidationError';
+}
+
+// CastError interface for MongoDB/Mongoose cast errors
+interface CastError {
+  name: 'CastError';
+  path: string;
+  value: unknown;
+  message: string;
+}
+
+export function handleApiError(error: Error | unknown): NextResponse<ApiResponse> {
+  const err = error instanceof Error ? error : new Error(String(error));
+  
+  if (err.name === 'ValidationError') {
+    return createValidationErrorResponse((error as ValidationError).errors);
   }
   
-  if (error.name === 'CastError') {
+  if (err.name === 'CastError') {
+    const castError = error as CastError;
     return createErrorResponse(
-      'Invalid ID format',
+      `Invalid ID format: ${castError.value}`,
       'INVALID_ID',
       400
     );
   }
   
-  if (error.code === 11000) {
+  // MongoDB duplicate key error
+  interface MongoError {
+    code?: number;
+    keyPattern?: Record<string, number>;
+    keyValue?: Record<string, string>;
+  }
+  
+  const mongoError = error as MongoError;
+  if (mongoError.code === 11000) {
     return createConflictResponse(
       'Resource already exists with these unique fields'
     );
   }
 
-  logger.error({ error: error.message, stack: error.stack }, 'Unhandled API error');
+  logger.error({ error: err.message, stack: err.stack }, 'Unhandled API error');
   
   return createErrorResponse(
     'Internal server error',
@@ -137,6 +172,42 @@ export function withTimeout<T>(
       setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
     )
   ]);
+}
+
+// Utility function to convert Zod errors to ValidationErrorDetails
+export function zodErrorsToValidationDetails(errors: ZodIssue[]): ValidationErrorDetails {
+  const errorDetails: ValidationErrorDetails = {};
+  
+  errors.forEach((err, index) => {
+    const path = err.path.join('.');
+    errorDetails[path || `error_${index}`] = {
+      message: err.message,
+      path: path,
+      value: err.code
+    };
+  });
+  
+  return errorDetails;
+}
+
+// Helper to convert primitive values to ValidationErrorDetails
+export function toValidationDetails(obj: Record<string, unknown>): ValidationErrorDetails {
+  const result: ValidationErrorDetails = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value !== null && 'message' in (value as object)) {
+      // Already in the correct format
+      result[key] = value as { message: string; path?: string; value?: unknown };
+    } else {
+      // Convert primitive value to expected format
+      result[key] = {
+        message: typeof value === 'string' ? value : `${key}: ${String(value)}`,
+        value: value
+      };
+    }
+  }
+  
+  return result;
 }
 
 export interface PaginationParams {

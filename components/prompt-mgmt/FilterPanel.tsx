@@ -217,7 +217,7 @@ export function FilterPanel({
           value={`${sort.field}-${sort.direction}`}
           onValueChange={(value) => {
             const [field, direction] = value.split('-') as [string, 'asc' | 'desc'];
-            onSortChange({ field: field as any, direction });
+            onSortChange({ field: field as PromptSortOptions['field'], direction });
           }}
         >
           <SelectTrigger className="w-32">
@@ -293,7 +293,7 @@ export function FilterPanel({
             value={`${sort.field}-${sort.direction}`}
             onValueChange={(value) => {
               const [field, direction] = value.split('-') as [string, 'asc' | 'desc'];
-              onSortChange({ field: field as any, direction });
+              onSortChange({ field: field as PromptSortOptions['field'], direction });
             }}
           >
             <SelectTrigger className="mt-1">
@@ -483,7 +483,7 @@ export function FilterPanel({
             <div className="flex flex-wrap gap-2 mt-2">
               {filters.search && (
                 <Badge variant="secondary" className="flex items-center gap-1">
-                  Search: "{filters.search}"
+                  Search: &quot;{filters.search}&quot;
                   <X 
                     className="h-3 w-3 cursor-pointer" 
                     onClick={() => updateFilters({ search: undefined })}

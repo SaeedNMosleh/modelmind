@@ -1,6 +1,6 @@
 import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
-import { ITestCase, IPromptFooAssertion, CreateTestCaseInput } from '../types';
+import { ITestCase, IPromptFooAssertion } from '../types';
 
 export const PromptFooAssertionValidationSchema = z.object({
   type: z.string().min(1, 'Assertion type is required'),
@@ -15,11 +15,11 @@ export const TestCaseValidationSchema = z.object({
   promptId: z.string().refine(val => mongoose.Types.ObjectId.isValid(val), 'Invalid prompt ID'),
   name: z.string().min(1, 'Name cannot be empty').max(200, 'Name cannot exceed 200 characters'),
   description: z.string().max(1000, 'Description cannot exceed 1000 characters').optional().default(''),
-  vars: z.record(z.any(), 'Variables must be a valid object'),
+  vars: z.record(z.string(), z.unknown()),
   assert: z.array(PromptFooAssertionValidationSchema).min(1, 'At least one assertion is required'),
   tags: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional()
 });
 
 const PromptFooAssertionSchema = new Schema<IPromptFooAssertion>({
@@ -159,7 +159,24 @@ TestCaseSchema.methods.toPromptFooFormat = function() {
   };
 };
 
-TestCaseSchema.statics.createFromPromptFoo = function(promptId: string, name: string, promptFooTest: any, metadata?: Record<string, any>) {
+TestCaseSchema.statics.createFromPromptFoo = function(
+  promptId: string, 
+  name: string, 
+  promptFooTest: {
+    description?: string;
+    vars?: Record<string, unknown>;
+    assert?: Array<{
+      type: string;
+      value?: unknown;
+      threshold?: number;
+      provider?: string;
+      rubric?: string;
+      metric?: string;
+    }>;
+    tags?: string[];
+  }, 
+  metadata?: Record<string, unknown>
+) {
   const validation = TestCaseValidationSchema.safeParse({
     promptId,
     name,
@@ -177,7 +194,7 @@ TestCaseSchema.statics.createFromPromptFoo = function(promptId: string, name: st
   return new this(validation.data);
 };
 
-TestCaseSchema.methods.validate = function(callback?: any) {
+TestCaseSchema.methods.validateSchema = function(callback?: (error?: Error) => void) {
   const validation = TestCaseValidationSchema.safeParse({
     promptId: this.promptId.toString(),
     name: this.name,

@@ -6,7 +6,8 @@ import {
   handleApiError,
   withTimeout,
   createNotFoundResponse,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  zodErrorsToValidationDetails
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
@@ -47,7 +48,7 @@ export async function POST(
     const validation = SingleTestExecutionSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const options: TestExecutionOptions = {

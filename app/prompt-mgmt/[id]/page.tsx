@@ -12,13 +12,12 @@ import {
   GitBranch, 
   TestTube,
   Calendar,
-  User,
   Clock,
   AlertCircle,
   CheckCircle2,
   XCircle
 } from 'lucide-react';
-import { PromptMgmtPrompt, TestSummary } from '@/lib/prompt-mgmt/types';
+import { PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +30,7 @@ import { PromptPreview } from '@/components/prompt-mgmt/PromptPreview';
 import { VersionHistory } from '@/components/prompt-mgmt/VersionHistory';
 import { TestResults } from '@/components/prompt-mgmt/TestResults';
 import { PromptAnalytics } from '@/components/prompt-mgmt/PromptAnalytics';
-import { getAgentTypeIcon, formatTimestamp, getPromptStatusColor } from '@/lib/prompt-mgmt/utils';
+import { getAgentTypeIcon, formatTimestamp } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 export default function PromptDetailPage() {
@@ -332,7 +331,7 @@ export default function PromptDetailPage() {
                 promptId={promptId}
                 versions={prompt.versions}
                 currentVersion={prompt.currentVersion}
-                onVersionSelect={(version) => {
+                onVersionSelect={() => {
                   // Handle version selection
                 }}
               />

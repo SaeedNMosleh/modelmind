@@ -1,6 +1,7 @@
 import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
-import { IPromptMetrics, PromptEnvironment, CreatePromptMetricsInput } from '../types';
+import { IPromptMetrics, PromptEnvironment } from '../types';
+import { PromptMetricsModel } from './promptMetrics.types';
 
 export const PromptMetricsValidationSchema = z.object({
   promptId: z.string().refine(val => mongoose.Types.ObjectId.isValid(val), 'Invalid prompt ID'),
@@ -145,7 +146,7 @@ PromptMetricsSchema.statics.aggregateMetrics = async function(
   environment?: PromptEnvironment,
   promptVersion?: string
 ) {
-  const matchConditions: any = {
+  const matchConditions: Record<string, unknown> = {
     promptId: new mongoose.Types.ObjectId(promptId),
     period,
     timestamp: { $gte: startDate, $lte: endDate }
@@ -222,7 +223,7 @@ PromptMetricsSchema.statics.getTopPerformingPrompts = async function(
   environment?: PromptEnvironment,
   limit: number = 10
 ) {
-  const matchConditions: any = {
+  const matchConditions: Record<string, unknown> = {
     period,
     timestamp: { $gte: startDate, $lte: endDate }
   };
@@ -301,7 +302,31 @@ PromptMetricsSchema.statics.createFromTestResults = async function(
   const periodStart = getPeriodStart(timestamp, period);
   const periodEnd = getPeriodEnd(periodStart, period);
 
-  const aggregatedData = await TestResult.getAggregatedMetrics(
+  // Define types for the aggregated metrics
+  interface AggregatedMetrics {
+    totalRequests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    averageLatencyMs: number;
+    averageScore: number;
+    totalTokensUsed: number;
+    totalCost: number;
+    p95LatencyMs: number;
+    p99LatencyMs: number;
+  }
+
+  // Define an interface for the TestResult model with the required method
+  interface TestResultModel extends mongoose.Model<unknown> {
+    getAggregatedMetrics: (
+      promptId: string,
+      promptVersion: string,
+      environment: PromptEnvironment,
+      startDate: Date,
+      endDate: Date
+    ) => Promise<AggregatedMetrics>;
+  }
+
+  const aggregatedData = await (TestResult as TestResultModel).getAggregatedMetrics(
     promptId,
     promptVersion,
     environment,
@@ -394,6 +419,6 @@ function getPeriodEnd(periodStart: Date, period: 'hour' | 'day' | 'week' | 'mont
   return date;
 }
 
-export const PromptMetrics = mongoose.models.PromptMetrics || model<IPromptMetrics>('PromptMetrics', PromptMetricsSchema);
+export const PromptMetrics = (mongoose.models.PromptMetrics || model<IPromptMetrics, PromptMetricsModel>('PromptMetrics', PromptMetricsSchema)) as PromptMetricsModel;
 
 export default PromptMetrics;

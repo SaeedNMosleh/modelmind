@@ -149,3 +149,18 @@ export type CreateVersionInput = z.infer<typeof CreateVersionSchema>;
 export type DuplicatePromptInput = z.infer<typeof DuplicatePromptSchema>;
 export type PromptQueryInput = z.infer<typeof PromptQuerySchema>;
 export type ExportConfigInput = z.infer<typeof ExportConfigSchema>;
+
+// Converts Zod errors to ValidationErrorDetails for API responses
+import type { ValidationErrorDetails } from '@/lib/api/responses';
+export function zodErrorsToValidationDetails(errors: z.ZodIssue[]): ValidationErrorDetails {
+  const errorDetails: ValidationErrorDetails = {};
+  errors.forEach((err, index) => {
+    const path = err.path.join('.');
+    errorDetails[path || `error_${index}`] = {
+      message: err.message,
+      path: path,
+      value: err.code
+    };
+  });
+  return errorDetails;
+}

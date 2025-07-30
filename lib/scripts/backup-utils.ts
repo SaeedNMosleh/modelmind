@@ -1,16 +1,17 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
-import { gzip, ungzip } from 'zlib';
+import { gzip, unzip } from 'zlib';
 import pino from 'pino';
 import { connectToDatabase } from '../database/connection';
 import { Prompt } from '../database/models/prompt';
 import { TestCase } from '../database/models/testCase';
 import { TestResult } from '../database/models/testResult';
 import { PromptMetrics } from '../database/models/promptMetrics';
+import { IPrompt, ITestCase, ITestResult, IPromptMetrics } from '../database/types';
 
 const gzipAsync = promisify(gzip);
-const ungzipAsync = promisify(ungzip);
+const unzipAsync = promisify(unzip);
 
 const logger = pino({ name: 'backup-utils' });
 
@@ -31,10 +32,10 @@ export interface BackupMetadata {
 export interface BackupData {
   metadata: BackupMetadata;
   data: {
-    prompts: any[];
-    testCases: any[];
-    testResults: any[];
-    promptMetrics: any[];
+    prompts: IPrompt[];
+    testCases: ITestCase[];
+    testResults: ITestResult[];
+    promptMetrics: IPromptMetrics[];
   };
 }
 
@@ -92,10 +93,10 @@ export class BackupManager {
     const backupData: BackupData = {
       metadata,
       data: {
-        prompts,
-        testCases,
-        testResults,
-        promptMetrics
+        prompts: prompts as unknown as IPrompt[],
+        testCases: testCases as unknown as ITestCase[],
+        testResults: testResults as unknown as ITestResult[],
+        promptMetrics: promptMetrics as unknown as IPromptMetrics[]
       }
     };
 
@@ -105,7 +106,7 @@ export class BackupManager {
     const filename = this.generateBackupFilename(metadata.timestamp);
     const filePath = path.join(this.backupsDir, filename);
 
-    let dataToWrite = JSON.stringify(backupData, null, 2);
+    const dataToWrite = JSON.stringify(backupData, null, 2);
 
     if (compress && dataToWrite.length > 10000) { // Compress if larger than 10KB
       logger.info('Compressing backup data...');
@@ -131,7 +132,7 @@ export class BackupManager {
       if (filePath.endsWith('.gz')) {
         logger.info('Decompressing backup file...');
         const compressedData = await fs.readFile(resolvedPath);
-        fileData = await ungzipAsync(compressedData);
+        fileData = await unzipAsync(compressedData);
       } else {
         fileData = await fs.readFile(resolvedPath);
       }
@@ -156,7 +157,7 @@ export class BackupManager {
       f.startsWith('backup-') && (f.endsWith('.json') || f.endsWith('.json.gz'))
     ).sort().reverse(); // Most recent first
 
-    const backups = [];
+    const backups: Array<{ filename: string; metadata: BackupMetadata; fileSize: number }> = [];
     
     for (const filename of backupFiles) {
       try {

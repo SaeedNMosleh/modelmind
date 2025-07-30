@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
-import { connectToDatabase, Prompt, TestCase } from '@/lib/database';
+import { connectToDatabase, Prompt, TestCase, IPrompt } from '@/lib/database';
 import { 
   createSuccessResponse, 
   createErrorResponse, 
   handleApiError,
   withTimeout,
   createNotFoundResponse,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  ValidationErrorDetails
 } from '@/lib/api/responses';
 import { ObjectIdSchema, ExportConfigSchema } from '@/lib/api/validation/prompts';
 import { IPromptFooConfig } from '@/lib/database/types';
@@ -30,7 +31,16 @@ export async function POST(
     const validation = ExportConfigSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      // Convert Zod errors to ValidationErrorDetails format
+      const errorDetails: ValidationErrorDetails = {};
+      validation.error.errors.forEach(err => {
+        const path = err.path.join('.');
+        errorDetails[path] = {
+          message: err.message,
+          path: path
+        };
+      });
+      return createValidationErrorResponse(errorDetails);
     }
 
     const {
@@ -47,8 +57,11 @@ export async function POST(
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
+    
+    // Type assertion to handle the MongoDB document
+    const typedPrompt = prompt as unknown as IPrompt;
 
-    const activeVersion = prompt.versions.find(v => v.isActive);
+    const activeVersion = typedPrompt.versions.find(v => v.isActive);
     
     if (!activeVersion) {
       return createErrorResponse(
@@ -60,7 +73,7 @@ export async function POST(
 
     const promptFooConfig: IPromptFooConfig = {
       prompts: [{
-        id: `${prompt.name}-${activeVersion.version}`,
+        id: `${typedPrompt.name}-${activeVersion.version}`,
         template: activeVersion.template
       }],
       providers: [{
@@ -136,7 +149,7 @@ export async function POST(
     
     logger.info({ 
       promptId: params.id,
-      promptName: prompt.name,
+      promptName: typedPrompt.name,
       version: activeVersion.version,
       testCasesIncluded: promptFooConfig.tests.length,
       provider,
@@ -145,8 +158,8 @@ export async function POST(
 
     return createSuccessResponse({
       prompt: {
-        id: prompt._id,
-        name: prompt.name,
+        id: typedPrompt._id,
+        name: typedPrompt.name,
         version: activeVersion.version
       },
       config: promptFooConfig,

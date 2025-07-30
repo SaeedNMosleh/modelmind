@@ -135,8 +135,8 @@ export async function GET() {
       'HEALTH_CHECK_ERROR',
       503,
       {
-        error: err.message,
-        responseTimeMs: Date.now() - startTime
+        error: { message: err.message },
+        responseTimeMs: { message: String(Date.now() - startTime) }
       }
     );
   }

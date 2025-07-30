@@ -1,11 +1,7 @@
 import { NextRequest } from 'next/server';
 import { connectToDatabase, Prompt, PromptEnvironment, AgentType, DiagramType } from '@/lib/database';
-import { 
-  createSuccessResponse, 
-  createErrorResponse, 
-  handleApiError,
-  withTimeout
-} from '@/lib/api/responses';
+import { createSuccessResponse, createErrorResponse, handleApiError, withTimeout } from '@/lib/api/responses';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { z } from 'zod';
 import pino from 'pino';
 
@@ -34,7 +30,7 @@ export async function GET(request: NextRequest) {
         'Invalid query parameters',
         'VALIDATION_ERROR',
         400,
-        queryValidation.error.errors
+        zodErrorsToValidationDetails(queryValidation.error.errors)
       );
     }
     

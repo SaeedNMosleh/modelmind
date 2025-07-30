@@ -1,10 +1,8 @@
-import { PlantUMLValidationResult } from './types';
-
 export interface PlantUMLEvaluatorResult {
   pass: boolean;
   score: number;
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class PlantUMLEvaluators {
@@ -180,7 +178,6 @@ export class PlantUMLEvaluators {
     }
 
     const content = this.extractDiagramContent(output);
-    const lines = content.split('\n').filter(line => line.trim().length > 0);
     
     let complexity = 0;
     const factors: string[] = [];

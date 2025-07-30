@@ -8,6 +8,7 @@ import {
   createNotFoundResponse
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { PromptEnvironment } from '@/lib/database/types';
 import { TestAnalytics } from '@/lib/testing/types';
 import { z } from 'zod';
@@ -53,7 +54,7 @@ export async function GET(
         'Invalid query parameters',
         'VALIDATION_ERROR',
         400,
-        queryValidation.error.errors
+        zodErrorsToValidationDetails(queryValidation.error.errors)
       );
     }
 
@@ -72,7 +73,7 @@ export async function GET(
       return createNotFoundResponse('Prompt');
     }
 
-    const filter: any = { 
+    const filter: Record<string, unknown> = { 
       promptId: params.promptId,
       createdAt: { $gte: startDate, $lte: endDate }
     };
@@ -81,7 +82,6 @@ export async function GET(
     if (version) filter.promptVersion = version;
 
     // Generate time series data based on granularity
-    const timeUnit = getTimeUnit(granularity);
     const timeFormat = getTimeFormat(granularity);
 
     const [overallMetrics, trends, topFailingTests, versionComparison] = await Promise.all([
@@ -273,15 +273,6 @@ export async function GET(
     
   } catch (error) {
     return handleApiError(error);
-  }
-}
-
-function getTimeUnit(granularity: 'hour' | 'day' | 'week'): string {
-  switch (granularity) {
-    case 'hour': return 'hour';
-    case 'day': return 'dayOfYear';
-    case 'week': return 'week';
-    default: return 'dayOfYear';
   }
 }
 

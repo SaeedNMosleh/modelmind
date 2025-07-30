@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
-import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
+import { IPrompt, ITestCase } from '@/lib/database/types';
 import { PromptFooConfig, TestExecutionOptions } from './types';
 import pino from 'pino';
 

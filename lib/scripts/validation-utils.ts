@@ -1,5 +1,4 @@
 import pino from 'pino';
-import { z } from 'zod';
 import { connectToDatabase } from '../database/connection';
 import { 
   Prompt, 
@@ -10,7 +9,7 @@ import {
   TestCase, 
   TestCaseValidationSchema 
 } from '../database/models/testCase';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../database/types';
+import { PromptEnvironment } from '../database/types';
 
 const logger = pino({ name: 'validation-utils' });
 
@@ -20,7 +19,7 @@ export interface ValidationIssue {
   documentId?: string;
   field?: string;
   issue: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface ValidationReport {
@@ -311,9 +310,18 @@ export class ValidationManager {
     }
   }
 
-  private validatePromptFooCompatibility(prompt: any, issues: ValidationIssue[]): void {
+  private validatePromptFooCompatibility(prompt: { 
+    _id: string; 
+    versions: Array<{
+      isActive: boolean;
+      template: string;
+      variables: string[];
+    }>;
+    environments?: string[];
+    isProduction?: boolean;
+  }, issues: ValidationIssue[]): void {
     // Check if prompt has appropriate metadata for PromptFoo
-    const currentVersion = prompt.versions.find((v: any) => v.isActive);
+    const currentVersion = prompt.versions.find((v) => v.isActive);
     if (!currentVersion) return;
 
     // Validate that template has proper structure
@@ -331,7 +339,7 @@ export class ValidationManager {
     }
 
     // Check for environment-specific configurations
-    if (prompt.environments.includes(PromptEnvironment.PRODUCTION) && !prompt.isProduction) {
+    if (prompt.environments?.includes(PromptEnvironment.PRODUCTION) && !prompt.isProduction) {
       issues.push({
         type: 'warning',
         collection: 'prompts',

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { PromptMgmtVersion } from '@/lib/prompt-mgmt/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,7 +31,7 @@ import { formatTimestamp } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 interface VersionHistoryProps {
-  promptId: string;
+  promptId?: string; // Made optional since it's not being used
   versions: PromptMgmtVersion[];
   currentVersion: string;
   onVersionSelect?: (version: string) => void;
@@ -42,7 +42,7 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({
-  promptId,
+  // promptId is not used, but kept in interface for potential future use
   versions,
   currentVersion,
   onVersionSelect,
@@ -78,6 +78,11 @@ export function VersionHistory({
     } else {
       // Replace the older selection
       setSelectedVersions([selectedVersions[1], version]);
+    }
+    
+    // Call the provided onVersionSelect callback if it exists
+    if (onVersionSelect) {
+      onVersionSelect(version);
     }
   };
   

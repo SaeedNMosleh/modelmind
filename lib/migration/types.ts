@@ -19,5 +19,5 @@ export interface PromptSeedData {
   isProduction: boolean;
   environments: PromptEnvironment[];
   tags: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

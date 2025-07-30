@@ -14,7 +14,7 @@ import {
   Loader2,
   Sparkles
 } from 'lucide-react';
-import { PromptFormData, TemplateValidationResult } from '@/lib/prompt-mgmt/types';
+import { PromptFormData, TemplateValidationResult, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +24,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -46,7 +44,7 @@ export default function NewPromptEditPage() {
     name: '',
     agentType: AgentType.GENERATOR,
     diagramType: [],
-    operation: PromptOperation.GENERATE,
+    operation: PromptOperation.GENERATION,
     environments: [PromptEnvironment.DEVELOPMENT],
     tags: [],
     template: '',
@@ -59,7 +57,7 @@ export default function NewPromptEditPage() {
   const [validationResult, setValidationResult] = useState<TemplateValidationResult | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState('template');
-  const [previewVariables, setPreviewVariables] = useState<Record<string, any>>({});
+  const [previewVariables, setPreviewVariables] = useState<Record<string, unknown>>({});
   
   // Load template data from localStorage if available
   useEffect(() => {
@@ -71,7 +69,7 @@ export default function NewPromptEditPage() {
           ...prev,
           name: template.name || '',
           agentType: template.agentType || AgentType.GENERATOR,
-          operation: template.operation || PromptOperation.GENERATE,
+          operation: template.operation || PromptOperation.GENERATION,
           diagramType: template.diagramType || [],
           tags: template.tags || [],
           template: template.template || ''
@@ -91,7 +89,7 @@ export default function NewPromptEditPage() {
       setValidationResult(result);
       
       // Update preview variables based on extracted variables
-      const newVariables: Record<string, any> = {};
+      const newVariables: Record<string, unknown> = {};
       result.variables.forEach(variable => {
         if (!previewVariables[variable.name]) {
           newVariables[variable.name] = variable.defaultValue || 
@@ -106,7 +104,7 @@ export default function NewPromptEditPage() {
       });
       setPreviewVariables(newVariables);
     }
-  }, [formData.template]);
+  }, [formData.template, previewVariables]);
   
   const updateFormData = (updates: Partial<PromptFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -240,7 +238,7 @@ export default function NewPromptEditPage() {
             variant="outline" 
             size="sm" 
             onClick={handleTest}
-            disabled={saving || (validationResult && !validationResult.isValid)}
+            disabled={saving || !!(validationResult && !validationResult.isValid)}
           >
             <Play className="h-4 w-4 mr-2" />
             Test
@@ -356,18 +354,19 @@ export default function NewPromptEditPage() {
               <PromptPreview
                 prompt={{
                   ...formData,
-                  _id: 'new' as any,
+                  _id: 'new',
                   versions: [{
                     version: '1.0.0',
                     template: formData.template,
                     createdAt: new Date(),
-                    changelog: formData.changelog || 'Initial version'
+                    changelog: formData.changelog || 'Initial version',
+                    isActive: true
                   }],
                   currentVersion: '1.0.0',
                   createdAt: new Date(),
                   updatedAt: new Date(),
                   isProduction: false
-                } as any}
+                } as unknown as PromptMgmtPrompt}
                 variables={previewVariables}
                 onVariablesChange={setPreviewVariables}
                 showVariableEditor
@@ -379,9 +378,7 @@ export default function NewPromptEditPage() {
                 variables={validationResult?.variables || []}
                 values={previewVariables}
                 onChange={setPreviewVariables}
-                onVariableUpdate={(variableId, updates) => {
-                  // Handle variable metadata updates if needed
-                }}
+                onVariableUpdate={() => {}}
               />
             </TabsContent>
           </Tabs>

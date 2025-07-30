@@ -9,6 +9,7 @@ import {
   createValidationErrorResponse
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
@@ -53,7 +54,7 @@ export async function POST(
     const validation = TestExecutionSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const options: PromptTestExecutionOptions = validation.data;

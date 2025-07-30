@@ -65,6 +65,7 @@ export function TestResults({
           setRecentResults(data.data || []);
         }
       } catch (err) {
+        console.error('Error fetching test results:', err);
         setError('Failed to load test results');
       } finally {
         setLoading(false);
@@ -332,8 +333,8 @@ export function TestResults({
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-gray-500">
-                            {/* Assuming we have execution timestamp in metadata */}
-                            {result.metadata?.executedAt ? 
+                            {/* Safely handle the timestamp data */}
+                            {result.metadata?.executedAt && typeof result.metadata.executedAt === 'string' ? 
                               formatTimestamp(result.metadata.executedAt) : 
                               'Recently'
                             }

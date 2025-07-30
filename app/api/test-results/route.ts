@@ -2,12 +2,11 @@ import { NextRequest } from 'next/server';
 import { connectToDatabase, TestResult } from '@/lib/database';
 import { 
   createSuccessResponse, 
-  createErrorResponse, 
   handleApiError,
   withTimeout,
-  parsePaginationParams,
   createPaginationMeta,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  zodErrorsToValidationDetails
 } from '@/lib/api/responses';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest) {
     const queryValidation = TestResultQuerySchema.safeParse(Object.fromEntries(searchParams));
     
     if (!queryValidation.success) {
-      return createValidationErrorResponse(queryValidation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(queryValidation.error.errors));
     }
     
     const {
@@ -81,7 +80,7 @@ export async function GET(request: NextRequest) {
       endDate
     } = queryValidation.data;
 
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
     
     if (promptId) filter.promptId = promptId;
     if (testCaseId) filter.testCaseId = testCaseId;
@@ -90,19 +89,21 @@ export async function GET(request: NextRequest) {
     if (typeof success === 'boolean') filter.success = success;
     
     if (minScore !== undefined || maxScore !== undefined) {
-      filter.score = {};
-      if (minScore !== undefined) filter.score.$gte = minScore;
-      if (maxScore !== undefined) filter.score.$lte = maxScore;
+      const scoreFilter: Record<string, number> = {};
+      if (minScore !== undefined) scoreFilter.$gte = minScore;
+      if (maxScore !== undefined) scoreFilter.$lte = maxScore;
+      filter.score = scoreFilter;
     }
     
     if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = startDate;
-      if (endDate) filter.createdAt.$lte = endDate;
+      const dateFilter: Record<string, Date> = {};
+      if (startDate) dateFilter.$gte = startDate;
+      if (endDate) dateFilter.$lte = endDate;
+      filter.createdAt = dateFilter;
     }
 
     const sortOrder = order === 'asc' ? 1 : -1;
-    const sortObj: any = { [sort]: sortOrder };
+    const sortObj: Record<string, 1 | -1> = { [sort]: sortOrder };
 
     const [testResults, total] = await Promise.all([
       TestResult.find(filter)

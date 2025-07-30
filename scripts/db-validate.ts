@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { fileURLToPath } from 'url';
 import { disconnectFromDatabase } from '../lib/database/connection';
 import { validationManager } from '../lib/scripts/validation-utils';
 import pino from 'pino';
@@ -62,7 +63,9 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+const __filename = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === __filename) {
   main();
 }
 

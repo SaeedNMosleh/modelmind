@@ -7,8 +7,6 @@ import {
   DiagramType,
   PromptOperation,
   PromptEnvironment,
-  CreatePromptInput,
-  UpdatePromptInput,
   CreatePromptVersionInput
 } from '../types';
 

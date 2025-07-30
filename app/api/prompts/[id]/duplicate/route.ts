@@ -6,7 +6,8 @@ import {
   handleApiError,
   withTimeout,
   createNotFoundResponse,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  ValidationErrorDetails
 } from '@/lib/api/responses';
 import { DuplicatePromptSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
 import pino from 'pino';
@@ -29,14 +30,26 @@ export async function POST(
     const validation = DuplicatePromptSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      // Convert Zod errors to ValidationErrorDetails format
+      const errorDetails: ValidationErrorDetails = {};
+      validation.error.errors.forEach(err => {
+        const path = err.path.join('.');
+        errorDetails[path] = {
+          message: err.message,
+          path: path
+        };
+      });
+      return createValidationErrorResponse(errorDetails);
     }
 
-    const originalPrompt = await Prompt.findById(params.id).lean();
+    const originalPromptDoc = await Prompt.findById(params.id);
     
-    if (!originalPrompt) {
+    if (!originalPromptDoc) {
       return createNotFoundResponse('Prompt');
     }
+    
+    // Convert to a plain object but maintain the typed properties
+    const originalPrompt = originalPromptDoc.toObject();
 
     const { name, copyVersions, includeTestCases, metadata } = validation.data;
     

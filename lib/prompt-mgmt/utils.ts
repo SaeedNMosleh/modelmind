@@ -9,7 +9,7 @@ import {
   DiffChunk,
   ValidationError
 } from './types';
-import { AgentType, DiagramType, PromptOperation } from '../database/types';
+import { AgentType } from '../database/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,7 +30,7 @@ export function extractTemplateVariables(template: string): TemplateVariable[] {
       seen.add(varName);
       
       // Try to infer type from context or common naming patterns
-      const type = inferVariableType(varName, template);
+      const type = inferVariableType(varName);
       
       variables.push({
         name: varName,
@@ -44,7 +44,7 @@ export function extractTemplateVariables(template: string): TemplateVariable[] {
   return variables;
 }
 
-function inferVariableType(varName: string, template: string): TemplateVariable['type'] {
+function inferVariableType(varName: string): TemplateVariable['type'] {
   const lowerName = varName.toLowerCase();
   
   // Check for common patterns
@@ -83,7 +83,6 @@ export function validateTemplate(template: string): TemplateValidationResult {
   const warnings: ValidationError[] = [];
   
   // Check for basic syntax issues
-  const braceMatches = template.match(/\{[^}]*\}/g) || [];
   const openBraces = (template.match(/\{/g) || []).length;
   const closeBraces = (template.match(/\}/g) || []).length;
   
@@ -224,8 +223,8 @@ export function filterPrompts(prompts: PromptMgmtPrompt[], filters: PromptFilter
 // Sorting utilities
 export function sortPrompts(prompts: PromptMgmtPrompt[], sort: { field: string; direction: 'asc' | 'desc' }): PromptMgmtPrompt[] {
   return [...prompts].sort((a, b) => {
-    let aVal: any;
-    let bVal: any;
+    let aVal: string | number | Date | undefined;
+    let bVal: string | number | Date | undefined;
     
     switch (sort.field) {
       case 'name':

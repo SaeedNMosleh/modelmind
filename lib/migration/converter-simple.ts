@@ -1,11 +1,12 @@
 import { ExtractedPrompt } from './extractor';
 import { PromptSeedData } from './types';
 import { 
-  DiagramType, 
   AgentType, 
   PromptOperation, 
   PromptEnvironment 
 } from '../database/types';
+
+// Import only the needed types, removing unused DiagramType import
 
 /**
  * Convert extracted prompts to database format

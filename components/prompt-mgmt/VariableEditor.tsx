@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { 
   Settings, 
   Plus, 
-  Trash2, 
+  // Trash2, - Unused 
   Edit3, 
-  Check, 
+  // Check, - Unused 
   X,
   AlertCircle,
   Info
@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+// import { Alert, AlertDescription } from '@/components/ui/alert'; - Unused
 import {
   Select,
   SelectContent,
@@ -39,8 +39,8 @@ import { cn } from '@/lib/utils';
 
 interface VariableEditorProps {
   variables: TemplateVariable[];
-  values: Record<string, any>;
-  onChange: (values: Record<string, any>) => void;
+  values: Record<string, unknown>;
+  onChange: (values: Record<string, unknown>) => void;
   onVariableUpdate?: (variableId: string, updates: Partial<TemplateVariable>) => void;
   allowEditing?: boolean;
   className?: string;
@@ -63,12 +63,12 @@ export function VariableEditor({
     description: ''
   });
   
-  const handleValueChange = (name: string, value: any) => {
+  const handleValueChange = (name: string, value: unknown) => {
     const updated = { ...values, [name]: value };
     onChange(updated);
   };
   
-  const parseInputValue = (variable: TemplateVariable, inputValue: string): any => {
+  const parseInputValue = (variable: TemplateVariable, inputValue: string): unknown => {
     if (inputValue === '') return undefined;
     
     switch (variable.type) {
@@ -94,7 +94,7 @@ export function VariableEditor({
     }
   };
   
-  const formatDisplayValue = (variable: TemplateVariable, value: any): string => {
+  const formatDisplayValue = (variable: TemplateVariable, value: unknown): string => {
     if (value === undefined || value === null) return '';
     
     if (variable.type === 'object' || variable.type === 'array') {
@@ -115,7 +115,7 @@ export function VariableEditor({
     }
   };
   
-  const validateVariable = (variable: TemplateVariable, value: any): string | null => {
+  const validateVariable = (variable: TemplateVariable, value: unknown): string | null => {
     if (variable.required && (value === undefined || value === '')) {
       return 'This field is required';
     }
@@ -267,7 +267,7 @@ export function VariableEditor({
                     <div className="flex items-center space-x-2">
                       <Switch
                         id={`var-${variable.name}`}
-                        checked={currentValue || false}
+                        checked={Boolean(currentValue)}
                         onCheckedChange={(checked) => handleValueChange(variable.name, checked)}
                       />
                       <span className="text-sm text-gray-600">
@@ -276,7 +276,7 @@ export function VariableEditor({
                     </div>
                   ) : variable.validation?.enum ? (
                     <Select
-                      value={currentValue || ''}
+                      value={String(currentValue || '')}
                       onValueChange={(value) => handleValueChange(variable.name, value)}
                     >
                       <SelectTrigger>

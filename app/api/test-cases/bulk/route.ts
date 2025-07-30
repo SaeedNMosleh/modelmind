@@ -4,7 +4,9 @@ import {
   createSuccessResponse, 
   handleApiError,
   withTimeout,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  zodErrorsToValidationDetails,
+  ValidationErrorDetails
   // createErrorResponse - removed unused import
 } from '@/lib/api/responses';
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
@@ -41,7 +43,8 @@ export async function POST(request: NextRequest) {
     const validation = BulkTestCaseSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      // Convert Zod errors to the expected ValidationErrorDetails format
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const { promptId, testCases, replaceExisting } = validation.data;
@@ -79,13 +82,28 @@ export async function POST(request: NextRequest) {
 
     const invalidCases = validationResults.filter(r => !r.valid);
     if (invalidCases.length > 0) {
-      return createValidationErrorResponse({
-        message: 'Some test cases failed validation',
-        invalidCases: invalidCases.map(ic => ({
-          index: ic.index,
-          errors: ic.error
-        }))
+      // Convert the array of validation errors to the expected ValidationErrorDetails format
+      const errorDetails: ValidationErrorDetails = {
+        message: {
+          message: 'Some test cases failed validation'
+        }
+      };
+      
+      invalidCases.forEach((ic) => {
+        if (ic.error) {
+          ic.error.forEach((err, errIdx) => {
+            const key = `testCase_${ic.index}_error_${errIdx}`;
+            const path = err.path.join('.');
+            errorDetails[key] = {
+              message: err.message,
+              path: `testCases[${ic.index}].${path}`,
+              value: err.code
+            };
+          });
+        }
       });
+      
+      return createValidationErrorResponse(errorDetails);
     }
 
     const validTestCases = validationResults.map(r => r.data);

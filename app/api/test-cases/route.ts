@@ -2,15 +2,14 @@ import { NextRequest } from 'next/server';
 import { connectToDatabase, TestCase } from '@/lib/database';
 import { 
   createSuccessResponse, 
-  createErrorResponse, 
   handleApiError,
   withTimeout,
-  parsePaginationParams,
   createPaginationMeta,
   createValidationErrorResponse
 } from '@/lib/api/responses';
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { z } from 'zod';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import pino from 'pino';
 
 const logger = pino({ name: 'test-cases-api' });
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
     const queryValidation = TestCaseQuerySchema.safeParse(Object.fromEntries(searchParams));
     
     if (!queryValidation.success) {
-      return createValidationErrorResponse(queryValidation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(queryValidation.error.errors));
     }
     
     const {
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest) {
       tags
     } = queryValidation.data;
 
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
     
     if (promptId) filter.promptId = promptId;
     if (typeof isActive === 'boolean') filter.isActive = isActive;
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     const sortOrder = order === 'asc' ? 1 : -1;
-    const sortObj: any = { [sort]: sortOrder };
+    const sortObj: Record<string, -1 | 1> = { [sort]: sortOrder };
 
     const [testCases, total] = await Promise.all([
       TestCase.find(filter)
@@ -112,7 +111,7 @@ export async function POST(request: NextRequest) {
     const validation = TestCaseValidationSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const testCase = new TestCase(validation.data);

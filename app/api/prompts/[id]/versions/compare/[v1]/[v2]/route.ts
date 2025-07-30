@@ -90,8 +90,17 @@ export async function GET(
       return createNotFoundResponse('Prompt');
     }
 
-    const version1 = prompt.versions.find(v => v.version === params.v1);
-    const version2 = prompt.versions.find(v => v.version === params.v2);
+    // Ensure prompt is not an array and has versions
+    if (Array.isArray(prompt)) {
+      return createErrorResponse('Multiple prompts found with the same ID', 'MULTIPLE_PROMPTS', 500);
+    }
+    
+    if (!prompt.versions || !Array.isArray(prompt.versions)) {
+      return createErrorResponse('Prompt has no versions', 'NO_VERSIONS', 404);
+    }
+
+    const version1 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === params.v1);
+    const version2 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === params.v2);
     
     if (!version1) {
       return createNotFoundResponse(`Version ${params.v1}`);
@@ -133,7 +142,7 @@ export async function GET(
     
     return createSuccessResponse({
       promptId: params.id,
-      promptName: prompt.name,
+      promptName: typeof prompt.name === 'string' ? prompt.name : 'Unknown Prompt',
       comparison: {
         version1: {
           version: version1.version,

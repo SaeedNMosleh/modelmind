@@ -11,10 +11,10 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Settings
+  FileText
+  // Settings - Unused
 } from 'lucide-react';
-import { TestCaseFormData } from '@/lib/prompt-mgmt/types';
+// import { TestCaseFormData } from '@/lib/prompt-mgmt/types'; - Defined locally
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,19 +53,28 @@ interface TestCase {
   _id: string;
   name: string;
   description: string;
-  vars: Record<string, any>;
+  vars: Record<string, unknown>;
   assert: Array<{
     type: string;
-    value?: any;
+    value?: unknown;
     threshold?: number;
     provider?: string;
     rubric?: string;
     metric?: string;
   }>;
   tags: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface TestCaseFormData {
+  name: string;
+  description: string;
+  vars: Record<string, unknown> | string;
+  assert: TestCase['assert'];
+  tags: string[];
+  metadata?: Record<string, unknown>;
 }
 
 interface TestCaseEditorProps {
@@ -106,7 +115,7 @@ export function TestCaseEditor({
         } else {
           setError(data.error || 'Failed to load test cases');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load test cases');
       } finally {
         setLoading(false);
@@ -161,7 +170,7 @@ export function TestCaseEditor({
       } else {
         setError(result.error || 'Failed to save test case');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to save test case');
     }
   };
@@ -182,7 +191,7 @@ export function TestCaseEditor({
       } else {
         setError(result.error || 'Failed to delete test case');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to delete test case');
     }
   };
@@ -231,7 +240,7 @@ export function TestCaseEditor({
       } else {
         setError(result.error || 'Failed to start test');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to start test');
     }
   };
@@ -249,7 +258,7 @@ export function TestCaseEditor({
     }));
   };
   
-  const handleUpdateAssertion = (index: number, updates: any) => {
+  const handleUpdateAssertion = (index: number, updates: Partial<TestCase['assert'][0]>) => {
     setFormData(prev => ({
       ...prev,
       assert: prev.assert.map((assertion, i) => 
@@ -322,7 +331,7 @@ export function TestCaseEditor({
             <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <p className="text-lg font-medium mb-2">No Test Cases</p>
             <p className="text-gray-600 mb-4">
-              Create test cases to validate your prompt's performance
+              Create test cases to validate your prompt&apos;s performance
             </p>
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -547,7 +556,7 @@ export function TestCaseEditor({
                       <div>
                         <Label>Value</Label>
                         <Input
-                          value={assertion.value || ''}
+                          value={String(assertion.value || '')}
                           onChange={(e) => handleUpdateAssertion(index, { value: e.target.value })}
                           placeholder="Expected value or pattern"
                         />

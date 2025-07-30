@@ -6,7 +6,9 @@ import {
   handleApiError,
   withTimeout,
   createNotFoundResponse,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  zodErrorsToValidationDetails,
+  toValidationDetails
 } from '@/lib/api/responses';
 import { UpdatePromptSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
 import pino from 'pino';
@@ -56,7 +58,7 @@ export async function PUT(
     const validation = UpdatePromptSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const prompt = await Prompt.findById(params.id);
@@ -152,7 +154,7 @@ export async function DELETE(
           `Cannot delete prompt with ${testCaseCount} test cases and ${testResultCount} test results. Use ?force=true to cascade delete.`,
           'PROMPT_HAS_DEPENDENCIES',
           400,
-          { testCaseCount, testResultCount }
+          toValidationDetails({ testCaseCount, testResultCount })
         );
       }
 

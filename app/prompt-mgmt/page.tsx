@@ -36,9 +36,10 @@ export default function PromptManagementPage() {
     setSort,
     setPage,
     refresh,
-    selectPrompt,
-    deselectPrompt,
-    selectAllPrompts,
+    // These are left for future use
+    // selectPrompt,
+    // deselectPrompt,
+    // selectAllPrompts,
     deselectAllPrompts,
     togglePromptSelection,
     deletePrompt,

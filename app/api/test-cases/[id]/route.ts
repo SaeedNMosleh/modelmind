@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/responses';
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
+import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import pino from 'pino';
 
 const logger = pino({ name: 'test-case-detail-api' });
@@ -59,7 +60,7 @@ export async function PUT(
     const validation = TestCaseValidationSchema.partial().safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const testCase = await TestCase.findByIdAndUpdate(
@@ -113,7 +114,7 @@ export async function DELETE(
           `Cannot delete test case with ${testResultCount} test results. Use ?force=true to cascade delete.`,
           'TEST_CASE_HAS_RESULTS',
           400,
-          { testResultCount }
+          { testResultCount: { message: String(testResultCount) } }
         );
       }
 

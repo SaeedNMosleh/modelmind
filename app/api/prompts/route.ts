@@ -7,7 +7,8 @@ import {
   withTimeout,
   // parsePaginationParams - unused
   createPaginationMeta,
-  createValidationErrorResponse
+  createValidationErrorResponse,
+  zodErrorsToValidationDetails
 } from '@/lib/api/responses';
 import { CreatePromptSchema, PromptQuerySchema } from '@/lib/api/validation/prompts';
 import pino from 'pino';
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     const queryValidation = PromptQuerySchema.safeParse(Object.fromEntries(searchParams));
     
     if (!queryValidation.success) {
-      return createValidationErrorResponse(queryValidation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(queryValidation.error.errors));
     }
     
     const {
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     const validation = CreatePromptSchema.safeParse(body);
     
     if (!validation.success) {
-      return createValidationErrorResponse(validation.error.errors);
+      return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
     const { initialVersion, ...promptData } = validation.data;

@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { fileURLToPath } from 'url';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
 import { TestCase } from '../lib/database/models/testCase';
@@ -57,7 +58,11 @@ async function getDatabaseStats() {
 
 /**
  * Drop all prompt-related collections
+ * Note: This function is kept for future use but currently deleteAllRecords is preferred
+ * @internal
  */
+// Commented out to avoid the unused variable warning while keeping for future reference
+/* 
 async function dropCollections(stats: ResetStats): Promise<void> {
   logger.info('Dropping collections...');
   
@@ -87,6 +92,7 @@ async function dropCollections(stats: ResetStats): Promise<void> {
     }
   }
 }
+*/
 
 /**
  * Delete all records (alternative to dropping collections)
@@ -126,49 +132,49 @@ async function recreateIndexes(stats: ResetStats): Promise<void> {
   const indexes = [
     { 
       collection: Prompt.collection, 
-      index: { name: 1 }, 
+      index: { name: 1 } as Record<string, number>, 
       options: { unique: true, background: true },
       name: 'prompts.name'
     },
     { 
       collection: Prompt.collection, 
-      index: { agentType: 1, diagramType: 1 }, 
+      index: { agentType: 1, diagramType: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'prompts.agentType_diagramType'
     },
     { 
       collection: Prompt.collection, 
-      index: { isProduction: 1 }, 
+      index: { isProduction: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'prompts.isProduction'
     },
     { 
       collection: TestCase.collection, 
-      index: { promptId: 1 }, 
+      index: { promptId: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'testCases.promptId'
     },
     { 
       collection: TestCase.collection, 
-      index: { isActive: 1 }, 
+      index: { isActive: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'testCases.isActive'
     },
     { 
       collection: TestResult.collection, 
-      index: { promptId: 1, promptVersion: 1 }, 
+      index: { promptId: 1, promptVersion: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'testResults.promptId_promptVersion'
     },
     { 
       collection: TestResult.collection, 
-      index: { createdAt: -1 }, 
+      index: { createdAt: -1 } as Record<string, number>, 
       options: { background: true },
       name: 'testResults.createdAt'
     },
     { 
       collection: PromptMetrics.collection, 
-      index: { promptId: 1, promptVersion: 1, period: 1, timestamp: 1 }, 
+      index: { promptId: 1, promptVersion: 1, period: 1, timestamp: 1 } as Record<string, number>, 
       options: { background: true },
       name: 'promptMetrics.compound'
     }
@@ -355,7 +361,9 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+const __filename = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === __filename) {
   main();
 }
 

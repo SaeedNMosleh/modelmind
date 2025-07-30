@@ -1,5 +1,23 @@
 import { connectToDatabase, TestResult, PromptMetrics } from '@/lib/database';
-import { PromptFooExecutionResult, TestExecutionOptions } from './types';
+import {
+  PromptFooExecutionResult,
+  TestExecutionOptions
+} from './types';
+
+// Interfaces to help with type checking
+interface PromptFooResultSummary {
+  numTests: number;
+  stats: {
+    successes: number;
+    failures: number;
+  };
+}
+
+interface PromptFooResultObject {
+  results: unknown[];
+  summary: PromptFooResultSummary;
+  version?: number;
+}
 import { PromptEnvironment } from '@/lib/database/types';
 import pino from 'pino';
 
@@ -27,7 +45,7 @@ export class TestResultParser {
           testCaseId,
           promptId,
           promptVersion,
-          result,
+          result as PromptFooExecutionResult['results'][number],
           environment
         );
 
@@ -58,9 +76,10 @@ export class TestResultParser {
 
       return storedResultIds;
 
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error({
-        error: error.message,
+        error: errorMessage,
         promptId,
         promptVersion,
         resultCount: promptFooResult.results.length
@@ -94,9 +113,10 @@ export class TestResultParser {
         environment
       }, 'Updated prompt metrics');
 
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.warn({
-        error: error.message,
+        error: errorMessage,
         promptId,
         promptVersion,
         environment
@@ -135,22 +155,46 @@ export class TestResultParser {
     };
   }
 
-  validatePromptFooResult(result: any): result is PromptFooExecutionResult {
-    return (
-      result &&
-      typeof result === 'object' &&
-      Array.isArray(result.results) &&
-      result.summary &&
-      typeof result.summary.numTests === 'number' &&
-      result.summary.stats &&
-      typeof result.summary.stats.successes === 'number' &&
-      typeof result.summary.stats.failures === 'number'
-    );
+  validatePromptFooResult(result: unknown): result is PromptFooExecutionResult {
+    if (!result || typeof result !== 'object' || result === null) {
+      return false;
+    }
+
+    const resultObj = result as Partial<PromptFooResultObject>;
+    
+    // Check if results array exists
+    if (!Array.isArray(resultObj.results)) {
+      return false;
+    }
+    
+    // Check if summary exists and has the right structure
+    const summary = resultObj.summary;
+    if (!summary || typeof summary !== 'object') {
+      return false;
+    }
+    
+    // Check if summary has numTests as a number
+    if (typeof summary.numTests !== 'number') {
+      return false;
+    }
+    
+    // Check if stats exists and has the right structure
+    const stats = summary.stats;
+    if (!stats || typeof stats !== 'object') {
+      return false;
+    }
+    
+    // Check if stats has successes and failures as numbers
+    if (typeof stats.successes !== 'number' || typeof stats.failures !== 'number') {
+      return false;
+    }
+    
+    return true;
   }
 
   extractTestFailures(result: PromptFooExecutionResult): Array<{
     testIndex: number;
-    testVars: Record<string, any>;
+    testVars: Record<string, unknown>;
     error: string;
     failedAssertions: Array<{
       type: string;
@@ -177,7 +221,7 @@ export class TestResultParser {
       })
       .filter(Boolean) as Array<{
         testIndex: number;
-        testVars: Record<string, any>;
+        testVars: Record<string, unknown>;
         error: string;
         failedAssertions: Array<{
           type: string;
@@ -261,11 +305,12 @@ export class TestResultParser {
           promptId: resultData.promptId,
           resultIds
         });
-      } catch (error: any) {
+      } catch (error: Error | unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         responses.push({
           promptId: resultData.promptId,
           resultIds: [],
-          error: error.message
+          error: errorMessage
         });
       }
     }

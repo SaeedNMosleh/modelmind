@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Editor, Monaco } from '@monaco-editor/react';
+import { editor } from 'monaco-editor';
 import { TemplateValidationResult } from '@/lib/prompt-mgmt/types';
 
 interface MonacoEditorProps {
@@ -11,7 +12,7 @@ interface MonacoEditorProps {
   height?: string;
   language?: string;
   theme?: string;
-  options?: any;
+  options?: Record<string, unknown>;
   readOnly?: boolean;
 }
 
@@ -25,10 +26,10 @@ export function MonacoEditor({
   options = {},
   readOnly = false
 }: MonacoEditorProps) {
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   
-  const handleEditorDidMount = (editor: any, monaco: Monaco) => {
+  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     
@@ -196,7 +197,7 @@ export function MonacoEditor({
     onChange(value || '');
   };
   
-  const defaultOptions = {
+  const defaultOptions: editor.IStandaloneEditorConstructionOptions = {
     selectOnLineNumbers: true,
     roundedSelection: false,
     readOnly,
@@ -213,7 +214,7 @@ export function MonacoEditor({
     detectIndentation: false,
     folding: true,
     foldingHighlight: true,
-    bracketMatching: 'always',
+    // Removing deprecated bracketMatching property
     autoClosingBrackets: 'always',
     autoClosingQuotes: 'always',
     autoSurround: 'languageDefined',
