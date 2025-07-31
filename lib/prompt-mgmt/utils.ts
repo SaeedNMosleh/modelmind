@@ -18,7 +18,7 @@ export function cn(...inputs: ClassValue[]) {
 // Template variable extraction
 export function extractTemplateVariables(template: string): TemplateVariable[] {
   const variables: TemplateVariable[] = [];
-  const variableRegex = /\{([^}]+)\}/g;
+  const variableRegex = /\{\{([^}]+)\}\}/g;
   const matches = template.matchAll(variableRegex);
   
   const seen = new Set<string>();
@@ -97,7 +97,7 @@ export function validateTemplate(template: string): TemplateValidationResult {
   }
   
   // Check for empty variables
-  const emptyVars = template.match(/\{\s*\}/g);
+  const emptyVars = template.match(/\{\{\s*\}\}/g);
   if (emptyVars) {
     errors.push({
       line: 1,

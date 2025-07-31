@@ -14,36 +14,37 @@ const logger = pino({ name: 'prompt-activate-version-api' });
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; version: string } }
+  { params }: { params: Promise<{ id: string; version: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id, version } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const versionValidation = VersionSchema.safeParse(params.version);
+    const versionValidation = VersionSchema.safeParse(version);
     if (!versionValidation.success) {
       return createErrorResponse('Invalid version format', 'INVALID_VERSION', 400);
     }
 
-    const prompt = await Prompt.findById(params.id);
+    const prompt = await Prompt.findById(id);
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
 
-    const targetVersion = prompt.versions.find(v => v.version === params.version);
+    const targetVersion = prompt.versions.find(v => v.version === version);
     
     if (!targetVersion) {
-      return createNotFoundResponse(`Version ${params.version}`);
+      return createNotFoundResponse(`Version ${version}`);
     }
 
     if (targetVersion.isActive) {
       return createErrorResponse(
-        `Version ${params.version} is already active`,
+        `Version ${version} is already active`,
         'VERSION_ALREADY_ACTIVE',
         400
       );
@@ -52,7 +53,7 @@ export async function PUT(
     const previousActiveVersion = prompt.getCurrentVersion();
     
     try {
-      prompt.activateVersion(params.version);
+      prompt.activateVersion(version);
       await prompt.save();
     } catch (activationError: Error | unknown) {
       return createErrorResponse(
@@ -63,17 +64,17 @@ export async function PUT(
     }
     
     logger.info({ 
-      promptId: params.id,
+      promptId: id,
       previousVersion: previousActiveVersion?.version,
-      newActiveVersion: params.version,
+      newActiveVersion: version,
       isProduction: prompt.isProduction
     }, 'Activated prompt version');
 
     return createSuccessResponse({
-      promptId: params.id,
+      promptId: id,
       promptName: prompt.name,
       previousActiveVersion: previousActiveVersion?.version,
-      newActiveVersion: params.version,
+      newActiveVersion: version,
       activatedAt: new Date(),
       isProduction: prompt.isProduction,
       version: prompt.getCurrentVersion()

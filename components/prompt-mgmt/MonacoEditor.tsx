@@ -22,7 +22,7 @@ export function MonacoEditor({
   validationResult,
   height = '300px',
   language = 'text',
-  theme = 'vs',
+  theme = 'vs-dark',
   options = {},
   readOnly = false
 }: MonacoEditorProps) {
@@ -40,8 +40,8 @@ export function MonacoEditor({
     monaco.languages.setMonarchTokensProvider('prompt-template', {
       tokenizer: {
         root: [
-          // Variable syntax highlighting
-          [/\{[^}]+\}/, 'variable'],
+          // Variable syntax highlighting (double braces)
+          [/\{\{[^}]+\}\}/, 'variable'],
           // Comments (if using #)
           [/#.*$/, 'comment'],
           // Strings in quotes
@@ -63,21 +63,21 @@ export function MonacoEditor({
       }
     });
     
-    // Define theme colors
+    // Define dark theme colors
     monaco.editor.defineTheme('prompt-template-theme', {
-      base: 'vs',
+      base: 'vs-dark',
       inherit: true,
       rules: [
-        { token: 'variable', foreground: '0066cc', fontStyle: 'bold' },
-        { token: 'comment', foreground: '008000', fontStyle: 'italic' },
-        { token: 'string', foreground: 'a31515' },
+        { token: 'variable', foreground: '6F87FF', fontStyle: 'bold' },
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'string', foreground: 'CE9178' },
       ],
       colors: {
-        'editor.background': '#ffffff',
-        'editor.foreground': '#000000',
-        'editorLineNumber.foreground': '#999999',
-        'editor.selectionBackground': '#add6ff',
-        'editor.inactiveSelectionBackground': '#e5ebf1'
+        'editor.background': '#1E1E1E',
+        'editor.foreground': '#D4D4D4',
+        'editorLineNumber.foreground': '#858585',
+        'editor.selectionBackground': '#264F78',
+        'editor.inactiveSelectionBackground': '#3A3D41'
       }
     });
     
@@ -103,7 +103,7 @@ export function MonacoEditor({
             {
               label: 'variable',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: '{${1:variableName}}',
+              insertText: '{{${1:variableName}}}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Insert a template variable',
               range
@@ -119,7 +119,7 @@ export function MonacoEditor({
             {
               label: 'context',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: 'Context: {context}\n\nTask: ${1:task}\n\nRequirements:\n- ${2:requirement}',
+              insertText: 'Context: {{context}}\n\nTask: ${1:task}\n\nRequirements:\n- ${2:requirement}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Context and task template',
               range
@@ -127,7 +127,7 @@ export function MonacoEditor({
             {
               label: 'plantuml',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: 'Generate a PlantUML {diagramType} diagram for:\n{description}\n\nRequirements:\n- Use proper PlantUML syntax\n- Include relevant details\n- Follow best practices for {diagramType} diagrams',
+              insertText: 'Generate a PlantUML {{diagramType}} diagram for:\n{{description}}\n\nRequirements:\n- Use proper PlantUML syntax\n- Include relevant details\n- Follow best practices for {{diagramType}} diagrams',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'PlantUML diagram generation template',
               range
@@ -232,7 +232,7 @@ export function MonacoEditor({
   };
   
   return (
-    <div className="border border-gray-200 rounded-md overflow-hidden">
+    <div className="border border-gray-600 rounded-md overflow-hidden monaco-dark-container">
       <Editor
         height={height}
         language={language}

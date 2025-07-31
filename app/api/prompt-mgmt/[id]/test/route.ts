@@ -17,12 +17,12 @@ const runningTests = new Map<string, TestExecutionResponse>();
 // POST /api/prompt-mgmt/[id]/test - Execute tests for a prompt
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     const testRequest: TestExecutionRequest = await request.json();
     
     // Validate prompt exists
@@ -99,9 +99,10 @@ export async function POST(
 // GET /api/prompt-mgmt/[id]/test?executionId=... - Get test execution status
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: promptId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const executionId = searchParams.get('executionId');
     
@@ -110,7 +111,7 @@ export async function GET(
       await connectToDatabase();
       
       const recentResults = await TestResult.find({ 
-        promptId: params.id 
+        promptId: promptId 
       })
       .sort({ createdAt: -1 })
       .limit(20)

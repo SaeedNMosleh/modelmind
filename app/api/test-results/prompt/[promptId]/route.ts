@@ -51,12 +51,13 @@ const PromptTestResultQuerySchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { promptId: string } }
+  { params }: { params: Promise<{ promptId: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.promptId);
+    const { promptId } = await params;
+    const idValidation = ObjectIdSchema.safeParse(promptId);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -87,13 +88,13 @@ export async function GET(
     } = queryValidation.data;
 
     // Verify prompt exists
-    const prompt = await Prompt.findById(params.promptId).select('name currentVersion');
+    const prompt = await Prompt.findById(promptId).select('name currentVersion');
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
 
     // Define filter with proper MongoDB filter type
-    const filter: Record<string, unknown> = { promptId: params.promptId };
+    const filter: Record<string, unknown> = { promptId: promptId };
     
     if (version) filter.promptVersion = version;
     if (environment) filter['metadata.environment'] = environment;
@@ -158,7 +159,7 @@ export async function GET(
     const meta = createPaginationMeta(total, page, limit);
     
     logger.info({ 
-      promptId: params.promptId,
+      promptId: promptId,
       filter, 
       total, 
       page, 
@@ -167,7 +168,7 @@ export async function GET(
     }, 'Retrieved prompt test results');
 
     return createSuccessResponse({
-      promptId: params.promptId,
+      promptId: promptId,
       promptName: prompt.name,
       currentVersion: prompt.currentVersion,
       statistics: {

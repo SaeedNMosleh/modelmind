@@ -14,22 +14,23 @@ const logger = pino({ name: 'prompt-version-detail-api' });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; version: string } }
+  { params }: { params: Promise<{ id: string; version: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id, version } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const versionValidation = VersionSchema.safeParse(params.version);
+    const versionValidation = VersionSchema.safeParse(version);
     if (!versionValidation.success) {
       return createErrorResponse('Invalid version format', 'INVALID_VERSION', 400);
     }
 
-    const prompt = await Prompt.findById(params.id)
+    const prompt = await Prompt.findById(id)
       .select('name agentType operation versions currentVersion')
       .lean() as unknown as {
         name: string;
@@ -43,24 +44,24 @@ export async function GET(
       return createNotFoundResponse('Prompt');
     }
 
-    const version = prompt.versions.find(v => v.version === params.version);
+    const versionData = prompt.versions.find(v => v.version === version);
     
-    if (!version) {
+    if (!versionData) {
       return createNotFoundResponse('Version');
     }
 
     logger.info({ 
-      promptId: params.id,
-      version: params.version 
+      promptId: id,
+      version: version 
     }, 'Retrieved specific prompt version');
     
     return createSuccessResponse({
-      promptId: params.id,
+      promptId: id,
       promptName: prompt.name,
       agentType: prompt.agentType,
       operation: prompt.operation,
       currentVersion: prompt.currentVersion,
-      version: version
+      version: versionData
     });
     
   } catch (error) {

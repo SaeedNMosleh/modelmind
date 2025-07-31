@@ -5,6 +5,8 @@ import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
 // Import the real DiagramType from the guidelines module
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
+import { AgentType, PromptOperation } from "../../database/types";
 import pino from "pino";
 
 // Setup logger
@@ -159,30 +161,56 @@ export class DiagramAnalyzer {
         logger.error("Error fetching guidelines:", guidelineError);
       }
       
-      // Create the analysis prompt template
-      const analysisPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
+      // Load the analysis prompt dynamically
+      const startTime = Date.now();
+      let promptTemplate: string;
+      let promptSource: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.ANALYZER, PromptOperation.ANALYSIS);
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          diagram: validatedParams.diagram,
+          userInput: validatedParams.userInput,
+          analysisType: analysisType.toString(),
+          diagramType: diagramType.toString(),
+          guidelines: guidelinesText,
+          formatInstructions: this.parser.getFormatInstructions()
+        });
+        promptSource = promptData.source;
         
-        You are a specialist in analyzing PlantUML diagrams.
-        
-        Diagram to analyze:
-        \`\`\`plantuml
-        ${validatedParams.diagram}
-        \`\`\`
-        
-        User analysis request: ${validatedParams.userInput}
-        
-        Analysis type: ${analysisType}
-        Diagram type: ${diagramType}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Analyze the diagram based on the analysis type and user request.
-        Provide detailed and insightful analysis.
-        
-        ${this.parser.getFormatInstructions()}
-      `);
+        const duration = Date.now() - startTime;
+        logPromptUsage(AgentType.ANALYZER, PromptOperation.ANALYSIS, promptData.source, duration);
+      } catch (promptError) {
+        logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
+        // Fallback to original hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          You are a specialist in analyzing PlantUML diagrams.
+          
+          Diagram to analyze:
+          \`\`\`plantuml
+          ${validatedParams.diagram}
+          \`\`\`
+          
+          User analysis request: ${validatedParams.userInput}
+          
+          Analysis type: ${analysisType}
+          Diagram type: ${diagramType}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Analyze the diagram based on the analysis type and user request.
+          Provide detailed and insightful analysis.
+          
+          ${this.parser.getFormatInstructions()}
+        `;
+        promptSource = 'hardcoded-fallback';
+      }
+      
+      const analysisPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       // Create the analysis chain
       const analysisChain = RunnableSequence.from([
@@ -199,7 +227,8 @@ export class DiagramAnalyzer {
       
       logger.info("Diagram analysis completed", { 
         diagramType: typedResult.diagramType,
-        analysisType: typedResult.analysisType
+        analysisType: typedResult.analysisType,
+        promptSource
       });
       
       return typedResult;
@@ -245,18 +274,34 @@ export class DiagramAnalyzer {
    */
   private async detectDiagramType(diagram: string): Promise<AnalyzerDiagramType> {
     try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the type of the following PlantUML diagram:
-        
-        \`\`\`plantuml
-        ${diagram}
-        \`\`\`
-        
-        Return ONLY one of these types that best matches the diagram:
-        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
-      `);
+      // Load type detection prompt dynamically
+      let promptTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.ANALYZER, 'type-detection');
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          diagram
+        });
+        logPromptUsage(AgentType.ANALYZER, 'type-detection', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load type detection prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          Determine the type of the following PlantUML diagram:
+          
+          \`\`\`plantuml
+          ${diagram}
+          \`\`\`
+          
+          Return ONLY one of these types that best matches the diagram:
+          SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
+        `;
+      }
+      
+      const detectTypePrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       const detectTypeChain = RunnableSequence.from([
         detectTypePrompt,
@@ -299,23 +344,39 @@ export class DiagramAnalyzer {
    */
   private async detectAnalysisType(userInput: string): Promise<AnalysisType> {
     try {
-      const detectAnalysisPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the most appropriate type of analysis based on the user's request:
-        
-        User request: ${userInput}
-        
-        Select the MOST appropriate analysis type from these options:
-        - GENERAL: Overall assessment of the diagram
-        - QUALITY: Assessment of diagram quality and best practices
-        - COMPONENTS: Inventory and explanation of diagram components
-        - RELATIONSHIPS: Analysis of relationships between components
-        - COMPLEXITY: Assessment of diagram complexity
-        - IMPROVEMENTS: Suggestions for improving the diagram
-        
-        Return ONLY one of these types (just the word).
-      `);
+      // Load analysis type detection prompt dynamically
+      let promptTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.ANALYZER, 'analysis-type-detection');
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          userInput
+        });
+        logPromptUsage(AgentType.ANALYZER, 'analysis-type-detection', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load analysis type detection prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          Determine the most appropriate type of analysis based on the user's request:
+          
+          User request: ${userInput}
+          
+          Select the MOST appropriate analysis type from these options:
+          - GENERAL: Overall assessment of the diagram
+          - QUALITY: Assessment of diagram quality and best practices
+          - COMPONENTS: Inventory and explanation of diagram components
+          - RELATIONSHIPS: Analysis of relationships between components
+          - COMPLEXITY: Assessment of diagram complexity
+          - IMPROVEMENTS: Suggestions for improving the diagram
+          
+          Return ONLY one of these types (just the word).
+        `;
+      }
+      
+      const detectAnalysisPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       const detectAnalysisChain = RunnableSequence.from([
         detectAnalysisPrompt,

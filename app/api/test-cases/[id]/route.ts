@@ -17,17 +17,18 @@ const logger = pino({ name: 'test-case-detail-api' });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid test case ID format', 'INVALID_ID', 400);
     }
 
-    const testCase = await TestCase.findById(params.id)
+    const testCase = await TestCase.findById(id)
       .populate('promptId', 'name agentType diagramType operation')
       .lean();
     
@@ -35,7 +36,7 @@ export async function GET(
       return createNotFoundResponse('Test case');
     }
 
-    logger.info({ testCaseId: params.id }, 'Retrieved test case details');
+    logger.info({ testCaseId: id }, 'Retrieved test case details');
     
     return createSuccessResponse(testCase);
     
@@ -46,12 +47,13 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid test case ID format', 'INVALID_ID', 400);
     }
@@ -64,7 +66,7 @@ export async function PUT(
     }
 
     const testCase = await TestCase.findByIdAndUpdate(
-      params.id,
+      id,
       { ...validation.data, updatedAt: new Date() },
       { new: true, runValidators: true }
     ).populate('promptId', 'name agentType diagramType operation');
@@ -74,7 +76,7 @@ export async function PUT(
     }
     
     logger.info({ 
-      testCaseId: params.id,
+      testCaseId: id,
       name: testCase.name 
     }, 'Updated test case');
 
@@ -87,23 +89,24 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid test case ID format', 'INVALID_ID', 400);
     }
 
-    const testCase = await TestCase.findById(params.id);
+    const testCase = await TestCase.findById(id);
     
     if (!testCase) {
       return createNotFoundResponse('Test case');
     }
 
-    const testResultCount = await TestResult.countDocuments({ testCaseId: params.id });
+    const testResultCount = await TestResult.countDocuments({ testCaseId: id });
 
     if (testResultCount > 0) {
       const searchParams = request.nextUrl.searchParams;
@@ -118,20 +121,20 @@ export async function DELETE(
         );
       }
 
-      await TestResult.deleteMany({ testCaseId: params.id });
+      await TestResult.deleteMany({ testCaseId: id });
       
       logger.warn({ 
-        testCaseId: params.id,
+        testCaseId: id,
         deletedTestResults: testResultCount 
       }, 'Cascade deleted test case results');
     }
 
-    await TestCase.findByIdAndDelete(params.id);
+    await TestCase.findByIdAndDelete(id);
     
-    logger.info({ testCaseId: params.id }, 'Deleted test case');
+    logger.info({ testCaseId: id }, 'Deleted test case');
 
     return createSuccessResponse({ 
-      id: params.id, 
+      id: id, 
       deleted: true,
       cascadeDeleted: {
         testResults: testResultCount

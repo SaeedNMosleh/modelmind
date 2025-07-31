@@ -65,24 +65,25 @@ function computeTextDiff(text1: string, text2: string) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; v1: string; v2: string } }
+  { params }: { params: Promise<{ id: string; v1: string; v2: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id, v1, v2 } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const v1Validation = VersionSchema.safeParse(params.v1);
-    const v2Validation = VersionSchema.safeParse(params.v2);
+    const v1Validation = VersionSchema.safeParse(v1);
+    const v2Validation = VersionSchema.safeParse(v2);
     
     if (!v1Validation.success || !v2Validation.success) {
       return createErrorResponse('Invalid version format', 'INVALID_VERSION', 400);
     }
 
-    const prompt = await Prompt.findById(params.id)
+    const prompt = await Prompt.findById(id)
       .select('name versions')
       .lean();
     
@@ -99,15 +100,15 @@ export async function GET(
       return createErrorResponse('Prompt has no versions', 'NO_VERSIONS', 404);
     }
 
-    const version1 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === params.v1);
-    const version2 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === params.v2);
+    const version1 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === v1);
+    const version2 = (prompt.versions as Array<{ version: string; template: string; changelog?: string; createdAt: Date }>).find(v => v.version === v2);
     
     if (!version1) {
-      return createNotFoundResponse(`Version ${params.v1}`);
+      return createNotFoundResponse(`Version ${v1}`);
     }
     
     if (!version2) {
-      return createNotFoundResponse(`Version ${params.v2}`);
+      return createNotFoundResponse(`Version ${v2}`);
     }
 
     const templateDiff = computeTextDiff(version1.template, version2.template);
@@ -134,14 +135,14 @@ export async function GET(
     };
 
     logger.info({ 
-      promptId: params.id,
-      v1: params.v1,
-      v2: params.v2,
+      promptId: id,
+      v1: v1,
+      v2: v2,
       templateChanges: stats.templateChanges.added + stats.templateChanges.removed
     }, 'Compared prompt versions');
     
     return createSuccessResponse({
-      promptId: params.id,
+      promptId: id,
       promptName: typeof prompt.name === 'string' ? prompt.name : 'Unknown Prompt',
       comparison: {
         version1: {

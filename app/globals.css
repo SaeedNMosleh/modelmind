@@ -402,3 +402,54 @@ body {
 .monaco-editor .mtk1 {
   color: #D4D4D4 !important;
 }
+
+/* Fix for white header area in prompt management */
+.prompt-header-container,
+.prompt-management-header,
+[class*="header"]:not(.panel-header) {
+  background: var(--header-gradient) !important;
+  color: var(--foreground) !important;
+}
+
+/* Specifically target the white header area */
+.bg-white,
+.bg-gray-50,
+.bg-gray-100 {
+  background: var(--header-bg) !important;
+  color: var(--foreground) !important;
+}
+
+/* Override any Tailwind classes causing white background */
+.bg-background {
+  background: var(--header-bg) !important;
+}
+
+/* Ensure breadcrumb and navigation elements are dark */
+nav, .breadcrumb, .navigation {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+
+/* Fix button styling in header */
+.prompt-header-container button,
+.prompt-management-header button {
+  background: var(--btn-secondary-gradient) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Additional specific overrides for common white background classes */
+.bg-slate-50,
+.bg-slate-100,
+.bg-neutral-50,
+.bg-neutral-100 {
+  background: var(--header-bg) !important;
+  color: var(--foreground) !important;
+}
+
+/* Card headers should maintain dark theme */
+.card-header,
+[class*="card-header"] {
+  background: var(--header-bg) !important;
+  color: var(--foreground) !important;
+}

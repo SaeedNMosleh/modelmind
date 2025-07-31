@@ -16,12 +16,13 @@ const logger = pino({ name: 'prompt-duplicate-api' });
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -42,7 +43,7 @@ export async function POST(
       return createValidationErrorResponse(errorDetails);
     }
 
-    const originalPromptDoc = await Prompt.findById(params.id);
+    const originalPromptDoc = await Prompt.findById(id);
     
     if (!originalPromptDoc) {
       return createNotFoundResponse('Prompt');
@@ -106,7 +107,7 @@ export async function POST(
     
     if (includeTestCases) {
       const testCases = await TestCase.find({ 
-        promptId: params.id,
+        promptId: id,
         isActive: true 
       }).lean();
       
@@ -132,7 +133,7 @@ export async function POST(
     }
     
     logger.info({ 
-      originalPromptId: params.id,
+      originalPromptId: id,
       duplicatedPromptId: duplicatedPrompt._id,
       newName: name,
       versionsIncluded: versionsToInclude.length,

@@ -40,12 +40,13 @@ const TestExecutionSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -59,7 +60,7 @@ export async function POST(
 
     const options: PromptTestExecutionOptions = validation.data;
 
-    const prompt = await Prompt.findById(params.id);
+    const prompt = await Prompt.findById(id);
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -79,7 +80,7 @@ export async function POST(
     if (options.testCaseIds && options.testCaseIds.length > 0) {
       testCases = await TestCase.find({
         _id: { $in: options.testCaseIds },
-        promptId: params.id,
+        promptId: id,
         isActive: true
       });
 
@@ -92,7 +93,7 @@ export async function POST(
       }
     } else {
       testCases = await TestCase.find({
-        promptId: params.id,
+        promptId: id,
         isActive: true
       }).limit(20); // Limit to prevent excessive testing
     }
@@ -106,7 +107,7 @@ export async function POST(
     }
 
     logger.info({
-      promptId: params.id,
+      promptId: id,
       promptName: prompt.name,
       version: activeVersion.version,
       testCaseCount: testCases.length,
@@ -124,17 +125,17 @@ export async function POST(
       return createSuccessResponse({
         jobId: executionResult.jobId,
         async: true,
-        promptId: params.id,
+        promptId: id,
         promptName: prompt.name,
         version: activeVersion.version,
         testCaseCount: testCases.length,
         status: 'running',
-        statusUrl: `/api/prompts/${params.id}/test/status/${executionResult.jobId}`
+        statusUrl: `/api/prompts/${id}/test/status/${executionResult.jobId}`
       });
     } else {
       // Synchronous execution - parse and store results
       const resultIds = await testResultParser.parseAndStore(
-        params.id,
+        id,
         activeVersion.version,
         testCases.map(tc => tc._id.toString()),
         executionResult.result!,
@@ -144,7 +145,7 @@ export async function POST(
       const report = testResultParser.generateTestReport(executionResult.result!);
 
       logger.info({
-        promptId: params.id,
+        promptId: id,
         jobId: executionResult.jobId,
         testCaseCount: testCases.length,
         successRate: report.summary.successRate,
@@ -154,7 +155,7 @@ export async function POST(
       return createSuccessResponse({
         jobId: executionResult.jobId,
         async: false,
-        promptId: params.id,
+        promptId: id,
         promptName: prompt.name,
         version: activeVersion.version,
         execution: {
@@ -170,8 +171,15 @@ export async function POST(
     
   } catch (error: Error | unknown) {
     const err = error instanceof Error ? error : new Error('Unknown error occurred');
+    // Use the destructured id from params, or fallback to undefined if not available
+    let promptId: string | undefined;
+    try {
+      promptId = typeof params === 'object' && 'id' in params ? (await params).id : undefined;
+    } catch {
+      promptId = undefined;
+    }
     logger.error({
-      promptId: params.id,
+      promptId,
       error: err.message,
       stack: err.stack
     }, 'Test execution failed');

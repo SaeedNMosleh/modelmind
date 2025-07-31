@@ -36,12 +36,13 @@ const AnalyticsQuerySchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { promptId: string } }
+  { params }: { params: Promise<{ promptId: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.promptId);
+    const { promptId } = await params;
+    const idValidation = ObjectIdSchema.safeParse(promptId);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -68,13 +69,13 @@ export async function GET(
     } = queryValidation.data;
 
     // Verify prompt exists
-    const prompt = await Prompt.findById(params.promptId).select('name versions');
+    const prompt = await Prompt.findById(promptId).select('name versions');
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
 
     const filter: Record<string, unknown> = { 
-      promptId: params.promptId,
+      promptId: promptId,
       createdAt: { $gte: startDate, $lte: endDate }
     };
     
@@ -167,7 +168,7 @@ export async function GET(
 
       // Version comparison (if requested)
       includeVersionComparison ? TestResult.aggregate([
-        { $match: { promptId: params.promptId } },
+        { $match: { promptId: promptId } },
         {
           $group: {
             _id: '$promptVersion',
@@ -205,7 +206,7 @@ export async function GET(
       : 0;
 
     const analytics: TestAnalytics = {
-      promptId: params.promptId,
+      promptId: promptId,
       timeRange: {
         start: startDate,
         end: endDate
@@ -251,7 +252,7 @@ export async function GET(
     };
 
     logger.info({
-      promptId: params.promptId,
+      promptId: promptId,
       startDate,
       endDate,
       totalTests: metrics.totalTests,

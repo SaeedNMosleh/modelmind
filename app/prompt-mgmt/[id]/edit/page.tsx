@@ -113,22 +113,24 @@ export default function PromptEditPage() {
       setValidationResult(result);
       
       // Update preview variables based on extracted variables
-      const newVariables: Record<string, unknown> = {};
-      result.variables.forEach(variable => {
-        if (!previewVariables[variable.name]) {
-          newVariables[variable.name] = variable.defaultValue || 
-            (variable.type === 'string' ? `Example ${variable.name}` :
-             variable.type === 'number' ? 42 :
-             variable.type === 'boolean' ? true :
-             variable.type === 'array' ? ['item1', 'item2'] :
-             { key: 'value' });
-        } else {
-          newVariables[variable.name] = previewVariables[variable.name];
-        }
+      setPreviewVariables(prevVariables => {
+        const newVariables: Record<string, unknown> = {};
+        result.variables.forEach(variable => {
+          if (!prevVariables[variable.name]) {
+            newVariables[variable.name] = variable.defaultValue || 
+              (variable.type === 'string' ? `Example ${variable.name}` :
+               variable.type === 'number' ? 42 :
+               variable.type === 'boolean' ? true :
+               variable.type === 'array' ? ['item1', 'item2'] :
+               { key: 'value' });
+          } else {
+            newVariables[variable.name] = prevVariables[variable.name];
+          }
+        });
+        return newVariables;
       });
-      setPreviewVariables(newVariables);
     }
-  }, [formData.template, previewVariables]);
+  }, [formData.template]);
   
   // Save function
   const handleSave = useCallback(async (isAutoSave = false) => {

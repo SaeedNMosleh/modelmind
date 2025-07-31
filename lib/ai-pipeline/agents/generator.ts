@@ -7,6 +7,8 @@ import { model, baseSystemPrompt } from "../baseChain";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 // Fix the import for templates
 import { listTemplates } from "../../knowledge/templates";
+import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
+import { AgentType, PromptOperation } from "../../database/types";
 import pino from "pino";
 
 // Setup logger
@@ -139,27 +141,52 @@ export class DiagramGenerator {
         templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
       }
       
-      // Create the generation prompt template
-      const generationPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
+      // Load the generation prompt dynamically
+      const startTime = Date.now();
+      let promptTemplate: string;
+      let promptSource: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.GENERATOR, PromptOperation.GENERATION);
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          userInput: validatedParams.userInput,
+          diagramType: diagramType.toString(),
+          guidelines: guidelinesText,
+          templates: templatesText,
+          formatInstructions: this.parser.getFormatInstructions()
+        });
+        promptSource = promptData.source;
         
-        You are a specialist in creating PlantUML diagrams based on user requirements.
-        
-        User requirements: ${validatedParams.userInput}
-        
-        Diagram type: ${diagramType}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Available Templates:
-        ${templatesText}
-        
-        Based on the requirements, create a detailed PlantUML diagram.
-        Focus on clarity, proper syntax, and following best practices.
-        
-        ${this.parser.getFormatInstructions()}
-      `);
+        const duration = Date.now() - startTime;
+        logPromptUsage(AgentType.GENERATOR, PromptOperation.GENERATION, promptData.source, duration);
+      } catch (promptError) {
+        logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
+        // Fallback to original hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          You are a specialist in creating PlantUML diagrams based on user requirements.
+          
+          User requirements: ${validatedParams.userInput}
+          
+          Diagram type: ${diagramType}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Available Templates:
+          ${templatesText}
+          
+          Based on the requirements, create a detailed PlantUML diagram.
+          Focus on clarity, proper syntax, and following best practices.
+          
+          ${this.parser.getFormatInstructions()}
+        `;
+        promptSource = 'hardcoded-fallback';
+      }
+      
+      const generationPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       // Create the generation chain
       const generationChain = RunnableSequence.from([
@@ -176,7 +203,8 @@ export class DiagramGenerator {
       
       logger.info("Diagram generation completed", { 
         diagramType: typedResult.diagramType,
-        diagramLength: typedResult.diagram ? typedResult.diagram.length : 0
+        diagramLength: typedResult.diagram.length,
+        promptSource
       });
       
       return typedResult;
@@ -222,25 +250,41 @@ export class DiagramGenerator {
    */
   private async detectDiagramType(userInput: string): Promise<GeneratorDiagramType> {
     try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the most appropriate PlantUML diagram type based on the user's request:
-        
-        User request: ${userInput}
-        
-        Valid diagram types:
-        - SEQUENCE: for interactions between components over time
-        - CLASS: for system structure and relationships
-        - ACTIVITY: for workflows and processes
-        - STATE: for state transitions and behaviors
-        - COMPONENT: for system components and interfaces
-        - DEPLOYMENT: for physical deployment of components
-        - USE_CASE: for system/actor interactions
-        - ENTITY_RELATIONSHIP: for data modeling
-        
-        Return ONLY one of these types that best matches the user's request.
-      `);
+      // Load type detection prompt dynamically
+      let promptTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.GENERATOR, 'type-detection');
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          userInput
+        });
+        logPromptUsage(AgentType.GENERATOR, 'type-detection', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load type detection prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          Determine the most appropriate PlantUML diagram type based on the user's request:
+          
+          User request: ${userInput}
+          
+          Valid diagram types:
+          - SEQUENCE: for interactions between components over time
+          - CLASS: for system structure and relationships
+          - ACTIVITY: for workflows and processes
+          - STATE: for state transitions and behaviors
+          - COMPONENT: for system components and interfaces
+          - DEPLOYMENT: for physical deployment of components
+          - USE_CASE: for system/actor interactions
+          - ENTITY_RELATIONSHIP: for data modeling
+          
+          Return ONLY one of these types that best matches the user's request.
+        `;
+      }
+      
+      const detectTypePrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       const detectTypeChain = RunnableSequence.from([
         detectTypePrompt,

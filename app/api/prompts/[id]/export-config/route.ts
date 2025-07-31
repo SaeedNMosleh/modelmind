@@ -17,12 +17,13 @@ const logger = pino({ name: 'prompt-export-config-api' });
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -52,7 +53,7 @@ export async function POST(
       outputPath
     } = validation.data;
 
-    const prompt = await Prompt.findById(params.id).lean();
+    const prompt = await Prompt.findById(id).lean();
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -113,7 +114,7 @@ export async function POST(
 
     if (includeTestCases) {
       const testCases = await TestCase.find({ 
-        promptId: params.id,
+        promptId: id,
         isActive: true 
       }).lean();
 
@@ -148,7 +149,7 @@ export async function POST(
     const configYaml = generatePromptFooYaml(promptFooConfig);
     
     logger.info({ 
-      promptId: params.id,
+      promptId: id,
       promptName: typedPrompt.name,
       version: activeVersion.version,
       testCasesIncluded: promptFooConfig.tests.length,

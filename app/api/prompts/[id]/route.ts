@@ -17,23 +17,24 @@ const logger = pino({ name: 'prompt-detail-api' });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const prompt = await Prompt.findById(params.id).lean();
+    const prompt = await Prompt.findById(id).lean();
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
 
-    logger.info({ promptId: params.id }, 'Retrieved prompt details');
+    logger.info({ promptId: id }, 'Retrieved prompt details');
     
     return createSuccessResponse(prompt);
     
@@ -44,12 +45,13 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -61,7 +63,7 @@ export async function PUT(
       return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
-    const prompt = await Prompt.findById(params.id);
+    const prompt = await Prompt.findById(id);
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -73,7 +75,7 @@ export async function PUT(
       const existingPrompt = await Prompt.findOne({ 
         name: updateData.name,
         agentType: updateData.agentType || prompt.agentType,
-        _id: { $ne: params.id }
+        _id: { $ne: id }
       });
       
       if (existingPrompt) {
@@ -102,7 +104,7 @@ export async function PUT(
     await prompt.save();
     
     logger.info({ 
-      promptId: params.id,
+      promptId: id,
       hasNewVersion: !!newVersion,
       version: newVersion?.version 
     }, 'Updated prompt');
@@ -116,17 +118,18 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const prompt = await Prompt.findById(params.id);
+    const prompt = await Prompt.findById(id);
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -141,8 +144,8 @@ export async function DELETE(
     }
 
     const [testCaseCount, testResultCount] = await Promise.all([
-      TestCase.countDocuments({ promptId: params.id }),
-      TestResult.countDocuments({ promptId: params.id })
+      TestCase.countDocuments({ promptId: id }),
+      TestResult.countDocuments({ promptId: id })
     ]);
 
     if (testCaseCount > 0 || testResultCount > 0) {
@@ -159,23 +162,23 @@ export async function DELETE(
       }
 
       await Promise.all([
-        TestCase.deleteMany({ promptId: params.id }),
-        TestResult.deleteMany({ promptId: params.id })
+        TestCase.deleteMany({ promptId: id }),
+        TestResult.deleteMany({ promptId: id })
       ]);
       
       logger.warn({ 
-        promptId: params.id,
+        promptId: id,
         deletedTestCases: testCaseCount,
         deletedTestResults: testResultCount 
       }, 'Cascade deleted prompt dependencies');
     }
 
-    await Prompt.findByIdAndDelete(params.id);
+    await Prompt.findByIdAndDelete(id);
     
-    logger.info({ promptId: params.id }, 'Deleted prompt');
+    logger.info({ promptId: id }, 'Deleted prompt');
 
     return createSuccessResponse({ 
-      id: params.id, 
+      id: id, 
       deleted: true,
       cascadeDeleted: {
         testCases: testCaseCount,

@@ -403,7 +403,7 @@ export default function PromptDetailPage() {
                 <label className="text-sm font-medium text-gray-500">Created</label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Calendar className="h-4 w-4" />
-                  <span className="text-sm">{formatTimestamp(prompt.createdAt)}</span>
+                  <span className="text-sm text-muted-foreground">{formatTimestamp(prompt.createdAt)}</span>
                 </div>
               </div>
               
@@ -411,7 +411,7 @@ export default function PromptDetailPage() {
                 <label className="text-sm font-medium text-gray-500">Last Modified</label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Clock className="h-4 w-4" />
-                  <span className="text-sm">{formatTimestamp(prompt.updatedAt)}</span>
+                  <span className="text-sm text-muted-foreground">{formatTimestamp(prompt.updatedAt)}</span>
                 </div>
               </div>
               
@@ -471,7 +471,7 @@ export default function PromptDetailPage() {
                 {testSummary.lastRun && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Last Run</label>
-                    <p className="text-sm mt-1">{formatTimestamp(testSummary.lastRun)}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{formatTimestamp(testSummary.lastRun)}</p>
                   </div>
                 )}
                 

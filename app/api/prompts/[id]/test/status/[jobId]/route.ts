@@ -14,21 +14,22 @@ const logger = pino({ name: 'test-status-api' });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; jobId: string } }
+  { params }: { params: Promise<{ id: string; jobId: string }> }
 ) {
   try {
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id, jobId } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const job = promptFooRunner.getJobStatus(params.jobId);
+    const job = promptFooRunner.getJobStatus(jobId);
     
     if (!job) {
       return createNotFoundResponse('Test execution job');
     }
 
-    if (job.promptId !== params.id) {
+    if (job.promptId !== id) {
       return createErrorResponse(
         'Job does not belong to this prompt',
         'JOB_MISMATCH',
@@ -66,7 +67,7 @@ export async function GET(
     } | null = null;
 
     if (job.status === 'completed') {
-      const promptFooResult = promptFooRunner.getJobResult(params.jobId);
+      const promptFooResult = promptFooRunner.getJobResult(jobId);
       if (promptFooResult) {
         result = promptFooResult;
         report = testResultParser.generateTestReport(promptFooResult);
@@ -96,14 +97,14 @@ export async function GET(
     if (job.status === 'completed' || job.status === 'failed') {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       if (job.completedAt && job.completedAt < oneHourAgo) {
-        promptFooRunner.cleanupJob(params.jobId);
-        logger.debug({ jobId: params.jobId }, 'Auto-cleaned up old job');
+        promptFooRunner.cleanupJob(jobId);
+        logger.debug({ jobId: jobId }, 'Auto-cleaned up old job');
       }
     }
 
     logger.debug({
-      jobId: params.jobId,
-      promptId: params.id,
+      jobId: jobId,
+      promptId: id,
       status: job.status,
       progress: job.progress
     }, 'Retrieved test execution status');
@@ -111,9 +112,10 @@ export async function GET(
     return createSuccessResponse(response);
     
   } catch (error: Error | unknown) {
+    const { id, jobId } = await params;
     logger.error({
-      jobId: params.jobId,
-      promptId: params.id,
+      jobId: jobId,
+      promptId: id,
       error: error instanceof Error ? error.message : String(error)
     }, 'Failed to get test execution status');
     
@@ -127,21 +129,22 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; jobId: string } }
+  { params }: { params: Promise<{ id: string; jobId: string }> }
 ) {
   try {
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id, jobId } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const job = promptFooRunner.getJobStatus(params.jobId);
+    const job = promptFooRunner.getJobStatus(jobId);
     
     if (!job) {
       return createNotFoundResponse('Test execution job');
     }
 
-    if (job.promptId !== params.id) {
+    if (job.promptId !== id) {
       return createErrorResponse(
         'Job does not belong to this prompt',
         'JOB_MISMATCH',
@@ -157,23 +160,24 @@ export async function DELETE(
       );
     }
 
-    promptFooRunner.cleanupJob(params.jobId);
+    promptFooRunner.cleanupJob(jobId);
     
     logger.info({
-      jobId: params.jobId,
-      promptId: params.id
+      jobId: jobId,
+      promptId: id
     }, 'Cleaned up test execution job');
 
     return createSuccessResponse({
-      jobId: params.jobId,
-      promptId: params.id,
+      jobId: jobId,
+      promptId: id,
       cleaned: true
     });
     
   } catch (error: Error | unknown) {
+    const { id, jobId } = await params;
     logger.error({
-      jobId: params.jobId,
-      promptId: params.id,
+      jobId: jobId,
+      promptId: id,
       error: error instanceof Error ? error.message : String(error)
     }, 'Failed to cleanup test execution job');
     

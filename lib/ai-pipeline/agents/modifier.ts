@@ -5,6 +5,8 @@ import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
 // Import the DiagramType from guidelines with an alias to avoid conflicts
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
+import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
+import { AgentType, PromptOperation } from "../../database/types";
 import pino from "pino";
 
 // Setup logger
@@ -127,28 +129,52 @@ export class DiagramModifier {
         logger.error("Error fetching guidelines:", guidelineError);
       }
       
-      // Create the modification prompt template
-      const modificationPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
+      // Load the modification prompt dynamically
+      const startTime = Date.now();
+      let promptTemplate: string;
+      let promptSource: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.MODIFIER, PromptOperation.MODIFICATION);
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          currentDiagram: validatedParams.currentDiagram,
+          userInput: validatedParams.userInput,
+          guidelines: guidelinesText,
+          formatInstructions: this.parser.getFormatInstructions()
+        });
+        promptSource = promptData.source;
         
-        You are a specialist in modifying PlantUML diagrams based on user instructions.
-        
-        Current diagram:
-        \`\`\`plantuml
-        ${validatedParams.currentDiagram}
-        \`\`\`
-        
-        User modification request: ${validatedParams.userInput}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Modify the diagram according to the user's instructions.
-        Preserve existing structure while implementing the requested changes.
-        Ensure the modified diagram uses correct PlantUML syntax.
-        
-        ${this.parser.getFormatInstructions()}
-      `);
+        const duration = Date.now() - startTime;
+        logPromptUsage(AgentType.MODIFIER, PromptOperation.MODIFICATION, promptData.source, duration);
+      } catch (promptError) {
+        logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
+        // Fallback to original hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          You are a specialist in modifying PlantUML diagrams based on user instructions.
+          
+          Current diagram:
+          \`\`\`plantuml
+          ${validatedParams.currentDiagram}
+          \`\`\`
+          
+          User modification request: ${validatedParams.userInput}
+          
+          PlantUML Guidelines:
+          ${guidelinesText}
+          
+          Modify the diagram according to the user's instructions.
+          Preserve existing structure while implementing the requested changes.
+          Ensure the modified diagram uses correct PlantUML syntax.
+          
+          ${this.parser.getFormatInstructions()}
+        `;
+        promptSource = 'hardcoded-fallback';
+      }
+      
+      const modificationPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       // Create the modification chain
       const modificationChain = RunnableSequence.from([
@@ -175,7 +201,8 @@ export class DiagramModifier {
       
       logger.info("Diagram modification completed", { 
         diagramType: typedResult.diagramType,
-        changes: typedResult.changes ? typedResult.changes.length : 0
+        changes: typedResult.changes ? typedResult.changes.length : 0,
+        promptSource
       });
       
       return typedResult;
@@ -228,27 +255,43 @@ export class DiagramModifier {
     diagramType: ModifierDiagramType
   ): Promise<ModificationResult> {
     try {
-      // Create a more directive prompt template
-      const retryPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        You are a specialist in modifying PlantUML diagrams based on user instructions.
-        
-        Current diagram:
-        \`\`\`plantuml
-        ${params.currentDiagram}
-        \`\`\`
-        
-        User modification request: ${params.userInput}
-        
-        IMPORTANT: You MUST make the specific changes requested by the user.
-        The previous attempt did not implement any changes.
-        
-        Carefully analyze the diagram and implement the requested modifications.
-        Focus on the specific elements the user wants to change.
-        
-        Modified diagram (full code, starting with @startuml and ending with @enduml):
-      `);
+      // Load retry modification prompt dynamically
+      let promptTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.MODIFIER, 'retry-modification');
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          currentDiagram: params.currentDiagram,
+          userInput: params.userInput
+        });
+        logPromptUsage(AgentType.MODIFIER, 'retry-modification', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load retry prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          You are a specialist in modifying PlantUML diagrams based on user instructions.
+          
+          Current diagram:
+          \`\`\`plantuml
+          ${params.currentDiagram}
+          \`\`\`
+          
+          User modification request: ${params.userInput}
+          
+          IMPORTANT: You MUST make the specific changes requested by the user.
+          The previous attempt did not implement any changes.
+          
+          Carefully analyze the diagram and implement the requested modifications.
+          Focus on the specific elements the user wants to change.
+          
+          Modified diagram (full code, starting with @startuml and ending with @enduml):
+        `;
+      }
+      
+      const retryPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       // Create the retry chain
       const retryChain = RunnableSequence.from([
@@ -264,16 +307,31 @@ export class DiagramModifier {
       const diagramMatch = modifiedDiagram.match(/@startuml[\s\S]*?@enduml/);
       const diagram = diagramMatch ? diagramMatch[0] : modifiedDiagram;
       
-      // Create a list of changes
-      const changesPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        You have modified a PlantUML diagram based on this request:
-        "${params.userInput}"
-        
-        List the specific changes you made, one per line.
-        Be concise but clear. Start each line with "- ".
-      `);
+      // Load changes description prompt dynamically
+      let changesTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.MODIFIER, 'changes-description');
+        changesTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          userInput: params.userInput
+        });
+        logPromptUsage(AgentType.MODIFIER, 'changes-description', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load changes prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        changesTemplate = `
+          ${baseSystemPrompt}
+          
+          You have modified a PlantUML diagram based on this request:
+          "${params.userInput}"
+          
+          List the specific changes you made, one per line.
+          Be concise but clear. Start each line with "- ".
+        `;
+      }
+      
+      const changesPrompt = PromptTemplate.fromTemplate(changesTemplate);
       
       const changesChain = RunnableSequence.from([
         changesPrompt,
@@ -322,18 +380,34 @@ export class DiagramModifier {
    */
   private async detectDiagramType(diagram: string): Promise<ModifierDiagramType> {
     try {
-      const detectTypePrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Determine the type of the following PlantUML diagram:
-        
-        \`\`\`plantuml
-        ${diagram}
-        \`\`\`
-        
-        Return ONLY one of these types that best matches the diagram:
-        SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
-      `);
+      // Load type detection prompt dynamically
+      let promptTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.MODIFIER, 'type-detection');
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          diagram
+        });
+        logPromptUsage(AgentType.MODIFIER, 'type-detection', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load type detection prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          Determine the type of the following PlantUML diagram:
+          
+          \`\`\`plantuml
+          ${diagram}
+          \`\`\`
+          
+          Return ONLY one of these types that best matches the diagram:
+          SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
+        `;
+      }
+      
+      const detectTypePrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       const detectTypeChain = RunnableSequence.from([
         detectTypePrompt,

@@ -11,12 +11,12 @@ const logger = pino();
 // GET /api/prompt-mgmt/[id]/versions - Get all versions of a prompt
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const compare = searchParams.get('compare'); // Format: "v1.0.0,v1.1.0"
     
@@ -108,12 +108,12 @@ export async function GET(
 // POST /api/prompt-mgmt/[id]/versions - Create a new version
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     const versionData = await request.json();
     
     const prompt = await Prompt.findById(promptId);
@@ -180,12 +180,12 @@ export async function POST(
 // PUT /api/prompt-mgmt/[id]/versions - Activate a version or rollback
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     const { action, version } = await request.json();
     
     const prompt = await Prompt.findById(promptId);

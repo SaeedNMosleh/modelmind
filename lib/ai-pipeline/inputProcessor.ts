@@ -3,6 +3,8 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
 import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { model, baseSystemPrompt } from "./baseChain";
+import { getPrompt, substituteVariables, logPromptUsage } from "../prompts/loader";
+import { AgentType, PromptOperation } from "../database/types";
 import pino from "pino";
 
 // Setup logger
@@ -76,23 +78,43 @@ export async function classifyIntent(params: InputProcessorParams): Promise<Inte
     
     // Try to use a simpler classification approach first
     try {
-      // First try the simple parser
-      const intentClassifierPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Your task is to classify the user's intent regarding PlantUML diagrams.
-        
-        Current diagram present: ${currentDiagramStatus}
-        
-        User request: ${userInput}
-        
-        ${conversationHistory}
-          Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
-        
-        Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
-        
-        If you cannot clearly determine the user's intent, respond with UNKNOWN.
-      `);
+      // Load simple intent classification prompt dynamically
+      let promptTemplate: string;
+      let promptSource: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.CLASSIFIER, PromptOperation.INTENT_CLASSIFICATION);
+        promptTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          currentDiagramStatus,
+          userInput,
+          conversationHistory
+        });
+        promptSource = promptData.source;
+        logPromptUsage(AgentType.CLASSIFIER, PromptOperation.INTENT_CLASSIFICATION, promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load intent classification prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        promptTemplate = `
+          ${baseSystemPrompt}
+          
+          Your task is to classify the user's intent regarding PlantUML diagrams.
+          
+          Current diagram present: ${currentDiagramStatus}
+          
+          User request: ${userInput}
+          
+          ${conversationHistory}
+            Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
+          
+          Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
+          
+          If you cannot clearly determine the user's intent, respond with UNKNOWN.
+        `;
+        promptSource = 'hardcoded-fallback';
+      }
+      
+      const intentClassifierPrompt = PromptTemplate.fromTemplate(promptTemplate);
       
       // Create the simple classification chain with string output
       const simpleClassificationChain = RunnableSequence.from([
@@ -121,7 +143,7 @@ export async function classifyIntent(params: InputProcessorParams): Promise<Inte
           intentEnum = DiagramIntent.UNKNOWN;
       }
       
-      logger.info("Intent classification completed (simple)", { intent: intentEnum });
+      logger.info("Intent classification completed (simple)", { intent: intentEnum, promptSource });
       
       // Return a simple classification
       return {
@@ -134,24 +156,42 @@ export async function classifyIntent(params: InputProcessorParams): Promise<Inte
       // If simple classification fails, fall back to structured output
       logger.warn("Simple intent classification failed, trying structured approach", { error: simpleError });
       
-      // Create intent classifier prompt with precomputed values
-      const detailedPrompt = PromptTemplate.fromTemplate(`
-        ${baseSystemPrompt}
-        
-        Your task is to classify the user's intent regarding PlantUML diagrams.
-        
-        Current diagram present: ${currentDiagramStatus}
-        
-        User request: ${userInput}
-        
-        ${conversationHistory}
-        
-        Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
-        
-        Analyze the confidence of your classification on a scale from 0 to 1.
-        
-        ${StructuredOutputParser.fromZodSchema(intentOutputSchema).getFormatInstructions()}
-      `);
+      // Load detailed intent classification prompt dynamically
+      let detailedTemplate: string;
+      
+      try {
+        const promptData = await getPrompt(AgentType.CLASSIFIER, 'detailed-intent-classification');
+        detailedTemplate = substituteVariables(promptData.template, {
+          baseSystemPrompt,
+          currentDiagramStatus,
+          userInput,
+          conversationHistory,
+          formatInstructions: StructuredOutputParser.fromZodSchema(intentOutputSchema).getFormatInstructions()
+        });
+        logPromptUsage(AgentType.CLASSIFIER, 'detailed-intent-classification', promptData.source, 0);
+      } catch (promptError) {
+        logger.warn("Failed to load detailed intent classification prompt, using fallback", { error: promptError });
+        // Fallback to hardcoded prompt
+        detailedTemplate = `
+          ${baseSystemPrompt}
+          
+          Your task is to classify the user's intent regarding PlantUML diagrams.
+          
+          Current diagram present: ${currentDiagramStatus}
+          
+          User request: ${userInput}
+          
+          ${conversationHistory}
+          
+          Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
+          
+          Analyze the confidence of your classification on a scale from 0 to 1.
+          
+          ${StructuredOutputParser.fromZodSchema(intentOutputSchema).getFormatInstructions()}
+        `;
+      }
+      
+      const detailedPrompt = PromptTemplate.fromTemplate(detailedTemplate);
       
       // Create a parser for structured output
       const parser = StructuredOutputParser.fromZodSchema(intentOutputSchema);

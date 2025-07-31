@@ -39,19 +39,20 @@ const ComparisonTestSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id1: string; id2: string } }
+  { params }: { params: Promise<{ id1: string; id2: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const id1Validation = ObjectIdSchema.safeParse(params.id1);
-    const id2Validation = ObjectIdSchema.safeParse(params.id2);
+    const { id1, id2 } = await params;
+    const id1Validation = ObjectIdSchema.safeParse(id1);
+    const id2Validation = ObjectIdSchema.safeParse(id2);
     
     if (!id1Validation.success || !id2Validation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    if (params.id1 === params.id2) {
+    if (id1 === id2) {
       return createErrorResponse(
         'Cannot compare a prompt with itself',
         'SAME_PROMPT',
@@ -73,16 +74,16 @@ export async function POST(
 
     // Get both prompts
     const [prompt1, prompt2] = await Promise.all([
-      Prompt.findById(params.id1),
-      Prompt.findById(params.id2)
+      Prompt.findById(id1),
+      Prompt.findById(id2)
     ]);
     
     if (!prompt1) {
-      return createNotFoundResponse(`Prompt 1 (${params.id1})`);
+      return createNotFoundResponse(`Prompt 1 (${id1})`);
     }
 
     if (!prompt2) {
-      return createNotFoundResponse(`Prompt 2 (${params.id2})`);
+      return createNotFoundResponse(`Prompt 2 (${id2})`);
     }
 
     const activeVersion1 = prompt1.getCurrentVersion();
@@ -114,8 +115,8 @@ export async function POST(
     } else {
       // Find common test cases or use test cases from prompt1
       const [testCases1, testCases2] = await Promise.all([
-        TestCase.find({ promptId: params.id1, isActive: true }).limit(10),
-        TestCase.find({ promptId: params.id2, isActive: true }).limit(10)
+        TestCase.find({ promptId: id1, isActive: true }).limit(10),
+        TestCase.find({ promptId: id2, isActive: true }).limit(10)
       ]);
 
       // Try to find test cases with matching vars (indicating they test similar functionality)
@@ -137,8 +138,8 @@ export async function POST(
     }
 
     logger.info({
-      prompt1Id: params.id1,
-      prompt2Id: params.id2,
+      prompt1Id: id1,
+      prompt2Id: id2,
       prompt1Name: prompt1.name,
       prompt2Name: prompt2.name,
       testCaseCount: testCases.length,
@@ -151,13 +152,13 @@ export async function POST(
     if (options.useExistingResults) {
       const [existingResults1, existingResults2] = await Promise.all([
         TestResult.find({
-          promptId: params.id1,
+          promptId: id1,
           promptVersion: activeVersion1.version,
           testCaseId: { $in: testCases.map(tc => tc._id) },
           'metadata.environment': options.environment
         }).sort({ createdAt: -1 }).limit(testCases.length),
         TestResult.find({
-          promptId: params.id2,
+          promptId: id2,
           promptVersion: activeVersion2.version,
           testCaseId: { $in: testCases.map(tc => tc._id) },
           'metadata.environment': options.environment
@@ -169,8 +170,8 @@ export async function POST(
 
       if (hasAllResults1 && hasAllResults2) {
         logger.info({
-          prompt1Id: params.id1,
-          prompt2Id: params.id2,
+          prompt1Id: id1,
+          prompt2Id: id2,
           resultsFound: { prompt1: existingResults1.length, prompt2: existingResults2.length }
         }, 'Using existing test results for comparison');
 
@@ -178,8 +179,8 @@ export async function POST(
         results2 = existingResults2;
       } else {
         logger.info({
-          prompt1Id: params.id1,
-          prompt2Id: params.id2,
+          prompt1Id: id1,
+          prompt2Id: id2,
           resultsFound: { prompt1: existingResults1.length, prompt2: existingResults2.length },
           requiredResults: testCases.length
         }, 'Insufficient existing results, running new tests');
@@ -204,14 +205,14 @@ export async function POST(
       // Parse and store results
       const [resultIds1, resultIds2] = await Promise.all([
         testResultParser.parseAndStore(
-          params.id1,
+          id1,
           activeVersion1.version,
           testCases.map(tc => tc._id.toString()),
           execution1.result,
           options
         ),
         testResultParser.parseAndStore(
-          params.id2,
+          id2,
           activeVersion2.version,
           testCases.map(tc => tc._id.toString()),
           execution2.result,
@@ -234,8 +235,8 @@ export async function POST(
     );
 
     logger.info({
-      prompt1Id: params.id1,
-      prompt2Id: params.id2,
+      prompt1Id: id1,
+      prompt2Id: id2,
       testCasesCompared: comparison.comparison.testCasesCompared,
       overallScoreDifference: comparison.comparison.overallScoreDifference,
       winner: comparison.comparison.overallScoreDifference > 0 ? 'prompt2' : 
@@ -246,9 +247,10 @@ export async function POST(
     
   } catch (error: unknown) {
     const err = error as Error;
+    const { id1, id2 } = await params;
     logger.error({
-      prompt1Id: params.id1,
-      prompt2Id: params.id2,
+      prompt1Id: id1,
+      prompt2Id: id2,
       error: err.message,
       stack: err.stack
     }, 'Prompt comparison test failed');

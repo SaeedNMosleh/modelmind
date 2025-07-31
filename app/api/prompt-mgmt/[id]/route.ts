@@ -5,6 +5,7 @@ import { TestCase } from '@/lib/database/models/testCase';
 import { TestResult } from '@/lib/database/models/testResult';
 import { ApiResponse } from '@/lib/prompt-mgmt/types';
 import { validateSemanticVersion } from '@/lib/prompt-mgmt/utils';
+import mongoose from 'mongoose';
 import pino from 'pino';
 
 const logger = pino();
@@ -12,16 +13,16 @@ const logger = pino();
 // GET /api/prompt-mgmt/[id] - Get a specific prompt with full details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     
     // Aggregate prompt with related data
     const promptData = await Prompt.aggregate([
-      { $match: { _id: { $oid: promptId } } },
+      { $match: { _id: new mongoose.Types.ObjectId(promptId) } },
       {
         $lookup: {
           from: 'testcases',
@@ -104,12 +105,12 @@ export async function GET(
 // PUT /api/prompt-mgmt/[id] - Update a prompt
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     const updateData = await request.json();
     
     const existingPrompt = await Prompt.findById(promptId);
@@ -183,12 +184,12 @@ export async function PUT(
 // DELETE /api/prompt-mgmt/[id] - Delete a prompt
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
     
-    const promptId = params.id;
+    const { id: promptId } = await params;
     
     const prompt = await Prompt.findById(promptId);
     if (!prompt) {

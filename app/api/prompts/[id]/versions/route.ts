@@ -16,17 +16,18 @@ const logger = pino({ name: 'prompt-versions-api' });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const prompt = await Prompt.findById(params.id)
+    const prompt = await Prompt.findById(id)
       .select('versions currentVersion name')
       .lean() as unknown as { 
         versions: Array<{ createdAt: Date }>;
@@ -43,12 +44,12 @@ export async function GET(
     );
 
     logger.info({ 
-      promptId: params.id,
+      promptId: id,
       versionCount: sortedVersions.length 
     }, 'Retrieved prompt versions');
     
     return createSuccessResponse({
-      promptId: params.id,
+      promptId: id,
       promptName: prompt.name,
       currentVersion: prompt.currentVersion,
       versions: sortedVersions
@@ -61,12 +62,13 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
+    const { id } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
@@ -78,7 +80,7 @@ export async function POST(
       return createValidationErrorResponse(zodErrorsToValidationDetails(validation.error.errors));
     }
 
-    const prompt = await Prompt.findById(params.id);
+    const prompt = await Prompt.findById(id);
     
     if (!prompt) {
       return createNotFoundResponse('Prompt');
@@ -98,13 +100,13 @@ export async function POST(
     const newVersion = prompt.getCurrentVersion();
     
     logger.info({ 
-      promptId: params.id,
+      promptId: id,
       version: validation.data.version,
       isActive: true
     }, 'Created new prompt version');
 
     return createSuccessResponse({
-      promptId: params.id,
+      promptId: id,
       version: newVersion,
       currentVersion: prompt.currentVersion
     });

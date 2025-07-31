@@ -73,7 +73,7 @@ export function PromptPreview({
     templateVariables.forEach(variable => {
       const value = testVariables[variable.name] || variables[variable.name];
       if (value !== undefined) {
-        const placeholder = `{${variable.name}}`;
+        const placeholder = `{{${variable.name}}}`;
         const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
         rendered = rendered.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), displayValue);
       }
@@ -145,7 +145,7 @@ export function PromptPreview({
                     checked={Boolean(testVariables[variable.name])}
                     onCheckedChange={(checked) => handleVariableChange(variable.name, checked)}
                   />
-                  <span className="text-sm">
+                  <span className="text-sm text-muted-foreground">
                     {testVariables[variable.name] ? 'True' : 'False'}
                   </span>
                 </div>
@@ -258,7 +258,7 @@ export function PromptPreview({
         
         <CardContent>
           <div className={cn(
-            'border rounded-lg p-4 bg-gray-50 font-mono text-sm whitespace-pre-wrap',
+            'border rounded-lg p-4 bg-gray-900 text-gray-100 font-mono text-sm whitespace-pre-wrap',
             isExpanded ? 'max-h-none' : 'max-h-96 overflow-y-auto'
           )}>
             {showRaw ? template : renderedTemplate}

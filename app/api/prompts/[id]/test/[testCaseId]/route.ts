@@ -32,13 +32,14 @@ const SingleTestExecutionSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; testCaseId: string } }
+  { params }: { params: Promise<{ id: string; testCaseId: string }> }
 ) {
   try {
     await withTimeout(connectToDatabase());
     
-    const idValidation = ObjectIdSchema.safeParse(params.id);
-    const testCaseIdValidation = ObjectIdSchema.safeParse(params.testCaseId);
+    const { id, testCaseId } = await params;
+    const idValidation = ObjectIdSchema.safeParse(id);
+    const testCaseIdValidation = ObjectIdSchema.safeParse(testCaseId);
     
     if (!idValidation.success || !testCaseIdValidation.success) {
       return createErrorResponse('Invalid ID format', 'INVALID_ID', 400);
@@ -59,8 +60,8 @@ export async function POST(
     };
 
     const [prompt, testCase] = await Promise.all([
-      Prompt.findById(params.id),
-      TestCase.findById(params.testCaseId)
+      Prompt.findById(id),
+      TestCase.findById(testCaseId)
     ]);
     
     if (!prompt) {
@@ -71,7 +72,7 @@ export async function POST(
       return createNotFoundResponse('Test case');
     }
 
-    if (testCase.promptId.toString() !== params.id) {
+    if (testCase.promptId.toString() !== id) {
       return createErrorResponse(
         'Test case does not belong to this prompt',
         'TEST_CASE_MISMATCH',
@@ -102,8 +103,8 @@ export async function POST(
     }
 
     logger.info({
-      promptId: params.id,
-      testCaseId: params.testCaseId,
+      promptId: id,
+      testCaseId: testCaseId,
       promptName: prompt.name,
       testCaseName: testCase.name,
       version: activeVersion.version,
@@ -136,7 +137,7 @@ export async function POST(
     let resultId: string | null = null;
     if (options.saveResults) {
       const resultIds = await testResultParser.parseAndStore(
-        params.id,
+        id,
         activeVersion.version,
         [testCase._id.toString()],
         executionResult.result,
@@ -161,8 +162,8 @@ export async function POST(
     };
 
     logger.info({
-      promptId: params.id,
-      testCaseId: params.testCaseId,
+      promptId: id,
+      testCaseId: testCaseId,
       jobId: executionResult.jobId,
       success: testResult.success,
       score: testResult.score,
@@ -172,8 +173,8 @@ export async function POST(
 
     return createSuccessResponse({
       jobId: executionResult.jobId,
-      promptId: params.id,
-      testCaseId: params.testCaseId,
+      promptId: id,
+      testCaseId: testCaseId,
       promptName: prompt.name,
       testCaseName: testCase.name,
       version: activeVersion.version,
@@ -191,8 +192,8 @@ export async function POST(
   } catch (error: Error | unknown) {
     const err = error instanceof Error ? error : new Error('Unknown error occurred');
     logger.error({
-      promptId: params.id,
-      testCaseId: params.testCaseId,
+      promptId: typeof params === 'object' && 'id' in params ? (await params).id : undefined,
+      testCaseId: typeof params === 'object' && 'testCaseId' in params ? (await params).testCaseId : undefined,
       error: err.message,
       stack: err.stack
     }, 'Single test execution failed');
