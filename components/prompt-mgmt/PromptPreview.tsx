@@ -37,6 +37,7 @@ interface PromptPreviewProps {
   showVariables?: boolean;
   showVariableEditor?: boolean;
   allowTesting?: boolean;
+  showMissingVariableWarning?: boolean;
   className?: string;
 }
 
@@ -49,6 +50,7 @@ export function PromptPreview({
   showVariables = false,
   showVariableEditor = false,
   allowTesting = false,
+  showMissingVariableWarning = true,
   className
 }: PromptPreviewProps) {
   const [copied, setCopied] = useState(false);
@@ -57,7 +59,7 @@ export function PromptPreview({
   const [testVariables, setTestVariables] = useState<Record<string, unknown>>(variables);
   
   // Use the specified version or the current one
-  const activeVersion = version || prompt.versions.find(v => v.version === prompt.currentVersion);
+  const activeVersion = version || prompt.versions.find(v => v.version === prompt.primaryVersion);
   const template = activeVersion?.template || '';
   
   // Extract variables from template
@@ -73,7 +75,7 @@ export function PromptPreview({
     templateVariables.forEach(variable => {
       const value = testVariables[variable.name] || variables[variable.name];
       if (value !== undefined) {
-        const placeholder = `{{${variable.name}}}`;
+        const placeholder = `{${variable.name}}`;
         const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
         rendered = rendered.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), displayValue);
       }
@@ -198,7 +200,7 @@ export function PromptPreview({
   return (
     <div className={cn('space-y-4', className)}>
       {/* Missing Variables Warning */}
-      {missingVariables.length > 0 && (
+      {showMissingVariableWarning && missingVariables.length > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -367,6 +369,11 @@ export function PromptPreview({
             variant="default"
             disabled={missingVariables.length > 0}
             onClick={() => {
+              // Show warning if there are missing variables
+              if (missingVariables.length > 0) {
+                alert(`Please provide values for required variables: ${missingVariables.map(v => v.name).join(', ')}`);
+                return;
+              }
               // Handle test execution
               console.log('Testing with variables:', testVariables);
             }}

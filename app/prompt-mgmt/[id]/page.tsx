@@ -185,7 +185,7 @@ export default function PromptDetailPage() {
     );
   }
   
-  const currentVersion = prompt.versions.find(v => v.version === prompt.currentVersion);
+  const primaryVersion = prompt.versions.find(v => v.version === prompt.primaryVersion);
   const testSummary = prompt._testSummary;
   const passRate = testSummary?.total ? (testSummary.passed / testSummary.total) * 100 : 0;
   
@@ -212,7 +212,7 @@ export default function PromptDetailPage() {
                 <span>•</span>
                 <span className="capitalize">{prompt.operation.replace('_', ' ')}</span>
                 <span>•</span>
-                <span>v{prompt.currentVersion}</span>
+                <span>v{prompt.primaryVersion}</span>
               </div>
             </div>
           </div>
@@ -319,10 +319,11 @@ export default function PromptDetailPage() {
             <TabsContent value="template" className="space-y-4">
               <PromptPreview
                 prompt={prompt}
-                version={currentVersion}
+                version={primaryVersion}
                 showMetadata
                 showVariables
                 allowTesting
+                showMissingVariableWarning={false}
               />
             </TabsContent>
             
@@ -330,9 +331,24 @@ export default function PromptDetailPage() {
               <VersionHistory
                 promptId={promptId}
                 versions={prompt.versions}
-                currentVersion={prompt.currentVersion}
+                primaryVersion={prompt.primaryVersion}
                 onVersionSelect={() => {
                   // Handle version selection
+                }}
+                onSetPrimary={async (version: string) => {
+                  try {
+                    const response = await fetch(`/api/prompt-mgmt/${promptId}/versions`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'setPrimary', version })
+                    });
+                    if (response.ok) {
+                      // Refresh the page data
+                      window.location.reload();
+                    }
+                  } catch (error) {
+                    console.error('Failed to set primary version:', error);
+                  }
                 }}
               />
             </TabsContent>
@@ -419,7 +435,7 @@ export default function PromptDetailPage() {
                 <label className="text-sm font-medium text-gray-500">Version</label>
                 <div className="flex items-center space-x-2 mt-1">
                   <GitBranch className="h-4 w-4" />
-                  <span className="text-sm">v{prompt.currentVersion}</span>
+                  <span className="text-sm">v{prompt.primaryVersion}</span>
                   <Badge variant="outline" className="text-xs">
                     {prompt.versions.length} version{prompt.versions.length !== 1 ? 's' : ''}
                   </Badge>
@@ -500,11 +516,14 @@ export default function PromptDetailPage() {
                   Edit Prompt
                 </Link>
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-                <Link href={`/prompt-mgmt/${promptId}/versions`}>
-                  <GitBranch className="h-4 w-4 mr-2" />
-                  View Versions
-                </Link>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full justify-start"
+                onClick={() => setActiveTab('versions')}
+              >
+                <GitBranch className="h-4 w-4 mr-2" />
+                View Versions
               </Button>
               <Button variant="outline" size="sm" className="w-full justify-start" asChild>
                 <Link href={`/prompt-mgmt/${promptId}/test`}>

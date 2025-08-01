@@ -66,11 +66,11 @@ export async function POST(
       return createNotFoundResponse('Prompt');
     }
 
-    const activeVersion = prompt.getCurrentVersion();
+    const activeVersion = prompt.getPrimaryVersion();
     if (!activeVersion) {
       return createErrorResponse(
-        'Prompt has no active version',
-        'NO_ACTIVE_VERSION',
+        'Prompt has no primary version',
+        'NO_PRIMARY_VERSION',
         400
       );
     }

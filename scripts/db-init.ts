@@ -176,10 +176,9 @@ Focus on clarity, proper syntax, and following best practices.
 
 {formatInstructions}`,
         changelog: 'Initial template for diagram generation',
-        isActive: true,
         metadata: { ...baseMetadata }
       }],
-      currentVersion: '1.0.0',
+      primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     },
     {
@@ -210,10 +209,9 @@ Ensure the modified diagram uses correct PlantUML syntax.
 
 {formatInstructions}`,
         changelog: 'Initial template for diagram modification',
-        isActive: true,
         metadata: { ...baseMetadata }
       }],
-      currentVersion: '1.0.0',
+      primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     },
     {
@@ -245,10 +243,9 @@ Provide detailed and insightful analysis.
 
 {formatInstructions}`,
         changelog: 'Initial template for diagram analysis',
-        isActive: true,
         metadata: { ...baseMetadata }
       }],
-      currentVersion: '1.0.0',
+      primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     },
     {
@@ -274,10 +271,9 @@ Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
 
 If you cannot clearly determine the user's intent, respond with UNKNOWN.`,
         changelog: 'Initial template for intent classification',
-        isActive: true,
         metadata: { ...baseMetadata }
       }],
-      currentVersion: '1.0.0',
+      primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     }
   ];

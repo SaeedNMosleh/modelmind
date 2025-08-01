@@ -28,10 +28,10 @@ export async function GET(
     }
 
     const prompt = await Prompt.findById(id)
-      .select('versions currentVersion name')
+      .select('versions primaryVersion name')
       .lean() as unknown as { 
         versions: Array<{ createdAt: Date }>;
-        currentVersion: string;
+        primaryVersion: string;
         name: string;
       };
     
@@ -51,7 +51,7 @@ export async function GET(
     return createSuccessResponse({
       promptId: id,
       promptName: prompt.name,
-      currentVersion: prompt.currentVersion,
+      currentVersion: prompt.primaryVersion,
       versions: sortedVersions
     });
     
@@ -97,18 +97,18 @@ export async function POST(
       );
     }
     
-    const newVersion = prompt.getCurrentVersion();
+    const newVersion = prompt.getPrimaryVersion();
     
     logger.info({ 
       promptId: id,
       version: validation.data.version,
-      isActive: true
+      isPrimary: true
     }, 'Created new prompt version');
 
     return createSuccessResponse({
       promptId: id,
       version: newVersion,
-      currentVersion: prompt.currentVersion
+      currentVersion: prompt.primaryVersion
     });
     
   } catch (error) {

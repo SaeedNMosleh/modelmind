@@ -142,21 +142,19 @@ export async function POST(
       );
     }
     
-    // Deactivate current version if this is to be the active one
-    if (versionData.isActive) {
-      prompt.versions.forEach(v => v.isActive = false);
-      prompt.currentVersion = versionData.version;
-    }
-    
     // Add new version
     prompt.versions.push({
       version: versionData.version,
       template: versionData.template,
       changelog: versionData.changelog || 'New version',
       createdAt: new Date(),
-      isActive: versionData.isActive || false,
       metadata: versionData.metadata || {}
     });
+    
+    // Set as primary version if specified, or if this is the only version
+    if (versionData.isPrimary || prompt.versions.length === 1) {
+      prompt.primaryVersion = versionData.version;
+    }
     
     const updatedPrompt = await prompt.save();
     
@@ -204,17 +202,13 @@ export async function PUT(
       );
     }
     
-    if (action === 'activate' || action === 'rollback') {
-      // Deactivate all versions
-      prompt.versions.forEach(v => v.isActive = false);
-      
-      // Activate target version
-      targetVersion.isActive = true;
-      prompt.currentVersion = version;
+    if (action === 'setPrimary' || action === 'rollback') {
+      // Set as primary version
+      prompt.primaryVersion = version;
       
       // Add rollback changelog entry if this is a rollback
       if (action === 'rollback') {
-        targetVersion.changelog += `\n\nRolled back on ${new Date().toISOString()}`;
+        targetVersion.changelog += `\n\nSet as primary (rollback) on ${new Date().toISOString()}`;
       }
       
       const updatedPrompt = await prompt.save();

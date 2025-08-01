@@ -6,8 +6,7 @@ import {
   Clock, 
   User, 
   Eye, 
-  GitCompare, 
-  RotateCcw,
+  GitCompare,
   ChevronDown,
   ChevronUp,
   Calendar,
@@ -31,23 +30,21 @@ import { formatTimestamp } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 interface VersionHistoryProps {
-  promptId?: string; // Made optional since it's not being used
   versions: PromptMgmtVersion[];
-  currentVersion: string;
+  primaryVersion: string;
   onVersionSelect?: (version: string) => void;
   onVersionCompare?: (v1: string, v2: string) => void;
-  onVersionRevert?: (version: string) => void;
+  onSetPrimary?: (version: string) => void;
   showActions?: boolean;
   className?: string;
 }
 
 export function VersionHistory({
-  // promptId is not used, but kept in interface for potential future use
   versions,
-  currentVersion,
+  primaryVersion,
   onVersionSelect,
   onVersionCompare,
-  onVersionRevert,
+  onSetPrimary,
   showActions = true,
   className
 }: VersionHistoryProps) {
@@ -92,15 +89,10 @@ export function VersionHistory({
     }
   };
   
-  const handleRevert = (version: string) => {
-    if (onVersionRevert && confirm(`Are you sure you want to revert to version ${version}? This will create a new version.`)) {
-      onVersionRevert(version);
-    }
-  };
   
   const getVersionStatus = (version: PromptMgmtVersion) => {
-    if (version.version === currentVersion) {
-      return { label: 'Current', variant: 'default' as const, color: 'bg-green-100 text-green-800' };
+    if (version.version === primaryVersion) {
+      return { label: 'Primary', variant: 'default' as const, color: 'bg-green-100 text-green-800' };
     }
     
     if (version._stats && version._stats.usageCount > 0) {
@@ -149,7 +141,7 @@ export function VersionHistory({
             <span>Version History</span>
           </h3>
           <p className="text-sm text-gray-600">
-            {versions.length} version{versions.length !== 1 ? 's' : ''} • Current: v{currentVersion}
+            {versions.length} version{versions.length !== 1 ? 's' : ''} • Primary: v{primaryVersion}
           </p>
         </div>
         
@@ -177,7 +169,7 @@ export function VersionHistory({
           const status = getVersionStatus(version);
           const isExpanded = expandedVersions.has(version.version);
           const isSelected = selectedVersions.includes(version.version);
-          const canRevert = version.version !== currentVersion && showActions;
+          const canSetPrimary = version.version !== primaryVersion && showActions && onSetPrimary;
           
           return (
             <Card 
@@ -185,7 +177,7 @@ export function VersionHistory({
               className={cn(
                 'transition-all duration-200',
                 isSelected && 'ring-2 ring-blue-500',
-                version.version === currentVersion && 'border-green-200 bg-green-50'
+                version.version === primaryVersion && 'border-green-700 bg-green-600'
               )}
             >
               <CardHeader className="pb-3">
@@ -202,7 +194,10 @@ export function VersionHistory({
                     
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center space-x-2">
-                        <h4 className="font-semibold">v{version.version}</h4>
+                        <h4 className={cn(
+                          "font-semibold",
+                          version.version === primaryVersion ? "text-gray-900" : "text-gray-800"
+                        )}>v{version.version}</h4>
                         <Badge 
                           variant={status.variant}
                           className={status.color}
@@ -216,16 +211,25 @@ export function VersionHistory({
                         )}
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className={cn(
+                        "flex items-center space-x-4 text-sm",
+                        version.version === primaryVersion ? "text-gray-700" : "text-gray-500"
+                      )}>
                         <div className="flex items-center space-x-1">
-                          <Clock className="h-3 w-3" />
+                          <Clock className={cn(
+                            "h-3 w-3",
+                            version.version === primaryVersion ? "text-gray-700" : "text-gray-400"
+                          )} />
                           <span>{getTimeAgo(version.createdAt)}</span>
                         </div>
                         
                         {version._stats && (
                           <>
                             <div className="flex items-center space-x-1">
-                              <User className="h-3 w-3" />
+                              <User className={cn(
+                                "h-3 w-3",
+                                version.version === primaryVersion ? "text-gray-700" : "text-gray-400"
+                              )} />
                               <span>{version._stats.usageCount} uses</span>
                             </div>
                             
@@ -245,7 +249,10 @@ export function VersionHistory({
                       </div>
                       
                       {version.changelog && (
-                        <p className="text-sm text-gray-700">{version.changelog}</p>
+                        <p className={cn(
+                          "text-sm",
+                          version.version === primaryVersion ? "text-gray-800" : "text-gray-700"
+                        )}>{version.changelog}</p>
                       )}
                     </div>
                   </div>
@@ -255,18 +262,21 @@ export function VersionHistory({
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowVersionDetails(version.version)}
+                      title="View version details"
+                      className={version.version === primaryVersion ? "text-gray-700 hover:text-gray-900" : ""}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
                     
-                    {canRevert && (
+                    {canSetPrimary && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRevert(version.version)}
-                        title="Revert to this version"
+                        onClick={() => onSetPrimary!(version.version)}
+                        title="Set as primary version"
+                        className={version.version === primaryVersion ? "text-gray-700 hover:text-gray-900" : ""}
                       >
-                        <RotateCcw className="h-4 w-4" />
+                        <GitBranch className="h-4 w-4" />
                       </Button>
                     )}
                     
@@ -274,6 +284,8 @@ export function VersionHistory({
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleExpanded(version.version)}
+                      title={isExpanded ? "Collapse version details" : "Expand version details"}
+                      className={version.version === primaryVersion ? "text-gray-700 hover:text-gray-900" : ""}
                     >
                       {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </Button>

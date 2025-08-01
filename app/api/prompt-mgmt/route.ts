@@ -160,19 +160,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create new prompt with initial version
+    // Create new prompt with initial version (automatically set as primary)
+    const initialVersion = promptData.version || '1.0.0';
     const newPrompt = new Prompt({
       name: promptData.name,
       agentType: promptData.agentType,
       diagramType: promptData.diagramType || [],
       operation: promptData.operation,
-      currentVersion: promptData.version || '1.0.0',
+      primaryVersion: initialVersion, // First version is automatically primary
       versions: [{
-        version: promptData.version || '1.0.0',
+        version: initialVersion,
         template: promptData.template || '',
         changelog: promptData.changelog || 'Initial version',
         createdAt: new Date(),
-        isActive: true,
         metadata: promptData.versionMetadata || {}
       }],
       isProduction: promptData.isProduction || false,

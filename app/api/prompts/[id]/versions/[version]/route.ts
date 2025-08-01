@@ -31,13 +31,13 @@ export async function GET(
     }
 
     const prompt = await Prompt.findById(id)
-      .select('name agentType operation versions currentVersion')
+      .select('name agentType operation versions primaryVersion')
       .lean() as unknown as {
         name: string;
         agentType: string;
         operation: string;
         versions: Array<{ version: string; [key: string]: unknown }>;
-        currentVersion: string;
+        primaryVersion: string;
       };
     
     if (!prompt) {
@@ -60,7 +60,7 @@ export async function GET(
       promptName: prompt.name,
       agentType: prompt.agentType,
       operation: prompt.operation,
-      currentVersion: prompt.currentVersion,
+      currentVersion: prompt.primaryVersion,
       version: versionData
     });
     

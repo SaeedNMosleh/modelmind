@@ -84,12 +84,11 @@ export async function POST(
       isProduction: false,
       environments: originalPrompt.environments,
       tags: [...(originalPrompt.tags || []), 'duplicated'],
-      currentVersion: originalPrompt.currentVersion,
+      primaryVersion: originalPrompt.primaryVersion,
       versions: versionsToInclude.map(version => ({
         version: version.version,
         template: version.template,
         changelog: version.changelog + '\n\n[DUPLICATED] Copied from original prompt.',
-        isActive: version.isActive,
         createdAt: new Date(),
         metadata: version.metadata
       })),

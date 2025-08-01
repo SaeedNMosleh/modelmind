@@ -16,7 +16,6 @@ export const PromptVersionValidationSchema = z.object({
   version: z.string().regex(semverRegex, 'Version must follow semantic versioning (e.g., 1.0.0)'),
   template: z.string().min(1, 'Template cannot be empty'),
   changelog: z.string().min(1, 'Changelog cannot be empty'),
-  isActive: z.boolean().default(false),
   metadata: z.record(z.any()).optional()
 });
 
@@ -32,7 +31,7 @@ export const PromptValidationSchema = z.object({
 });
 
 export const CreatePromptValidationSchema = PromptValidationSchema.extend({
-  initialVersion: PromptVersionValidationSchema.omit({ isActive: true })
+  initialVersion: PromptVersionValidationSchema
 });
 
 export const UpdatePromptValidationSchema = PromptValidationSchema.partial();
@@ -59,10 +58,6 @@ const PromptVersionSchema = new Schema<IPromptVersion>({
   createdAt: {
     type: Date,
     default: Date.now
-  },
-  isActive: {
-    type: Boolean,
-    default: false
   },
   metadata: {
     type: Schema.Types.Mixed,
@@ -93,7 +88,7 @@ const PromptSchema = new Schema<IPrompt>({
     enum: Object.values(PromptOperation),
     required: true
   },
-  currentVersion: {
+  primaryVersion: {
     type: String,
     required: true
   },
@@ -142,15 +137,21 @@ PromptSchema.index({ isProduction: 1, environments: 1 });
 PromptSchema.index({ tags: 1 });
 PromptSchema.index({ name: 'text', tags: 'text' });
 PromptSchema.index({ 'versions.version': 1 });
-PromptSchema.index({ currentVersion: 1 });
+PromptSchema.index({ primaryVersion: 1 });
 
 PromptSchema.pre('save', function(next) {
   if (this.isNew || this.isModified('versions')) {
-    const activeVersions = this.versions.filter(v => v.isActive);
-    if (activeVersions.length !== 1) {
-      return next(new Error('Exactly one version must be active'));
+    // Ensure primaryVersion exists and points to a valid version
+    if (!this.primaryVersion) {
+      // Set the first version as primary if no primary is set
+      this.primaryVersion = this.versions[0]?.version;
     }
-    this.currentVersion = activeVersions[0].version;
+    
+    // Validate that primaryVersion exists in versions array
+    const primaryVersionExists = this.versions.some(v => v.version === this.primaryVersion);
+    if (!primaryVersionExists) {
+      return next(new Error('Primary version must exist in versions array'));
+    }
   }
   next();
 });
@@ -166,36 +167,31 @@ PromptSchema.methods.addVersion = function(versionData: CreatePromptVersionInput
     throw new Error(`Version ${versionData.version} already exists`);
   }
 
-  this.versions.forEach((v: IPromptVersion) => {
-    v.isActive = false;
-  });
-
   this.versions.push({
     ...versionData,
-    createdAt: new Date(),
-    isActive: true
+    createdAt: new Date()
   });
 
-  this.currentVersion = versionData.version;
+  // Set as primary version if it's the first version or if explicitly requested
+  if (this.versions.length === 1 || versionData.isPrimary) {
+    this.primaryVersion = versionData.version;
+  }
+  
   this.updatedAt = new Date();
 };
 
-PromptSchema.methods.activateVersion = function(version: string) {
+PromptSchema.methods.setPrimaryVersion = function(version: string) {
   const targetVersion = this.versions.find((v: IPromptVersion) => v.version === version);
   if (!targetVersion) {
     throw new Error(`Version ${version} not found`);
   }
 
-  this.versions.forEach((v: IPromptVersion) => {
-    v.isActive = v.version === version;
-  });
-
-  this.currentVersion = version;
+  this.primaryVersion = version;
   this.updatedAt = new Date();
 };
 
-PromptSchema.methods.getCurrentVersion = function(): IPromptVersion | null {
-  return this.versions.find((v: IPromptVersion) => v.isActive) || null;
+PromptSchema.methods.getPrimaryVersion = function(): IPromptVersion | null {
+  return this.versions.find((v: IPromptVersion) => v.version === this.primaryVersion) || null;
 };
 
 PromptSchema.methods.getVersion = function(version: string): IPromptVersion | null {

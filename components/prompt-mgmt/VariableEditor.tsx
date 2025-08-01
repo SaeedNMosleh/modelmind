@@ -177,7 +177,7 @@ export function VariableEditor({
             <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-medium mb-2">No Variables Found</p>
             <p className="text-sm">
-              Template variables will appear here when you use {`{{variableName}}`} syntax in your template.
+              Template variables will appear here when you use {`{variableName}`} syntax in your template.
             </p>
           </div>
         </CardContent>

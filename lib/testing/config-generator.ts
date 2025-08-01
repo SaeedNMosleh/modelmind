@@ -28,9 +28,9 @@ export class PromptFooConfigGenerator {
     testCases: ITestCase[],
     options: TestExecutionOptions = {}
   ): Promise<{ config: PromptFooConfig; configPath: string }> {
-    const activeVersion = prompt.versions.find(v => v.isActive);
+    const activeVersion = prompt.versions.find(v => v.version === prompt.primaryVersion);
     if (!activeVersion) {
-      throw new Error('No active version found for prompt');
+      throw new Error('No primary version found for prompt');
     }
 
     const config: PromptFooConfig = {

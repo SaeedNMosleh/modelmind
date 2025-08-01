@@ -114,10 +114,9 @@ export async function POST(request: NextRequest) {
 
     const prompt = new Prompt({
       ...promptData,
-      currentVersion: initialVersion.version,
+      primaryVersion: initialVersion.version,
       versions: [{
         ...initialVersion,
-        isActive: true,
         createdAt: new Date()
       }]
     });

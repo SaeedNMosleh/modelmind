@@ -122,8 +122,9 @@ export async function PUT(
     }
     
     // Handle template updates - create new version if template changed
-    if (updateData.template && updateData.template !== existingPrompt.versions.find(v => v.isActive)?.template) {
-      const newVersion = updateData.version || incrementVersion(existingPrompt.currentVersion);
+    const primaryVersion = existingPrompt.versions.find(v => v.version === existingPrompt.primaryVersion);
+    if (updateData.template && updateData.template !== primaryVersion?.template) {
+      const newVersion = updateData.version || incrementVersion(existingPrompt.primaryVersion);
       
       // Validate version
       const versionError = validateSemanticVersion(newVersion);
@@ -134,20 +135,17 @@ export async function PUT(
         );
       }
       
-      // Deactivate current version
-      existingPrompt.versions.forEach(v => v.isActive = false);
-      
       // Add new version
       existingPrompt.versions.push({
         version: newVersion,
         template: updateData.template,
         changelog: updateData.changelog || 'Updated template',
         createdAt: new Date(),
-        isActive: true,
         metadata: updateData.versionMetadata || {}
       });
       
-      existingPrompt.currentVersion = newVersion;
+      // Set as new primary version (automatically becomes primary if it's the only version)
+      existingPrompt.primaryVersion = newVersion;
     }
     
     // Update other fields

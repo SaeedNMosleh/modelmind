@@ -33,7 +33,6 @@ export interface IPromptVersion {
   template: string;
   changelog: string;
   createdAt: Date;
-  isActive: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -43,7 +42,7 @@ export interface IPrompt extends Document {
   agentType: AgentType;
   diagramType: DiagramType[];
   operation: PromptOperation;
-  currentVersion: string;
+  primaryVersion: string;
   versions: IPromptVersion[];
   isProduction: boolean;
   environments: PromptEnvironment[];
@@ -208,7 +207,7 @@ export interface IPromptFooResult {
   };
 }
 
-export type CreatePromptInput = Omit<IPrompt, '_id' | 'createdAt' | 'updatedAt' | 'currentVersion' | 'versions'> & {
+export type CreatePromptInput = Omit<IPrompt, '_id' | 'createdAt' | 'updatedAt' | 'primaryVersion' | 'versions'> & {
   initialVersion: {
     version: string;
     template: string;
@@ -218,7 +217,9 @@ export type CreatePromptInput = Omit<IPrompt, '_id' | 'createdAt' | 'updatedAt' 
 
 export type UpdatePromptInput = Partial<Pick<IPrompt, 'name' | 'agentType' | 'diagramType' | 'operation' | 'isProduction' | 'environments' | 'tags' | 'metadata'>>;
 
-export type CreatePromptVersionInput = Omit<IPromptVersion, 'createdAt' | 'isActive'>;
+export type CreatePromptVersionInput = Omit<IPromptVersion, 'createdAt'> & {
+  isPrimary?: boolean;
+};
 
 export type CreateTestCaseInput = Omit<ITestCase, '_id' | 'createdAt' | 'updatedAt'>;
 

@@ -48,18 +48,18 @@ export async function GET(request: NextRequest) {
     if (diagramType) filter.diagramType = { $in: [diagramType] };
 
     const selectFields = includeTemplate 
-      ? 'name agentType diagramType operation currentVersion versions environments isProduction tags metadata'
-      : 'name agentType diagramType operation currentVersion versions.version versions.isActive versions.createdAt versions.changelog environments isProduction tags metadata';
+      ? 'name agentType diagramType operation primaryVersion versions environments isProduction tags metadata'
+      : 'name agentType diagramType operation primaryVersion versions.version versions.createdAt versions.changelog environments isProduction tags metadata';
 
     const prompts = await Prompt.find(filter)
       .select(selectFields)
       .lean();
 
     const activePrompts = prompts.map(prompt => {
-      const activeVersion = prompt.versions.find(v => v.isActive);
+      const primaryVersion = prompt.versions.find(v => v.version === prompt.primaryVersion);
       
-      if (!activeVersion) {
-        logger.warn({ promptId: prompt._id }, 'Prompt has no active version');
+      if (!primaryVersion) {
+        logger.warn({ promptId: prompt._id }, 'Prompt has no primary version');
         return null;
       }
 
@@ -69,12 +69,12 @@ export async function GET(request: NextRequest) {
         agentType: prompt.agentType,
         diagramType: prompt.diagramType,
         operation: prompt.operation,
-        currentVersion: prompt.currentVersion,
+        primaryVersion: prompt.primaryVersion,
         activeVersion: {
-          version: activeVersion.version,
-          createdAt: activeVersion.createdAt,
-          changelog: activeVersion.changelog,
-          ...(includeTemplate && { template: activeVersion.template })
+          version: primaryVersion.version,
+          createdAt: primaryVersion.createdAt,
+          changelog: primaryVersion.changelog,
+          ...(includeTemplate && { template: primaryVersion.template })
         },
         environments: prompt.environments,
         isProduction: prompt.isProduction,
@@ -84,14 +84,14 @@ export async function GET(request: NextRequest) {
 
       if (format === 'promptfoo') {
         return {
-          id: `${prompt.name}-${activeVersion.version}`,
-          template: activeVersion.template,
+          id: `${prompt.name}-${primaryVersion.version}`,
+          template: primaryVersion.template,
           metadata: {
             name: prompt.name,
             agentType: prompt.agentType,
             diagramType: prompt.diagramType,
             operation: prompt.operation,
-            version: activeVersion.version,
+            version: primaryVersion.version,
             environment,
             isProduction: prompt.isProduction
           }

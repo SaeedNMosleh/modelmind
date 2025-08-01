@@ -102,17 +102,29 @@ export class ValidationManager {
             issue: 'No versions found'
           });
         } else {
-          const activeVersions = prompt.versions.filter(v => v.isActive);
-          
-          if (activeVersions.length !== 1) {
+          // Validate that primaryVersion exists and is set
+          if (!prompt.primaryVersion) {
             promptValid = false;
             issues.push({
               type: 'error',
               collection: 'prompts',
               documentId: prompt._id.toString(),
-              field: 'versions',
-              issue: `Expected exactly 1 active version, found ${activeVersions.length}`
+              field: 'primaryVersion',
+              issue: 'Primary version is not set'
             });
+          } else {
+            // Validate primary version exists in versions array
+            const primaryVersion = prompt.versions.find(v => v.version === prompt.primaryVersion);
+            if (!primaryVersion) {
+              promptValid = false;
+              issues.push({
+                type: 'error',
+                collection: 'prompts',
+                documentId: prompt._id.toString(),
+                field: 'primaryVersion',
+                issue: `Primary version ${prompt.primaryVersion} not found in versions array`
+              });
+            }
           }
 
           // Validate each version
@@ -132,19 +144,6 @@ export class ValidationManager {
 
             // Check for placeholder variables in template
             this.validateTemplateVariables(prompt._id.toString(), version.version, version.template, issues);
-          }
-
-          // Validate current version exists
-          const currentVersion = prompt.versions.find(v => v.version === prompt.currentVersion);
-          if (!currentVersion) {
-            promptValid = false;
-            issues.push({
-              type: 'error',
-              collection: 'prompts',
-              documentId: prompt._id.toString(),
-              field: 'currentVersion',
-              issue: `Current version ${prompt.currentVersion} not found in versions array`
-            });
           }
         }
 
@@ -267,8 +266,8 @@ export class ValidationManager {
   }
 
   private validateTemplateVariables(promptId: string, version: string, template: string, issues: ValidationIssue[]): void {
-    // Find all {{variable}} patterns
-    const variablePattern = /\{\{([^}]+)\}\}/g;
+    // Find all {variable} patterns
+    const variablePattern = /\{([^}]+)\}/g;
     const variables = new Set<string>();
     let match;
 
@@ -282,7 +281,7 @@ export class ValidationManager {
         collection: 'prompts',
         documentId: promptId,
         field: `versions.${version}.template`,
-        issue: 'Template contains no variables ({{variable}}). This may not work with PromptFoo.'
+        issue: 'Template contains no variables ({variable}). This may not work with PromptFoo.'
       });
     }
 
@@ -312,8 +311,9 @@ export class ValidationManager {
 
   private validatePromptFooCompatibility(prompt: { 
     _id: string; 
+    primaryVersion?: string;
     versions: Array<{
-      isActive: boolean;
+      version: string;
       template: string;
       variables: string[];
     }>;
@@ -321,7 +321,9 @@ export class ValidationManager {
     isProduction?: boolean;
   }, issues: ValidationIssue[]): void {
     // Check if prompt has appropriate metadata for PromptFoo
-    const currentVersion = prompt.versions.find((v) => v.isActive);
+    const currentVersion = prompt.primaryVersion 
+      ? prompt.versions.find((v) => v.version === prompt.primaryVersion)
+      : prompt.versions[0]; // fallback to first version if no primary set
     if (!currentVersion) return;
 
     // Validate that template has proper structure

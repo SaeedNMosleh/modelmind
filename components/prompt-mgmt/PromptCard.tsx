@@ -264,7 +264,7 @@ export function PromptCard({
           <div className="flex items-center justify-between text-sm text-gray-500 mt-3">
             <div className="flex items-center space-x-2">
               <GitBranch className="h-3 w-3" />
-              <span>v{prompt.currentVersion}</span>
+              <span>v{prompt.primaryVersion}</span>
               <span>•</span>
               <span>{prompt.versions.length} version{prompt.versions.length !== 1 ? 's' : ''}</span>
             </div>

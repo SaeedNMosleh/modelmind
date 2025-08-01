@@ -34,8 +34,8 @@ export async function POST(
       );
     }
     
-    // Get the version to test (default to current version)
-    const versionToTest = testRequest.version || prompt.currentVersion;
+    // Get the version to test (default to primary version)
+    const versionToTest = testRequest.version || prompt.primaryVersion;
     const version = prompt.versions.find(v => v.version === versionToTest);
     
     if (!version) {

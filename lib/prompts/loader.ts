@@ -163,21 +163,21 @@ export class PromptLoader {
         logger.warn('No versions found for prompt', { agentType, operation });
         return null;
       }
-      // Get the active version
-      const activeVersion = promptResult.versions.find((v: import('../database/types').IPromptVersion) => v.isActive);
-      if (!activeVersion) {
-        logger.warn('No active version found for prompt', { agentType, operation });
+      // Get the primary version
+      const primaryVersion = promptResult.versions.find((v: import('../database/types').IPromptVersion) => v.version === promptResult.primaryVersion);
+      if (!primaryVersion) {
+        logger.warn('No primary version found for prompt', { agentType, operation, primaryVersion: promptResult.primaryVersion });
         return null;
       }
 
       // Extract variables from template (simple pattern matching)
-      const variables = this.extractVariables(activeVersion.template);
+      const variables = this.extractVariables(primaryVersion.template);
 
       return {
-        template: activeVersion.template,
+        template: primaryVersion.template,
         variables,
         source: 'mongodb',
-        version: activeVersion.version,
+        version: primaryVersion.version,
         metadata: promptResult.metadata
       };
     } catch (error) {

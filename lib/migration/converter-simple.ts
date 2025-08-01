@@ -37,13 +37,12 @@ export function convertExtractedPromptToDatabase(
     agentType: extracted.agentType,
     diagramType: extracted.diagramType ? [extracted.diagramType] : [],
     operation,
-    currentVersion: extracted.version,
+    primaryVersion: extracted.version,
     versions: [{
       version: extracted.version,
       template: extracted.template,
       changelog: `Initial migration from AI pipeline. ${extracted.description}`,
       createdAt: extracted.metadata.extractedAt,
-      isActive: extracted.isActive,
       metadata: extracted.metadata
     }],
     isProduction: false,

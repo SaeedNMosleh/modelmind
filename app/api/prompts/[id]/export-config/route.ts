@@ -62,12 +62,12 @@ export async function POST(
     // Type assertion to handle the MongoDB document
     const typedPrompt = prompt as unknown as IPrompt;
 
-    const activeVersion = typedPrompt.versions.find(v => v.isActive);
+    const activeVersion = typedPrompt.versions.find(v => v.version === typedPrompt.primaryVersion);
     
     if (!activeVersion) {
       return createErrorResponse(
-        'Prompt has no active version',
-        'NO_ACTIVE_VERSION',
+        'Prompt has no primary version',
+        'NO_PRIMARY_VERSION',
         400
       );
     }

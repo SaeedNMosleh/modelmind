@@ -14,7 +14,7 @@ export interface PromptSeedData {
   agentType: AgentType;
   diagramType: DiagramType[];
   operation: PromptOperation;
-  currentVersion: string;
+  primaryVersion: string;
   versions: IPromptVersion[];
   isProduction: boolean;
   environments: PromptEnvironment[];

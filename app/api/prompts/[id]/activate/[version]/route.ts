@@ -42,18 +42,19 @@ export async function PUT(
       return createNotFoundResponse(`Version ${version}`);
     }
 
-    if (targetVersion.isActive) {
+    if (targetVersion.version === prompt.primaryVersion) {
       return createErrorResponse(
-        `Version ${version} is already active`,
-        'VERSION_ALREADY_ACTIVE',
+        `Version ${version} is already the primary version`,
+        'VERSION_ALREADY_PRIMARY',
         400
       );
     }
 
-    const previousActiveVersion = prompt.getCurrentVersion();
+    // Store the previous primary version before changing it
+    const previousPrimaryVersion = prompt.versions.find(v => v.version === prompt.primaryVersion);
     
     try {
-      prompt.activateVersion(version);
+      prompt.setPrimaryVersion(version);
       await prompt.save();
     } catch (activationError: Error | unknown) {
       return createErrorResponse(
@@ -65,19 +66,19 @@ export async function PUT(
     
     logger.info({ 
       promptId: id,
-      previousVersion: previousActiveVersion?.version,
-      newActiveVersion: version,
+      previousVersion: previousPrimaryVersion?.version,
+      newPrimaryVersion: version,
       isProduction: prompt.isProduction
-    }, 'Activated prompt version');
+    }, 'Set prompt primary version');
 
     return createSuccessResponse({
       promptId: id,
       promptName: prompt.name,
-      previousActiveVersion: previousActiveVersion?.version,
-      newActiveVersion: version,
+      previousPrimaryVersion: previousPrimaryVersion?.version,
+      newPrimaryVersion: version,
       activatedAt: new Date(),
       isProduction: prompt.isProduction,
-      version: prompt.getCurrentVersion()
+      version: prompt.getPrimaryVersion()
     });
     
   } catch (error) {

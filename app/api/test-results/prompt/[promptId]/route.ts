@@ -88,7 +88,7 @@ export async function GET(
     } = queryValidation.data;
 
     // Verify prompt exists
-    const prompt = await Prompt.findById(promptId).select('name currentVersion');
+    const prompt = await Prompt.findById(promptId).select('name primaryVersion');
     if (!prompt) {
       return createNotFoundResponse('Prompt');
     }
@@ -170,7 +170,7 @@ export async function GET(
     return createSuccessResponse({
       promptId: promptId,
       promptName: prompt.name,
-      currentVersion: prompt.currentVersion,
+      currentVersion: prompt.primaryVersion,
       statistics: {
         ...stats,
         successRate,

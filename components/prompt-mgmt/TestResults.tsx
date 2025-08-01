@@ -62,7 +62,7 @@ export function TestResults({
         const data = await response.json();
         
         if (data.success) {
-          setRecentResults(data.data || []);
+          setRecentResults(Array.isArray(data.testResults) ? data.testResults : []);
         }
       } catch (err) {
         console.error('Error fetching test results:', err);
@@ -291,7 +291,7 @@ export function TestResults({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentResults.map((result, index) => (
+                    {Array.isArray(recentResults) && recentResults.map((result, index) => (
                       <TableRow key={index}>
                         <TableCell>
                           <div>
@@ -385,7 +385,7 @@ export function TestResults({
             </CardHeader>
             <CardContent>
               {(() => {
-                const failedResults = recentResults.filter(r => r.status === 'failed' || r.status === 'error');
+                const failedResults = Array.isArray(recentResults) ? recentResults.filter(r => r.status === 'failed' || r.status === 'error') : [];
                 
                 if (failedResults.length === 0) {
                   return (

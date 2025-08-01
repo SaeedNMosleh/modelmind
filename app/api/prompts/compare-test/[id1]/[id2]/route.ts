@@ -86,21 +86,21 @@ export async function POST(
       return createNotFoundResponse(`Prompt 2 (${id2})`);
     }
 
-    const activeVersion1 = prompt1.getCurrentVersion();
-    const activeVersion2 = prompt2.getCurrentVersion();
+    const activeVersion1 = prompt1.getPrimaryVersion();
+    const activeVersion2 = prompt2.getPrimaryVersion();
     
     if (!activeVersion1) {
       return createErrorResponse(
-        `Prompt 1 (${prompt1.name}) has no active version`,
-        'NO_ACTIVE_VERSION',
+        `Prompt 1 (${prompt1.name}) has no primary version`,
+        'NO_PRIMARY_VERSION',
         400
       );
     }
 
     if (!activeVersion2) {
       return createErrorResponse(
-        `Prompt 2 (${prompt2.name}) has no active version`,
-        'NO_ACTIVE_VERSION',
+        `Prompt 2 (${prompt2.name}) has no primary version`,
+        'NO_PRIMARY_VERSION',
         400
       );
     }

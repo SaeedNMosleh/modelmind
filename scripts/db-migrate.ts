@@ -119,7 +119,6 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
           version: extracted.version,
           template: extracted.template,
           changelog: `Migrated from ${extracted.metadata.originalFile}`,
-          isActive: true,
           createdAt: new Date(),
           metadata: {}
         };
@@ -129,7 +128,7 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
           agentType: extracted.agentType,
           diagramType: extracted.diagramType ? [extracted.diagramType] : [DiagramType.SEQUENCE, DiagramType.CLASS],
           operation: mapAgentTypeToOperation(extracted.agentType),
-          currentVersion: extracted.version,
+          primaryVersion: extracted.version,
           versions: [initialVersion],
           isProduction: false,
           environments: [PromptEnvironment.DEVELOPMENT],
@@ -150,7 +149,6 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
             version: `${extracted.version}-migrated-${Date.now()}`,
             template: extracted.template,
             changelog: `Re-migrated from ${extracted.metadata.originalFile} (forced)`,
-            isActive: false,
             createdAt: new Date(),
             metadata: {}
           };

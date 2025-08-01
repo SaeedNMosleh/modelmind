@@ -103,7 +103,7 @@ export function MonacoEditor({
             {
               label: 'variable',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: '{{${1:variableName}}}',
+              insertText: '{${1:variableName}}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Insert a template variable',
               range
@@ -119,7 +119,7 @@ export function MonacoEditor({
             {
               label: 'context',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: 'Context: {{context}}\n\nTask: ${1:task}\n\nRequirements:\n- ${2:requirement}',
+              insertText: 'Context: {context}\n\nTask: ${1:task}\n\nRequirements:\n- ${2:requirement}',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'Context and task template',
               range
@@ -127,7 +127,7 @@ export function MonacoEditor({
             {
               label: 'plantuml',
               kind: monaco.languages.CompletionItemKind.Snippet,
-              insertText: 'Generate a PlantUML {{diagramType}} diagram for:\n{{description}}\n\nRequirements:\n- Use proper PlantUML syntax\n- Include relevant details\n- Follow best practices for {{diagramType}} diagrams',
+              insertText: 'Generate a PlantUML {diagramType} diagram for:\n{description}\n\nRequirements:\n- Use proper PlantUML syntax\n- Include relevant details\n- Follow best practices for {diagramType} diagrams',
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: 'PlantUML diagram generation template',
               range

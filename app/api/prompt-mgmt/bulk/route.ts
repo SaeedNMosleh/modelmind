@@ -219,8 +219,7 @@ async function executeBulkDuplicate(
       duplicateData.isProduction = false; // Duplicates should not be production by default
       duplicateData.versions = duplicateData.versions.map(v => ({
         ...v,
-        createdAt: new Date(),
-        isActive: v.isActive
+        createdAt: new Date()
       }));
       
       const duplicatePrompt = new Prompt(duplicateData);
@@ -306,7 +305,8 @@ async function executeBulkExport(promptIds: string[], options?: Record<string, u
     // Filter versions if requested
     if (!options?.includeVersions) {
       prompts.forEach(prompt => {
-        prompt.versions = prompt.versions.filter((v: { isActive: boolean }) => v.isActive);
+        const primaryVersion = prompt.versions.find((v: { version: string }) => v.version === prompt.primaryVersion);
+        prompt.versions = primaryVersion ? [primaryVersion] : [];
       });
     }
     
