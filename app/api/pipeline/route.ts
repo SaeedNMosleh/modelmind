@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { classifyIntent, DiagramIntent } from '@/lib/ai-pipeline/inputProcessor';
+import { requestRouter, RequestRouterParams } from '@/lib/ai-pipeline/RequestRouter';
+import { DiagramIntent, DiagramType, AnalysisType } from '@/lib/ai-pipeline/schemas/MasterClassificationSchema';
 import { contextManager } from '@/lib/ai-pipeline/contextManager';
-import { diagramGenerator } from '@/lib/ai-pipeline/agents/generator';
-import { diagramModifier } from '@/lib/ai-pipeline/agents/modifier';
-import { diagramAnalyzer } from '@/lib/ai-pipeline/agents/analyzer';
 import { responseFormatter, ResponseType } from '@/lib/ai-pipeline/responseFormatter';
 import { z } from 'zod';
 import pino from 'pino';
@@ -61,120 +59,112 @@ export async function POST(req: NextRequest) {
     }
 
     // Log details for debugging
-    logger.info("Processing request", {
+    logger.info("Processing request with new pipeline architecture", {
       messageLength: lastUserMessage.content.length,
       conversationLength: conversation.length,
       hasDiagram: !!currentScript && currentScript.trim() !== ''
     });
 
-    try {
-      // Classify the user intent
-      const intentClassification = await classifyIntent({
-        userInput: lastUserMessage.content,
-        currentDiagram: contextManager.getCurrentDiagram(),
-        conversation: conversation.slice(-5) // Use last 5 messages for context
+    // Prepare request router parameters
+    const routerParams: RequestRouterParams = {
+      userInput: lastUserMessage.content,
+      currentDiagram: currentScript && currentScript.trim() !== '' ? currentScript : undefined,
+      conversation: conversation.slice(-5), // Use last 5 messages for context
+      context: await contextManager.getCompleteContext()
+    };
+
+    // Process request using the new RequestRouter (single LLM call)
+    const routerResponse = await requestRouter.processRequest(routerParams);
+
+    // Handle router response
+    if (!routerResponse.success) {
+      // Log the error for debugging
+      logger.error("Request router failed", {
+        error: routerResponse.error,
+        intent: routerResponse.intent,
+        classification: routerResponse.classification
       });
 
-      // Update the context with the detected intent
-      contextManager.setLastIntent(intentClassification.intent);
-
-      // Get relevant context for the agent
-      const contextData = await contextManager.getCompleteContext();
-
-      // Process the request based on intent
-      let result;
-      switch (intentClassification.intent) {
-        case DiagramIntent.GENERATE:
-          logger.info("Generating diagram", { userInput: lastUserMessage.content });
-          result = await diagramGenerator.generate({
-            userInput: lastUserMessage.content,
-            context: contextData
-          });
-          
-          // Update the context with the new diagram
-          if (result.diagram) {
-            contextManager.updateDiagram(result.diagram, DiagramIntent.GENERATE);
-          }
-          break;
-
-        case DiagramIntent.MODIFY:
-          logger.info("Modifying diagram", { userInput: lastUserMessage.content });
-          result = await diagramModifier.modify({
-            userInput: lastUserMessage.content,
-            currentDiagram: contextManager.getCurrentDiagram(),
-            context: contextData
-          });
-          
-          // Update the context with the modified diagram
-          if (result.diagram) {
-            contextManager.updateDiagram(result.diagram, DiagramIntent.MODIFY);
-          }
-          break;
-
-        case DiagramIntent.ANALYZE:
-          logger.info("Analyzing diagram", { userInput: lastUserMessage.content });
-          result = await diagramAnalyzer.analyze({
-            userInput: lastUserMessage.content,
-            diagram: contextManager.getCurrentDiagram(),
-            context: contextData
-          });
-          break;        default:
-          // Handle unknown intent with a fallback response
-          logger.warn("Unknown intent detected", { intent: intentClassification.intent });
-          result = { 
-            overview: "I'm not sure what you'd like me to do with the diagram. Could you please clarify if you want me to create a new diagram, modify the existing one, or analyze it?",
-            qualityAssessment: {
-              strengths: [],
-              weaknesses: []
-            },
-            suggestedImprovements: []
-          };
-          break;
-      }
-
-      // Format the response
-      const formattedResponse = responseFormatter.formatResponse(
-        intentClassification.intent,
-        result
-      );
-
-      // Add the assistant response to context
-      if (formattedResponse.type === ResponseType.SCRIPT) {
-        await contextManager.addMessage(
-          'assistant', 
-          `${formattedResponse.explanation}\n\nI've updated the diagram.`
-        );
-      } else {
-        await contextManager.addMessage('assistant', formattedResponse.content);
-      }
-
-      // Return the formatted response
-      return NextResponse.json(formattedResponse);    } catch (processingError) {
-      logger.error("Error processing user request:", processingError);
-      
       // Add error message to context
       await contextManager.addMessage(
         'assistant',
-        "I encountered an error processing your request. Please try again."
+        routerResponse.error?.message || "I encountered an error processing your request. Please try again."
       ).catch(err => {
         logger.error("Failed to add assistant message to context:", err);
       });
-      
-      // Return error response
-      return NextResponse.json({
-        type: ResponseType.ERROR,
-        content: "I encountered an error processing your request. Please try again with more specific instructions."
-      });
+
+      // Map router error types to appropriate HTTP status codes
+      let statusCode = 500;
+      switch (routerResponse.error?.type) {
+        case 'validation':
+          statusCode = 400;
+          break;
+        case 'classification':
+        case 'routing':
+        case 'agent':
+          statusCode = 422; // Unprocessable Entity
+          break;
+        default:
+          statusCode = 500;
+      }
+
+      return NextResponse.json(
+        {
+          type: ResponseType.ERROR,
+          content: routerResponse.error?.message || "An error occurred while processing your request"
+        },
+        { status: statusCode }
+      );
     }
+
+    // Success case - we have a result from the appropriate agent
+    const { intent, result, classification } = routerResponse;
+
+    logger.info("Request processed successfully", {
+      intent,
+      confidence: classification.confidence,
+      diagramType: 'diagramType' in classification ? classification.diagramType : 'N/A',
+      analysisType: 'analysisType' in classification ? classification.analysisType : 'N/A'
+    });
+
+    // Update context manager with diagram if it was generated/modified
+    if (result && 'diagram' in result && result.diagram) {
+      contextManager.updateDiagram(result.diagram, intent);
+    }
+
+    // Format the response using the existing response formatter
+    const formattedResponse = responseFormatter.formatResponse(intent, result);
+
+    // Add the assistant response to context
+    if (formattedResponse.type === ResponseType.SCRIPT) {
+      await contextManager.addMessage(
+        'assistant', 
+        `${formattedResponse.explanation}\n\nI've updated the diagram.`
+      );
+    } else {
+      await contextManager.addMessage('assistant', formattedResponse.content);
+    }
+
+    // Return the formatted response (maintains backward compatibility)
+    return NextResponse.json(formattedResponse);
+
   } catch (error) {
-    console.error('Pipeline API error:', error);
+    logger.error('Pipeline API error:', error);
+    
+    // Add error message to context
+    await contextManager.addMessage(
+      'assistant',
+      "I encountered an unexpected error processing your request. Please try again."
+    ).catch(err => {
+      logger.error("Failed to add assistant message to context:", err);
+    });
     
     // Return appropriate error response
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
           type: ResponseType.ERROR,
-          content: 'Invalid request format',
+          content: 'Invalid request format - please check your input parameters',
           details: error.errors
         },
         { status: 400 }
@@ -184,7 +174,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         type: ResponseType.ERROR,
-        content: 'An error occurred while processing your request',
+        content: 'An unexpected error occurred while processing your request',
         errorCode: 'INTERNAL_ERROR'
       },
       { status: 500 }

@@ -146,7 +146,7 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
         if (existing && force) {
           // Add new version to existing prompt
           const newVersion = {
-            version: `${extracted.version}-migrated-${Date.now()}`,
+            version: `${extracted.version}`,
             template: extracted.template,
             changelog: `Re-migrated from ${extracted.metadata.originalFile} (forced)`,
             createdAt: new Date(),

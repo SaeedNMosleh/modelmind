@@ -242,3 +242,44 @@ export function createPaginationMeta(
     hasPrev: page > 1
   };
 }
+
+/**
+ * Standardized validation error creators - OPTIMIZED to reduce repetitive code
+ */
+export const ValidationErrors = {
+  invalidId: (resource: string = 'ID') => 
+    createErrorResponse(`Invalid ${resource.toLowerCase()} format`, 'INVALID_ID', 400),
+  
+  invalidPromptId: () => 
+    createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400),
+  
+  invalidTestResultId: () => 
+    createErrorResponse('Invalid test result ID format', 'INVALID_ID', 400),
+  
+  invalidTestCaseId: () => 
+    createErrorResponse('Invalid test case ID format', 'INVALID_ID', 400),
+  
+  invalidVersion: () => 
+    createErrorResponse('Invalid version format', 'INVALID_VERSION', 400),
+  
+  invalidRequestFormat: (details?: ZodIssue[]) => 
+    createErrorResponse(
+      'Invalid request format', 
+      'VALIDATION_ERROR', 
+      400, 
+      details ? zodErrorsToValidationDetails(details) : undefined
+    ),
+  
+  missingFields: (fields: string[]) => 
+    createErrorResponse(
+      `Missing required fields: ${fields.join(', ')}`, 
+      'MISSING_FIELDS', 
+      400
+    ),
+  
+  resourceNotFound: (resource: string) => 
+    createErrorResponse(`${resource} not found`, 'NOT_FOUND', 404),
+  
+  conflictError: (message: string) => 
+    createErrorResponse(message, 'CONFLICT', 409)
+} as const;

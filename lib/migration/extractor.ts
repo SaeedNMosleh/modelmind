@@ -1,7 +1,7 @@
 import { DiagramType, AgentType } from '../database/types';
 
 /**
- * Extracted prompt data structure
+ * Extracted prompt data structure - UNIFIED ARCHITECTURE ONLY
  */
 export interface ExtractedPrompt {
   name: string;
@@ -16,7 +16,107 @@ export interface ExtractedPrompt {
     originalFile: string;
     extractedAt: Date;
     sourceFunction?: string;
+    architectureVersion: 'unified';
   };
+}
+
+/**
+ * Extract prompts from the MasterClassifier
+ */
+export function extractMasterClassifierPrompts(): ExtractedPrompt[] {
+  const prompts: ExtractedPrompt[] = [];
+
+  prompts.push({
+    name: 'master-classifier-comprehensive',
+    description: 'Comprehensive classification for all routing decisions in a single LLM call',
+    template: `{baseSystemPrompt}
+
+You are a master classifier for PlantUML diagram operations. Your task is to comprehensively analyze the user's request and provide a complete classification in a single response.
+
+CONTEXT:
+- User Input: {userInput}
+- Current Diagram Present: {hasDiagramContext}
+- Current Diagram: {currentDiagram}
+- Conversation History: {conversationHistory}
+- Additional Context: {additionalContext}
+
+CLASSIFICATION TASK:
+Analyze the user's request and determine:
+
+1. PRIMARY INTENT:
+   - GENERATE: User wants to create a new diagram or completely different one
+   - MODIFY: User wants to change, update, or edit an existing diagram
+   - ANALYZE: User wants to understand, explain, or get insights about a diagram
+   - UNKNOWN: Intent cannot be clearly determined
+
+2. DIAGRAM TYPE (if applicable):
+   - SEQUENCE: Interactions between components over time
+   - CLASS: System structure, objects, and relationships
+   - ACTIVITY: Workflows, processes, and business logic
+   - STATE: State transitions and behaviors
+   - COMPONENT: System components and interfaces
+   - DEPLOYMENT: Physical deployment of components
+   - USE_CASE: System/actor interactions and use cases
+   - ENTITY_RELATIONSHIP: Data modeling and database schemas
+   - UNKNOWN: Cannot determine type
+
+3. ANALYSIS TYPE (for ANALYZE intent):
+   - GENERAL: Overall assessment and explanation
+   - QUALITY: Best practices and quality assessment
+   - COMPONENTS: Inventory and explanation of parts
+   - RELATIONSHIPS: Analysis of connections and associations
+   - COMPLEXITY: Complexity and maintainability assessment
+   - IMPROVEMENTS: Suggestions for enhancement
+
+4. CONFIDENCE ASSESSMENT:
+   - Provide numerical confidence (0.0 to 1.0)
+   - Explain your reasoning
+   - Consider context and clarity of the request
+
+CLASSIFICATION GUIDELINES:
+
+For GENERATE intent:
+- Look for words like: create, generate, build, make, new, design
+- User wants something that doesn't exist yet
+- May specify diagram type or describe what they want
+
+For MODIFY intent:
+- Look for words like: modify, change, update, edit, add, remove, delete
+- User references existing diagram or wants changes
+- Requires current diagram context
+
+For ANALYZE intent:
+- Look for words like: analyze, explain, describe, review, check, what, how, why
+- User wants to understand or get insights
+- May specify what aspect to analyze
+
+DIAGRAM TYPE DETECTION:
+- Look for explicit mentions of diagram types
+- Infer from context (e.g., "login flow" suggests SEQUENCE)
+- Consider domain (e.g., "database design" suggests ENTITY_RELATIONSHIP)
+- Default to most likely type based on intent and context
+
+{formatInstructions}
+
+IMPORTANT:
+- Be thorough in your analysis but concise in reasoning
+- Always provide confidence score with justification
+- Clean and normalize the user instruction
+- Consider the full context when making decisions
+- If unsure, be honest about low confidence rather than guessing`,
+    variables: ['baseSystemPrompt', 'userInput', 'hasDiagramContext', 'currentDiagram', 'conversationHistory', 'additionalContext', 'formatInstructions'],
+    agentType: AgentType.CLASSIFIER,
+    version: '2.0.0',
+    isActive: true,
+    metadata: {
+      originalFile: 'lib/ai-pipeline/MasterClassifier.ts',
+      extractedAt: new Date(),
+      sourceFunction: 'classify',
+      architectureVersion: 'unified'
+    }
+  });
+
+  return prompts;
 }
 
 /**
@@ -25,11 +125,10 @@ export interface ExtractedPrompt {
 export function extractGeneratorPrompts(): ExtractedPrompt[] {
   const prompts: ExtractedPrompt[] = [];
 
-  // Main generation prompt
   prompts.push({
-    name: 'diagram-generator-main',
-    description: 'Main prompt for generating PlantUML diagrams from user requirements',
-    template: `${'{baseSystemPrompt}'}
+    name: 'diagram-generator-unified',
+    description: 'Simplified diagram generation (type provided by MasterClassifier)',
+    template: `{baseSystemPrompt}
 
 You are a specialist in creating PlantUML diagrams based on user requirements.
 
@@ -49,44 +148,13 @@ Focus on clarity, proper syntax, and following best practices.
 {formatInstructions}`,
     variables: ['baseSystemPrompt', 'userInput', 'diagramType', 'guidelines', 'templates', 'formatInstructions'],
     agentType: AgentType.GENERATOR,
-    version: '1.0.0',
+    version: '2.0.0',
     isActive: true,
     metadata: {
       originalFile: 'lib/ai-pipeline/agents/generator.ts',
       extractedAt: new Date(),
-      sourceFunction: 'generate'
-    }
-  });
-
-  // Diagram type detection prompt
-  prompts.push({
-    name: 'diagram-type-detector',
-    description: 'Detects the most appropriate PlantUML diagram type from user input',
-    template: `${'{baseSystemPrompt}'}
-
-Determine the most appropriate PlantUML diagram type based on the user's request:
-
-User request: {userInput}
-
-Valid diagram types:
-- SEQUENCE: for interactions between components over time
-- CLASS: for system structure and relationships
-- ACTIVITY: for workflows and processes
-- STATE: for state transitions and behaviors
-- COMPONENT: for system components and interfaces
-- DEPLOYMENT: for physical deployment of components
-- USE_CASE: for system/actor interactions
-- ENTITY_RELATIONSHIP: for data modeling
-
-Return ONLY one of these types that best matches the user's request.`,
-    variables: ['baseSystemPrompt', 'userInput'],
-    agentType: AgentType.GENERATOR,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/generator.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'detectDiagramType'
+      sourceFunction: 'generate',
+      architectureVersion: 'unified'
     }
   });
 
@@ -99,11 +167,10 @@ Return ONLY one of these types that best matches the user's request.`,
 export function extractModifierPrompts(): ExtractedPrompt[] {
   const prompts: ExtractedPrompt[] = [];
 
-  // Main modification prompt
   prompts.push({
-    name: 'diagram-modifier-main',
-    description: 'Main prompt for modifying existing PlantUML diagrams',
-    template: `${'{baseSystemPrompt}'}
+    name: 'diagram-modifier-unified',
+    description: 'Simplified diagram modification (type provided by MasterClassifier)',
+    template: `{baseSystemPrompt}
 
 You are a specialist in modifying PlantUML diagrams based on user instructions.
 
@@ -113,6 +180,8 @@ Current diagram:
 \`\`\`
 
 User modification request: {userInput}
+
+Diagram type: {diagramType}
 
 PlantUML Guidelines:
 {guidelines}
@@ -122,94 +191,15 @@ Preserve existing structure while implementing the requested changes.
 Ensure the modified diagram uses correct PlantUML syntax.
 
 {formatInstructions}`,
-    variables: ['baseSystemPrompt', 'currentDiagram', 'userInput', 'guidelines', 'formatInstructions'],
+    variables: ['baseSystemPrompt', 'currentDiagram', 'userInput', 'diagramType', 'guidelines', 'formatInstructions'],
     agentType: AgentType.MODIFIER,
-    version: '1.0.0',
+    version: '2.0.0',
     isActive: true,
     metadata: {
       originalFile: 'lib/ai-pipeline/agents/modifier.ts',
       extractedAt: new Date(),
-      sourceFunction: 'modify'
-    }
-  });
-
-  // Retry modification prompt
-  prompts.push({
-    name: 'diagram-modifier-retry',
-    description: 'Retry prompt for modifications that failed to make changes',
-    template: `${'{baseSystemPrompt}'}
-
-You are a specialist in modifying PlantUML diagrams based on user instructions.
-
-Current diagram:
-\`\`\`plantuml
-{currentDiagram}
-\`\`\`
-
-User modification request: {userInput}
-
-IMPORTANT: You MUST make the specific changes requested by the user.
-The previous attempt did not implement any changes.
-
-Carefully analyze the diagram and implement the requested modifications.
-Focus on the specific elements the user wants to change.
-
-Modified diagram (full code, starting with @startuml and ending with @enduml):`,
-    variables: ['baseSystemPrompt', 'currentDiagram', 'userInput'],
-    agentType: AgentType.MODIFIER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/modifier.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'retryModification'
-    }
-  });
-
-  // Changes list prompt
-  prompts.push({
-    name: 'diagram-modifier-changes',
-    description: 'Generates a list of changes made to a diagram',
-    template: `${'{baseSystemPrompt}'}
-
-You have modified a PlantUML diagram based on this request:
-"{userInput}"
-
-List the specific changes you made, one per line.
-Be concise but clear. Start each line with "- ".`,
-    variables: ['baseSystemPrompt', 'userInput'],
-    agentType: AgentType.MODIFIER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/modifier.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'retryModification'
-    }
-  });
-
-  // Diagram type detection for modifier
-  prompts.push({
-    name: 'diagram-type-detector-modifier',
-    description: 'Detects diagram type from existing PlantUML code for modification',
-    template: `${'{baseSystemPrompt}'}
-
-Determine the type of the following PlantUML diagram:
-
-\`\`\`plantuml
-{diagram}
-\`\`\`
-
-Return ONLY one of these types that best matches the diagram:
-SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP`,
-    variables: ['baseSystemPrompt', 'diagram'],
-    agentType: AgentType.MODIFIER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/modifier.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'detectDiagramType'
+      sourceFunction: 'modify',
+      architectureVersion: 'unified'
     }
   });
 
@@ -222,11 +212,10 @@ SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATI
 export function extractAnalyzerPrompts(): ExtractedPrompt[] {
   const prompts: ExtractedPrompt[] = [];
 
-  // Main analysis prompt
   prompts.push({
-    name: 'diagram-analyzer-main',
-    description: 'Main prompt for analyzing PlantUML diagrams',
-    template: `${'{baseSystemPrompt}'}
+    name: 'diagram-analyzer-unified',
+    description: 'Simplified diagram analysis (types provided by MasterClassifier)',
+    template: `{baseSystemPrompt}
 
 You are a specialist in analyzing PlantUML diagrams.
 
@@ -249,67 +238,13 @@ Provide detailed and insightful analysis.
 {formatInstructions}`,
     variables: ['baseSystemPrompt', 'diagram', 'userInput', 'analysisType', 'diagramType', 'guidelines', 'formatInstructions'],
     agentType: AgentType.ANALYZER,
-    version: '1.0.0',
+    version: '2.0.0',
     isActive: true,
     metadata: {
       originalFile: 'lib/ai-pipeline/agents/analyzer.ts',
       extractedAt: new Date(),
-      sourceFunction: 'analyze'
-    }
-  });
-
-  // Analysis type detection prompt
-  prompts.push({
-    name: 'analysis-type-detector',
-    description: 'Detects the most appropriate analysis type from user input',
-    template: `${'{baseSystemPrompt}'}
-
-Determine the most appropriate type of analysis based on the user's request:
-
-User request: {userInput}
-
-Select the MOST appropriate analysis type from these options:
-- GENERAL: Overall assessment of the diagram
-- QUALITY: Assessment of diagram quality and best practices
-- COMPONENTS: Inventory and explanation of diagram components
-- RELATIONSHIPS: Analysis of relationships between components
-- COMPLEXITY: Assessment of diagram complexity
-- IMPROVEMENTS: Suggestions for improving the diagram
-
-Return ONLY one of these types (just the word).`,
-    variables: ['baseSystemPrompt', 'userInput'],
-    agentType: AgentType.ANALYZER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/analyzer.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'detectAnalysisType'
-    }
-  });
-
-  // Diagram type detection for analyzer
-  prompts.push({
-    name: 'diagram-type-detector-analyzer',
-    description: 'Detects diagram type from existing PlantUML code for analysis',
-    template: `${'{baseSystemPrompt}'}
-
-Determine the type of the following PlantUML diagram:
-
-\`\`\`plantuml
-{diagram}
-\`\`\`
-
-Return ONLY one of these types that best matches the diagram:
-SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP`,
-    variables: ['baseSystemPrompt', 'diagram'],
-    agentType: AgentType.ANALYZER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/agents/analyzer.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'detectDiagramType'
+      sourceFunction: 'analyze',
+      architectureVersion: 'unified'
     }
   });
 
@@ -317,89 +252,37 @@ SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATI
 }
 
 /**
- * Extract prompts from the input processor
- */
-export function extractInputProcessorPrompts(): ExtractedPrompt[] {
-  const prompts: ExtractedPrompt[] = [];
-
-  // Intent classification prompt (simple)
-  prompts.push({
-    name: 'intent-classifier-simple',
-    description: 'Simple intent classification for user requests',
-    template: `${'{baseSystemPrompt}'}
-
-Your task is to classify the user's intent regarding PlantUML diagrams.
-
-Current diagram present: {currentDiagramStatus}
-
-User request: {userInput}
-
-{conversationHistory}
-
-Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
-
-Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
-
-If you cannot clearly determine the user's intent, respond with UNKNOWN.`,
-    variables: ['baseSystemPrompt', 'currentDiagramStatus', 'userInput', 'conversationHistory'],
-    agentType: AgentType.CLASSIFIER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/inputProcessor.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'classifyIntent'
-    }
-  });
-
-  // Intent classification prompt (detailed)
-  prompts.push({
-    name: 'intent-classifier-detailed',
-    description: 'Detailed intent classification with confidence and parameters',
-    template: `${'{baseSystemPrompt}'}
-
-Your task is to classify the user's intent regarding PlantUML diagrams.
-
-Current diagram present: {currentDiagramStatus}
-
-User request: {userInput}
-
-{conversationHistory}
-
-Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
-
-Analyze the confidence of your classification on a scale from 0 to 1.
-
-{formatInstructions}`,
-    variables: ['baseSystemPrompt', 'currentDiagramStatus', 'userInput', 'conversationHistory', 'formatInstructions'],
-    agentType: AgentType.CLASSIFIER,
-    version: '1.0.0',
-    isActive: true,
-    metadata: {
-      originalFile: 'lib/ai-pipeline/inputProcessor.ts',
-      extractedAt: new Date(),
-      sourceFunction: 'classifyIntent'
-    }
-  });
-
-  return prompts;
-}
-
-/**
- * Extract all prompts from the AI pipeline
+ * Extract all prompts from the unified AI pipeline
  */
 export function extractAllPrompts(): ExtractedPrompt[] {
   return [
+    extractBaseSystemPrompt(),
+    ...extractMasterClassifierPrompts(),
     ...extractGeneratorPrompts(),
     ...extractModifierPrompts(),
-    ...extractAnalyzerPrompts(),
-    ...extractInputProcessorPrompts()
+    ...extractAnalyzerPrompts()
   ];
 }
 
 /**
- * Get base system prompt from the baseChain
+ * Extract base system prompt
  */
-export function getBaseSystemPrompt(): string {
-  return "You are an AI assistant specialized in PlantUML diagrams.";
+export function extractBaseSystemPrompt(): ExtractedPrompt {
+  return {
+    name: 'base-system-prompt',
+    description: 'Base system prompt used across all agents',
+    template: `You are an expert assistant specializing in PlantUML diagrams. 
+You have deep knowledge of PlantUML syntax, best practices, and design patterns.
+Always provide accurate, well-structured PlantUML code that follows conventions.`,
+    variables: [],
+    agentType: AgentType.GENERATOR, // Base prompt can be categorized under any agent type
+    version: '2.0.0',
+    isActive: true,
+    metadata: {
+      originalFile: 'lib/prompts/embedded.ts',
+      extractedAt: new Date(),
+      sourceFunction: 'BASE_SYSTEM_PROMPT',
+      architectureVersion: 'unified'
+    }
+  };
 }

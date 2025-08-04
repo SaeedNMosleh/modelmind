@@ -1,14 +1,13 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
-// Import the DiagramType from guidelines with an alias to avoid conflicts
+import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
-// Fix the import for templates
 import { listTemplates } from "../../knowledge/templates";
 import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
+import { DiagramType } from "../schemas/MasterClassificationSchema";
 import pino from "pino";
 
 // Setup logger
@@ -19,26 +18,11 @@ const logger = pino({
 });
 
 /**
- * Our local enum for diagram types used in the generator
- */
-export enum GeneratorDiagramType {
-  SEQUENCE = "SEQUENCE",
-  CLASS = "CLASS",
-  ACTIVITY = "ACTIVITY",
-  STATE = "STATE",
-  COMPONENT = "COMPONENT",
-  DEPLOYMENT = "DEPLOYMENT",
-  USE_CASE = "USE_CASE",
-  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
-  UNKNOWN = "UNKNOWN"
-}
-
-/**
  * Schema defining the structure of the diagram generation output
  */
 const generationOutputSchema = z.object({
   diagram: z.string().min(10),
-  diagramType: z.nativeEnum(GeneratorDiagramType),
+  diagramType: z.nativeEnum(DiagramType),
   explanation: z.string(),
   suggestions: z.array(z.string()).optional()
 });
@@ -49,11 +33,11 @@ const generationOutputSchema = z.object({
 export type GenerationResult = z.infer<typeof generationOutputSchema>;
 
 /**
- * Schema for generator input parameters
+ * Schema for generator input parameters - now requires diagramType from MasterClassifier
  */
 const generatorParamsSchema = z.object({
   userInput: z.string().min(1),
-  diagramType: z.nativeEnum(GeneratorDiagramType).optional(),
+  diagramType: z.nativeEnum(DiagramType), // Now required from MasterClassifier
   context: z.record(z.unknown()).optional()
 });
 
@@ -63,24 +47,26 @@ const generatorParamsSchema = z.object({
 export type GeneratorParams = z.infer<typeof generatorParamsSchema>;
 
 /**
- * Helper function to map our generator diagram type to the guidelines diagram type
+ * Helper function to map diagram type to the guidelines diagram type
  */
-function mapToGuidelinesType(type: GeneratorDiagramType): GuidelinesType {
+function mapToGuidelinesType(type: DiagramType): GuidelinesType {
   switch(type) {
-    case GeneratorDiagramType.SEQUENCE: 
+    case DiagramType.SEQUENCE: 
       return 'sequence' as GuidelinesType;
-    case GeneratorDiagramType.CLASS: 
+    case DiagramType.CLASS: 
       return 'class' as GuidelinesType;
-    case GeneratorDiagramType.ACTIVITY: 
+    case DiagramType.ACTIVITY: 
       return 'activity' as GuidelinesType;
-    case GeneratorDiagramType.STATE: 
+    case DiagramType.STATE: 
       return 'state' as GuidelinesType;
-    case GeneratorDiagramType.COMPONENT: 
+    case DiagramType.COMPONENT: 
       return 'component' as GuidelinesType;
-    case GeneratorDiagramType.USE_CASE: 
+    case DiagramType.USE_CASE: 
       return 'use-case' as GuidelinesType;
-    case GeneratorDiagramType.ENTITY_RELATIONSHIP: 
+    case DiagramType.ENTITY_RELATIONSHIP: 
       return 'entity_relationship' as GuidelinesType;
+    case DiagramType.DEPLOYMENT:
+      return 'deployment' as GuidelinesType;
     default:
       return 'sequence' as GuidelinesType; // Default fallback
   }
@@ -90,234 +76,179 @@ function mapToGuidelinesType(type: GeneratorDiagramType): GuidelinesType {
  * Specialized agent for generating PlantUML diagrams from user requirements
  */
 export class DiagramGenerator {
-  private parser;
+  private parser: UnifiedOutputParser<GenerationResult>;
 
   constructor() {
-    this.parser = StructuredOutputParser.fromZodSchema(generationOutputSchema);
+    // Create default fallback for generation
+    const defaultFallback: GenerationResult = {
+      diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Could not generate diagram" as Error\n@enduml`,
+      diagramType: DiagramType.UNKNOWN,
+      explanation: "I encountered an error while generating the diagram. Please try again with a different description."
+    };
+
+    // Use UnifiedOutputParser with generation-specific configuration
+    this.parser = UnifiedParserFactory.createGenerationParser(generationOutputSchema, defaultFallback);
   }
 
   /**
    * Generate a new PlantUML diagram based on user requirements
-   * @param params - Parameters for generation
+   * @param params - Parameters for generation (diagramType now required from MasterClassifier)
    * @returns A promise resolving to the generation result
    */
   public async generate(params: GeneratorParams): Promise<GenerationResult> {
     try {
       // Validate input params
       const validatedParams = generatorParamsSchema.parse(params);
+      const { userInput, diagramType } = validatedParams;
       
-      // Determine diagram type from input or context
-      const diagramType = validatedParams.diagramType || 
-        await this.detectDiagramType(validatedParams.userInput);
-      
-      logger.info("Generating diagram with type", { diagramType });
+      logger.info("Generating diagram", { diagramType, userInput: userInput.substring(0, 100) });
       
       // Fetch relevant guidelines and templates
-      let guidelines, templates;
-      try {
-        // Convert our enum to the expected type for guidelines
-        const guidelinesType = mapToGuidelinesType(diagramType);
-        
-        // Get guidelines and templates
-        guidelines = await readGuidelines(guidelinesType);
-        
-        // Get templates for the appropriate diagram type
-        templates = await listTemplates(mapToGuidelinesType(diagramType));
-      } catch (resourceError) {
-        logger.error("Error fetching guidelines or templates:", resourceError);
-        guidelines = null;
-        templates = [];
-      }
+      const { guidelinesText, templatesText } = await this.fetchDiagramResources(diagramType);
       
-      // Format guidelines for prompt
-      let guidelinesText = "No specific guidelines available.";
-      if (guidelines && typeof guidelines === 'string') {
-        guidelinesText = guidelines;
-      }
+      // Load and execute the generation prompt
+      const promptTemplate = await this.buildGenerationPrompt(userInput, diagramType, guidelinesText, templatesText);
       
-      // Format templates for prompt
-      let templatesText = "No specific templates available for this diagram type.";
-      if (templates && templates.length > 0) {
-        templatesText = templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n');
-      }
-      
-      // Load the generation prompt dynamically
-      const startTime = Date.now();
-      let promptTemplate: string;
-      let promptSource: string;
-      
-      try {
-        const promptData = await getPrompt(AgentType.GENERATOR, PromptOperation.GENERATION);
-        promptTemplate = substituteVariables(promptData.template, {
-          baseSystemPrompt,
-          userInput: validatedParams.userInput,
-          diagramType: diagramType.toString(),
-          guidelines: guidelinesText,
-          templates: templatesText,
-          formatInstructions: this.parser.getFormatInstructions()
-        });
-        promptSource = promptData.source;
-        
-        const duration = Date.now() - startTime;
-        logPromptUsage(AgentType.GENERATOR, PromptOperation.GENERATION, promptData.source, duration);
-      } catch (promptError) {
-        logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
-        // Fallback to original hardcoded prompt
-        promptTemplate = `
-          ${baseSystemPrompt}
-          
-          You are a specialist in creating PlantUML diagrams based on user requirements.
-          
-          User requirements: ${validatedParams.userInput}
-          
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Available Templates:
-          ${templatesText}
-          
-          Based on the requirements, create a detailed PlantUML diagram.
-          Focus on clarity, proper syntax, and following best practices.
-          
-          ${this.parser.getFormatInstructions()}
-        `;
-        promptSource = 'hardcoded-fallback';
-      }
-      
-      const generationPrompt = PromptTemplate.fromTemplate(promptTemplate);
-      
-      // Create the generation chain
+      // Create and execute the generation chain
       const generationChain = RunnableSequence.from([
-        generationPrompt,
+        PromptTemplate.fromTemplate(promptTemplate),
         model,
         this.parser
       ]);
       
-      // Execute the chain
       const result = await generationChain.invoke({});
       
-      // Ensure result has the expected type structure
-      const typedResult = result as unknown as GenerationResult;
-      
       logger.info("Diagram generation completed", { 
-        diagramType: typedResult.diagramType,
-        diagramLength: typedResult.diagram.length,
-        promptSource
+        diagramType: result.diagramType,
+        diagramLength: result.diagram.length
       });
       
-      return typedResult;
+      return result;
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error("Input validation error:", { errors: error.errors });
-        // Return a fallback response with an error diagram
-        return {
-          diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: GeneratorDiagramType.UNKNOWN,
-          explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
-        };
-      } else if (error instanceof Error) {
-        logger.error("Error generating diagram:", { 
-          message: error.message, 
-          stack: error.stack
-        });
-        
-        // Return a fallback response with an error diagram
-        return {
-          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
-          diagramType: GeneratorDiagramType.UNKNOWN,
-          explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
-        };
-      } else {
-        logger.error("Unknown error during diagram generation:", { error });
-        
-        // Return a generic fallback response
-        return {
-          diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
-          diagramType: GeneratorDiagramType.UNKNOWN,
-          explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
-        };
-      }
+      return this.handleGenerationError(error, params);
     }
   }
 
   /**
-   * Detect the diagram type from user input
-   * @param userInput - The user's input message
-   * @returns Detected diagram type
+   * Fetch diagram resources (guidelines and templates)
    * @private
    */
-  private async detectDiagramType(userInput: string): Promise<GeneratorDiagramType> {
+  private async fetchDiagramResources(diagramType: DiagramType): Promise<{
+    guidelinesText: string;
+    templatesText: string;
+  }> {
     try {
-      // Load type detection prompt dynamically
-      let promptTemplate: string;
+      const guidelinesType = mapToGuidelinesType(diagramType);
       
-      try {
-        const promptData = await getPrompt(AgentType.GENERATOR, 'type-detection');
-        promptTemplate = substituteVariables(promptData.template, {
-          baseSystemPrompt,
-          userInput
-        });
-        logPromptUsage(AgentType.GENERATOR, 'type-detection', promptData.source, 0);
-      } catch (promptError) {
-        logger.warn("Failed to load type detection prompt, using fallback", { error: promptError });
-        // Fallback to hardcoded prompt
-        promptTemplate = `
-          ${baseSystemPrompt}
-          
-          Determine the most appropriate PlantUML diagram type based on the user's request:
-          
-          User request: ${userInput}
-          
-          Valid diagram types:
-          - SEQUENCE: for interactions between components over time
-          - CLASS: for system structure and relationships
-          - ACTIVITY: for workflows and processes
-          - STATE: for state transitions and behaviors
-          - COMPONENT: for system components and interfaces
-          - DEPLOYMENT: for physical deployment of components
-          - USE_CASE: for system/actor interactions
-          - ENTITY_RELATIONSHIP: for data modeling
-          
-          Return ONLY one of these types that best matches the user's request.
-        `;
-      }
-      
-      const detectTypePrompt = PromptTemplate.fromTemplate(promptTemplate);
-      
-      const detectTypeChain = RunnableSequence.from([
-        detectTypePrompt,
-        model,
-        new StringOutputParser()
+      // Fetch guidelines and templates in parallel
+      const [guidelines, templates] = await Promise.all([
+        readGuidelines(guidelinesType),
+        listTemplates(guidelinesType)
       ]);
       
-      const result = await detectTypeChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
+      const guidelinesText = guidelines && typeof guidelines === 'string' 
+        ? guidelines 
+        : "No specific guidelines available.";
       
-      // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, GeneratorDiagramType> = {
-        "SEQUENCE": GeneratorDiagramType.SEQUENCE,
-        "CLASS": GeneratorDiagramType.CLASS,
-        "ACTIVITY": GeneratorDiagramType.ACTIVITY,
-        "STATE": GeneratorDiagramType.STATE,
-        "COMPONENT": GeneratorDiagramType.COMPONENT,
-        "DEPLOYMENT": GeneratorDiagramType.DEPLOYMENT,
-        "USE_CASE": GeneratorDiagramType.USE_CASE,
-        "USECASE": GeneratorDiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": GeneratorDiagramType.ENTITY_RELATIONSHIP,
-        "ER": GeneratorDiagramType.ENTITY_RELATIONSHIP
-      };
+      const templatesText = templates && templates.length > 0
+        ? templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n')
+        : "No specific templates available for this diagram type.";
       
-      const finalType = diagramTypeMap[detectedType] || GeneratorDiagramType.SEQUENCE;
-      
-      logger.info("Diagram type detected", { detectedType: finalType });
-      return finalType;
+      return { guidelinesText, templatesText };
     } catch (error) {
-      logger.error("Error detecting diagram type:", error);
-      // Default to SEQUENCE if detection fails
-      return GeneratorDiagramType.SEQUENCE;
+      logger.error("Error fetching diagram resources:", error);
+      return {
+        guidelinesText: "No specific guidelines available.",
+        templatesText: "No specific templates available for this diagram type."
+      };
     }
+  }
+
+  /**
+   * Build the generation prompt template
+   * @private
+   */
+  private async buildGenerationPrompt(
+    userInput: string,
+    diagramType: DiagramType,
+    guidelinesText: string,
+    templatesText: string
+  ): Promise<string> {
+    try {
+      const startTime = Date.now();
+      const promptData = await getPrompt(AgentType.GENERATOR, PromptOperation.GENERATION);
+      
+      const duration = Date.now() - startTime;
+      logPromptUsage(AgentType.GENERATOR, PromptOperation.GENERATION, promptData.source, duration);
+      
+      return substituteVariables(promptData.template, {
+        baseSystemPrompt,
+        userInput,
+        diagramType: diagramType.toString(),
+        guidelines: guidelinesText,
+        templates: templatesText,
+        formatInstructions: this.parser.getFormatInstructions()
+      });
+    } catch (promptError) {
+      logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
+      
+      // Fallback to hardcoded prompt
+      return `
+        ${baseSystemPrompt}
+        
+        You are a specialist in creating PlantUML diagrams based on user requirements.
+        
+        User requirements: ${userInput}
+        
+        Diagram type: ${diagramType}
+        
+        PlantUML Guidelines:
+        ${guidelinesText}
+        
+        Available Templates:
+        ${templatesText}
+        
+        Based on the requirements, create a detailed PlantUML diagram.
+        Focus on clarity, proper syntax, and following best practices.
+        
+        ${this.parser.getFormatInstructions()}
+      `;
+    }
+  }
+
+  /**
+   * Handle generation errors with meaningful fallbacks
+   * @private
+   */
+  private handleGenerationError(error: unknown, params: GeneratorParams): GenerationResult {
+    if (error instanceof z.ZodError) {
+      logger.error("Input validation error:", { errors: error.errors });
+      return {
+        diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
+        diagramType: DiagramType.UNKNOWN,
+        explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
+      };
+    }
+
+    if (error instanceof Error) {
+      logger.error("Error generating diagram:", { 
+        message: error.message, 
+        stack: error.stack
+      });
+      
+      return {
+        diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
+        diagramType: DiagramType.UNKNOWN,
+        explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
+      };
+    }
+
+    logger.error("Unknown error during diagram generation:", { error });
+    return {
+      diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
+      diagramType: DiagramType.UNKNOWN,
+      explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
+    };
   }
 
   /**

@@ -1,4 +1,4 @@
-import { DiagramIntent } from "./inputProcessor";
+import { DiagramIntent } from "./schemas/MasterClassificationSchema";
 import { GenerationResult } from "./agents/generator";
 import { ModificationResult } from "./agents/modifier";
 import { AnalysisResult } from "./agents/analyzer";

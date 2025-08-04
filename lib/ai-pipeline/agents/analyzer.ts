@@ -1,12 +1,12 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import { StructuredOutputParser, StringOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
-// Import the real DiagramType from the guidelines module
+import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
+import { DiagramType, AnalysisType } from "../schemas/MasterClassificationSchema";
 import pino from "pino";
 
 // Setup logger
@@ -16,36 +16,11 @@ const logger = pino({
   }
 });
 
-// Define our analyzer's DiagramType enum (use a different name to avoid conflicts)
-export enum AnalyzerDiagramType {
-  SEQUENCE = "SEQUENCE",
-  CLASS = "CLASS",
-  ACTIVITY = "ACTIVITY",
-  STATE = "STATE",
-  COMPONENT = "COMPONENT",
-  DEPLOYMENT = "DEPLOYMENT",
-  USE_CASE = "USE_CASE",
-  ENTITY_RELATIONSHIP = "ENTITY_RELATIONSHIP",
-  UNKNOWN = "UNKNOWN"
-}
-
-/**
- * Enum defining types of analysis that can be performed
- */
-export enum AnalysisType {
-  GENERAL = "general",
-  QUALITY = "quality",
-  COMPONENTS = "components",
-  RELATIONSHIPS = "relationships",
-  COMPLEXITY = "complexity",
-  IMPROVEMENTS = "improvements"
-}
-
 /**
  * Schema defining the structure of the diagram analysis output
  */
 const analysisOutputSchema = z.object({
-  diagramType: z.nativeEnum(AnalyzerDiagramType),
+  diagramType: z.nativeEnum(DiagramType),
   analysisType: z.nativeEnum(AnalysisType),
   overview: z.string(),
   components: z.array(z.object({
@@ -75,13 +50,13 @@ const analysisOutputSchema = z.object({
 export type AnalysisResult = z.infer<typeof analysisOutputSchema>;
 
 /**
- * Schema for analyzer input parameters
+ * Schema for analyzer input parameters - both types now required from MasterClassifier
  */
 const analyzerParamsSchema = z.object({
   userInput: z.string().min(1),
   diagram: z.string().min(10),
-  analysisType: z.nativeEnum(AnalysisType).optional(),
-  diagramType: z.nativeEnum(AnalyzerDiagramType).optional(),
+  analysisType: z.nativeEnum(AnalysisType), // Now required from MasterClassifier
+  diagramType: z.nativeEnum(DiagramType), // Now required from MasterClassifier
   context: z.record(z.unknown()).optional()
 });
 
@@ -91,24 +66,26 @@ const analyzerParamsSchema = z.object({
 export type AnalyzerParams = z.infer<typeof analyzerParamsSchema>;
 
 /**
- * Helper function to map our analyzer diagram type to the guidelines diagram type
+ * Helper function to map diagram type to the guidelines diagram type
  */
-function mapToGuidelinesType(type: AnalyzerDiagramType): GuidelinesType {
+function mapToGuidelinesType(type: DiagramType): GuidelinesType {
   switch(type) {
-    case AnalyzerDiagramType.SEQUENCE: 
+    case DiagramType.SEQUENCE: 
       return 'sequence' as GuidelinesType;
-    case AnalyzerDiagramType.CLASS: 
+    case DiagramType.CLASS: 
       return 'class' as GuidelinesType;
-    case AnalyzerDiagramType.ACTIVITY: 
+    case DiagramType.ACTIVITY: 
       return 'activity' as GuidelinesType;
-    case AnalyzerDiagramType.STATE: 
+    case DiagramType.STATE: 
       return 'state' as GuidelinesType;
-    case AnalyzerDiagramType.COMPONENT: 
+    case DiagramType.COMPONENT: 
       return 'component' as GuidelinesType;
-    case AnalyzerDiagramType.USE_CASE: 
+    case DiagramType.USE_CASE: 
       return 'use-case' as GuidelinesType;
-    case AnalyzerDiagramType.ENTITY_RELATIONSHIP: 
+    case DiagramType.ENTITY_RELATIONSHIP: 
       return 'entity_relationship' as GuidelinesType;
+    case DiagramType.DEPLOYMENT:
+      return 'deployment' as GuidelinesType;
     default:
       return 'sequence' as GuidelinesType; // Default fallback
   }
@@ -118,293 +95,177 @@ function mapToGuidelinesType(type: AnalyzerDiagramType): GuidelinesType {
  * Specialized agent for analyzing PlantUML diagrams
  */
 export class DiagramAnalyzer {
-  private parser;
+  private parser: UnifiedOutputParser<AnalysisResult>;
 
   constructor() {
-    this.parser = StructuredOutputParser.fromZodSchema(analysisOutputSchema);
+    // Create default fallback for analysis
+    const defaultFallback: AnalysisResult = {
+      diagramType: DiagramType.UNKNOWN,
+      analysisType: AnalysisType.GENERAL,
+      overview: "I encountered an error while analyzing the diagram. Please try again with a clearer request."
+    };
+
+    // Use UnifiedOutputParser with analysis-specific configuration
+    this.parser = UnifiedParserFactory.createAnalysisParser(analysisOutputSchema, defaultFallback);
   }
 
   /**
    * Analyze a PlantUML diagram based on user requirements
-   * @param params - Parameters for analysis
+   * @param params - Parameters for analysis (both types now required from MasterClassifier)
    * @returns A promise resolving to the analysis result
    */
   public async analyze(params: AnalyzerParams): Promise<AnalysisResult> {
     try {
       // Validate input params
       const validatedParams = analyzerParamsSchema.parse(params);
+      const { userInput, diagram, analysisType, diagramType } = validatedParams;
       
-      // Detect diagram type if not provided
-      const diagramType = validatedParams.diagramType || 
-        await this.detectDiagramType(validatedParams.diagram);
-      
-      // Determine analysis type from user input if not provided
-      const analysisType = validatedParams.analysisType || 
-        await this.detectAnalysisType(validatedParams.userInput);
-      
-      logger.info("Analyzing diagram", { diagramType, analysisType });
+      logger.info("Analyzing diagram", { 
+        diagramType, 
+        analysisType, 
+        userInput: userInput.substring(0, 100) 
+      });
       
       // Fetch relevant guidelines
-      let guidelinesText = "No specific guidelines available.";
-      try {
-        // Convert our enum to the expected type for readGuidelines
-        const guidelinesType = mapToGuidelinesType(diagramType);
-        
-        // Call readGuidelines with the right type
-        const guidelines = await readGuidelines(guidelinesType);
-        
-        // Format guidelines for prompt
-        if (guidelines && typeof guidelines === 'string') {
-          guidelinesText = guidelines;
-        }
-      } catch (guidelineError) {
-        logger.error("Error fetching guidelines:", guidelineError);
-      }
+      const guidelinesText = await this.fetchGuidelines(diagramType);
       
-      // Load the analysis prompt dynamically
-      const startTime = Date.now();
-      let promptTemplate: string;
-      let promptSource: string;
+      // Build and execute the analysis prompt
+      const promptTemplate = await this.buildAnalysisPrompt(
+        userInput,
+        diagram,
+        analysisType,
+        diagramType,
+        guidelinesText
+      );
       
-      try {
-        const promptData = await getPrompt(AgentType.ANALYZER, PromptOperation.ANALYSIS);
-        promptTemplate = substituteVariables(promptData.template, {
-          baseSystemPrompt,
-          diagram: validatedParams.diagram,
-          userInput: validatedParams.userInput,
-          analysisType: analysisType.toString(),
-          diagramType: diagramType.toString(),
-          guidelines: guidelinesText,
-          formatInstructions: this.parser.getFormatInstructions()
-        });
-        promptSource = promptData.source;
-        
-        const duration = Date.now() - startTime;
-        logPromptUsage(AgentType.ANALYZER, PromptOperation.ANALYSIS, promptData.source, duration);
-      } catch (promptError) {
-        logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
-        // Fallback to original hardcoded prompt
-        promptTemplate = `
-          ${baseSystemPrompt}
-          
-          You are a specialist in analyzing PlantUML diagrams.
-          
-          Diagram to analyze:
-          \`\`\`plantuml
-          ${validatedParams.diagram}
-          \`\`\`
-          
-          User analysis request: ${validatedParams.userInput}
-          
-          Analysis type: ${analysisType}
-          Diagram type: ${diagramType}
-          
-          PlantUML Guidelines:
-          ${guidelinesText}
-          
-          Analyze the diagram based on the analysis type and user request.
-          Provide detailed and insightful analysis.
-          
-          ${this.parser.getFormatInstructions()}
-        `;
-        promptSource = 'hardcoded-fallback';
-      }
-      
-      const analysisPrompt = PromptTemplate.fromTemplate(promptTemplate);
-      
-      // Create the analysis chain
+      // Create and execute the analysis chain
       const analysisChain = RunnableSequence.from([
-        analysisPrompt,
+        PromptTemplate.fromTemplate(promptTemplate),
         model,
         this.parser
       ]);
       
-      // Execute the chain
       const result = await analysisChain.invoke({});
       
-      // Ensure result has the expected type structure
-      const typedResult = result as unknown as AnalysisResult;
-      
       logger.info("Diagram analysis completed", { 
-        diagramType: typedResult.diagramType,
-        analysisType: typedResult.analysisType,
-        promptSource
+        diagramType: result.diagramType,
+        analysisType: result.analysisType
       });
       
-      return typedResult;
+      return result;
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error("Input validation error:", { errors: error.errors });
-        // Return a fallback response with a minimal analysis
-        return {
-          diagramType: AnalyzerDiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
-        };
-      } else if (error instanceof Error) {
-        logger.error("Error analyzing diagram:", { 
-          message: error.message, 
-          stack: error.stack
-        });
-        
-        // Return a fallback response with a minimal analysis
-        return {
-          diagramType: AnalyzerDiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
-        };
-      } else {
-        logger.error("Unknown error during diagram analysis:", { error });
-        
-        // Return a generic fallback
-        return {
-          diagramType: AnalyzerDiagramType.UNKNOWN,
-          analysisType: AnalysisType.GENERAL,
-          overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
-        };
-      }
+      return this.handleAnalysisError(error, params);
     }
   }
 
   /**
-   * Detect the diagram type from an existing diagram
-   * @param diagram - The current diagram
-   * @returns Detected diagram type
+   * Fetch guidelines for the diagram type
    * @private
    */
-  private async detectDiagramType(diagram: string): Promise<AnalyzerDiagramType> {
+  private async fetchGuidelines(diagramType: DiagramType): Promise<string> {
     try {
-      // Load type detection prompt dynamically
-      let promptTemplate: string;
+      const guidelinesType = mapToGuidelinesType(diagramType);
+      const guidelines = await readGuidelines(guidelinesType);
       
-      try {
-        const promptData = await getPrompt(AgentType.ANALYZER, 'type-detection');
-        promptTemplate = substituteVariables(promptData.template, {
-          baseSystemPrompt,
-          diagram
-        });
-        logPromptUsage(AgentType.ANALYZER, 'type-detection', promptData.source, 0);
-      } catch (promptError) {
-        logger.warn("Failed to load type detection prompt, using fallback", { error: promptError });
-        // Fallback to hardcoded prompt
-        promptTemplate = `
-          ${baseSystemPrompt}
-          
-          Determine the type of the following PlantUML diagram:
-          
-          \`\`\`plantuml
-          ${diagram}
-          \`\`\`
-          
-          Return ONLY one of these types that best matches the diagram:
-          SEQUENCE, CLASS, ACTIVITY, STATE, COMPONENT, DEPLOYMENT, USE_CASE, ENTITY_RELATIONSHIP
-        `;
-      }
-      
-      const detectTypePrompt = PromptTemplate.fromTemplate(promptTemplate);
-      
-      const detectTypeChain = RunnableSequence.from([
-        detectTypePrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectTypeChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid DiagramType
-      const diagramTypeMap: Record<string, AnalyzerDiagramType> = {
-        "SEQUENCE": AnalyzerDiagramType.SEQUENCE,
-        "CLASS": AnalyzerDiagramType.CLASS,
-        "ACTIVITY": AnalyzerDiagramType.ACTIVITY,
-        "STATE": AnalyzerDiagramType.STATE,
-        "COMPONENT": AnalyzerDiagramType.COMPONENT,
-        "DEPLOYMENT": AnalyzerDiagramType.DEPLOYMENT,
-        "USE_CASE": AnalyzerDiagramType.USE_CASE,
-        "USECASE": AnalyzerDiagramType.USE_CASE,
-        "ENTITY_RELATIONSHIP": AnalyzerDiagramType.ENTITY_RELATIONSHIP,
-        "ER": AnalyzerDiagramType.ENTITY_RELATIONSHIP
-      };
-      
-      const finalType = diagramTypeMap[detectedType] || AnalyzerDiagramType.UNKNOWN;
-      
-      logger.info("Diagram type detected", { detectedType: finalType });
-      return finalType;
+      return guidelines && typeof guidelines === 'string' 
+        ? guidelines 
+        : "No specific guidelines available.";
     } catch (error) {
-      logger.error("Error detecting diagram type:", error);
-      return AnalyzerDiagramType.UNKNOWN;
+      logger.error("Error fetching guidelines:", error);
+      return "No specific guidelines available.";
     }
   }
 
   /**
-   * Detect the analysis type based on user input
-   * @param userInput - The user's input message
-   * @returns Detected analysis type
+   * Build the analysis prompt template
    * @private
    */
-  private async detectAnalysisType(userInput: string): Promise<AnalysisType> {
+  private async buildAnalysisPrompt(
+    userInput: string,
+    diagram: string,
+    analysisType: AnalysisType,
+    diagramType: DiagramType,
+    guidelinesText: string
+  ): Promise<string> {
     try {
-      // Load analysis type detection prompt dynamically
-      let promptTemplate: string;
+      const startTime = Date.now();
+      const promptData = await getPrompt(AgentType.ANALYZER, PromptOperation.ANALYSIS);
       
-      try {
-        const promptData = await getPrompt(AgentType.ANALYZER, 'analysis-type-detection');
-        promptTemplate = substituteVariables(promptData.template, {
-          baseSystemPrompt,
-          userInput
-        });
-        logPromptUsage(AgentType.ANALYZER, 'analysis-type-detection', promptData.source, 0);
-      } catch (promptError) {
-        logger.warn("Failed to load analysis type detection prompt, using fallback", { error: promptError });
-        // Fallback to hardcoded prompt
-        promptTemplate = `
-          ${baseSystemPrompt}
-          
-          Determine the most appropriate type of analysis based on the user's request:
-          
-          User request: ${userInput}
-          
-          Select the MOST appropriate analysis type from these options:
-          - GENERAL: Overall assessment of the diagram
-          - QUALITY: Assessment of diagram quality and best practices
-          - COMPONENTS: Inventory and explanation of diagram components
-          - RELATIONSHIPS: Analysis of relationships between components
-          - COMPLEXITY: Assessment of diagram complexity
-          - IMPROVEMENTS: Suggestions for improving the diagram
-          
-          Return ONLY one of these types (just the word).
-        `;
-      }
+      const duration = Date.now() - startTime;
+      logPromptUsage(AgentType.ANALYZER, PromptOperation.ANALYSIS, promptData.source, duration);
       
-      const detectAnalysisPrompt = PromptTemplate.fromTemplate(promptTemplate);
+      return substituteVariables(promptData.template, {
+        baseSystemPrompt,
+        diagram,
+        userInput,
+        analysisType: analysisType.toString(),
+        diagramType: diagramType.toString(),
+        guidelines: guidelinesText,
+        formatInstructions: this.parser.getFormatInstructions()
+      });
+    } catch (promptError) {
+      logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
       
-      const detectAnalysisChain = RunnableSequence.from([
-        detectAnalysisPrompt,
-        model,
-        new StringOutputParser()
-      ]);
-      
-      const result = await detectAnalysisChain.invoke({});
-      const detectedType = String(result).trim().toUpperCase();
-      
-      // Map the result to a valid AnalysisType
-      const analysisTypeMap: Record<string, AnalysisType> = {
-        "GENERAL": AnalysisType.GENERAL,
-        "QUALITY": AnalysisType.QUALITY,
-        "COMPONENTS": AnalysisType.COMPONENTS,
-        "RELATIONSHIPS": AnalysisType.RELATIONSHIPS,
-        "COMPLEXITY": AnalysisType.COMPLEXITY,
-        "IMPROVEMENTS": AnalysisType.IMPROVEMENTS
-      };
-      
-      const finalType = analysisTypeMap[detectedType] || AnalysisType.GENERAL;
-      
-      logger.info("Analysis type detected", { detectedType: finalType });
-      return finalType;
-    } catch (error) {
-      logger.error("Error detecting analysis type:", error);
-      return AnalysisType.GENERAL;
+      // Fallback to hardcoded prompt
+      return `
+        ${baseSystemPrompt}
+        
+        You are a specialist in analyzing PlantUML diagrams.
+        
+        Diagram to analyze:
+        \`\`\`plantuml
+        ${diagram}
+        \`\`\`
+        
+        User analysis request: ${userInput}
+        
+        Analysis type: ${analysisType}
+        Diagram type: ${diagramType}
+        
+        PlantUML Guidelines:
+        ${guidelinesText}
+        
+        Analyze the diagram based on the analysis type and user request.
+        Provide detailed and insightful analysis.
+        
+        ${this.parser.getFormatInstructions()}
+      `;
     }
+  }
+
+  /**
+   * Handle analysis errors with meaningful fallbacks
+   * @private
+   */
+  private handleAnalysisError(error: unknown, params: AnalyzerParams): AnalysisResult {
+    if (error instanceof z.ZodError) {
+      logger.error("Input validation error:", { errors: error.errors });
+      return {
+        diagramType: DiagramType.UNKNOWN,
+        analysisType: AnalysisType.GENERAL,
+        overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
+      };
+    }
+
+    if (error instanceof Error) {
+      logger.error("Error analyzing diagram:", { 
+        message: error.message, 
+        stack: error.stack
+      });
+      
+      return {
+        diagramType: DiagramType.UNKNOWN,
+        analysisType: AnalysisType.GENERAL,
+        overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
+      };
+    }
+
+    logger.error("Unknown error during diagram analysis:", { error });
+    return {
+      diagramType: DiagramType.UNKNOWN,
+      analysisType: AnalysisType.GENERAL,
+      overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
+    };
   }
 
   /**

@@ -3,8 +3,7 @@
  * These types provide a common interface between different components
  */
 
-import { DiagramIntent } from "./inputProcessor";
-import { DiagramType } from "../knowledge/guidelines";
+import { DiagramIntent, DiagramType } from "./schemas/MasterClassificationSchema";
 import { FormattedResponse } from "./responseFormatter";
 
 /**

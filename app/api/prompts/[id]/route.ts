@@ -8,7 +8,8 @@ import {
   createNotFoundResponse,
   createValidationErrorResponse,
   zodErrorsToValidationDetails,
-  toValidationDetails
+  toValidationDetails,
+  ValidationErrors
 } from '@/lib/api/responses';
 import { UpdatePromptSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
 import pino from 'pino';
@@ -25,7 +26,7 @@ export async function GET(
     const { id } = await params;
     const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
-      return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
+      return ValidationErrors.invalidPromptId();
     }
 
     const prompt = await Prompt.findById(id).lean();
@@ -53,7 +54,7 @@ export async function PUT(
     const { id } = await params;
     const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
-      return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
+      return ValidationErrors.invalidPromptId();
     }
 
     const body = await request.json();
@@ -126,7 +127,7 @@ export async function DELETE(
     const { id } = await params;
     const idValidation = ObjectIdSchema.safeParse(id);
     if (!idValidation.success) {
-      return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
+      return ValidationErrors.invalidPromptId();
     }
 
     const prompt = await Prompt.findById(id);

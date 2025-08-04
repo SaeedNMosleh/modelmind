@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   PromptMgmtPrompt, 
   PromptFilters, 
@@ -73,40 +73,59 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
   const [sort, setSort] = useState<PromptSortOptions>(initialSort);
   const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
   
-  // Fetch prompts
-  const fetchPrompts = useCallback(async (page = currentPage, resetPrompts = true) => {
+  // Use refs to avoid stale closures in useCallback
+  const filtersRef = useRef(filters);
+  const sortRef = useRef(sort);
+  
+  // Update refs when values change
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+  
+  useEffect(() => {
+    sortRef.current = sort;
+  }, [sort]);
+  
+  // Fetch prompts - simplified to avoid circular dependencies
+  const fetchPrompts = useCallback(async (
+    page?: number, 
+    resetPrompts = true
+  ) => {
+    const currentFilters = filtersRef.current;
+    const currentSort = sortRef.current;
+    const targetPage = page ?? currentPage;
     setLoading(true);
     setError(null);
     
     try {
       const searchParams = new URLSearchParams({
-        page: page.toString(),
+        page: targetPage.toString(),
         limit: pageSize.toString(),
-        sortField: sort.field,
-        sortDirection: sort.direction
+        sortField: currentSort.field,
+        sortDirection: currentSort.direction
       });
       
       // Add filters to search params
-      if (filters.agentType?.length) {
-        searchParams.set('agentType', filters.agentType.join(','));
+      if (currentFilters.agentType?.length) {
+        searchParams.set('agentType', currentFilters.agentType.join(','));
       }
-      if (filters.diagramType?.length) {
-        searchParams.set('diagramType', filters.diagramType.join(','));
+      if (currentFilters.diagramType?.length) {
+        searchParams.set('diagramType', currentFilters.diagramType.join(','));
       }
-      if (filters.operation?.length) {
-        searchParams.set('operation', filters.operation.join(','));
+      if (currentFilters.operation?.length) {
+        searchParams.set('operation', currentFilters.operation.join(','));
       }
-      if (filters.environment?.length) {
-        searchParams.set('environment', filters.environment.join(','));
+      if (currentFilters.environment?.length) {
+        searchParams.set('environment', currentFilters.environment.join(','));
       }
-      if (filters.isProduction !== undefined) {
-        searchParams.set('isProduction', filters.isProduction.toString());
+      if (currentFilters.isProduction !== undefined) {
+        searchParams.set('isProduction', currentFilters.isProduction.toString());
       }
-      if (filters.tags?.length) {
-        searchParams.set('tags', filters.tags.join(','));
+      if (currentFilters.tags?.length) {
+        searchParams.set('tags', currentFilters.tags.join(','));
       }
-      if (filters.search) {
-        searchParams.set('search', filters.search);
+      if (currentFilters.search) {
+        searchParams.set('search', currentFilters.search);
       }
       
       const response = await fetch(`/api/prompt-mgmt?${searchParams.toString()}`);
@@ -134,12 +153,12 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sort, filters]);
+  }, [currentPage, pageSize]); // Stable dependencies only
   
   // Initial load and dependency updates
   useEffect(() => {
     fetchPrompts(1, true);
-  }, [filters, sort]);
+  }, [filters, sort, fetchPrompts]);
   
   // Auto-refresh
   useEffect(() => {
@@ -150,7 +169,7 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     }, refreshInterval);
     
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, fetchPrompts, currentPage]);
+  }, [autoRefresh, refreshInterval, currentPage, fetchPrompts]);
   
   // Actions
   const refresh = useCallback(() => fetchPrompts(currentPage, true), [fetchPrompts, currentPage]);

@@ -1,5 +1,5 @@
 import { BufferMemory } from "langchain/memory";
-import { DiagramIntent } from "./inputProcessor";
+import { DiagramIntent, DiagramType, AnalysisType } from "./schemas/MasterClassificationSchema";
 import pino from "pino";
 
 // Setup logger
@@ -41,6 +41,8 @@ export class ContextManager {
   private sessionId: string;
   private messages: Message[];
   private lastIntent: DiagramIntent;
+  private lastDiagramType: DiagramType = DiagramType.UNKNOWN;
+  private lastAnalysisType: AnalysisType = AnalysisType.GENERAL;
   private isMemoryInitialized: boolean = false;
 
   /**
@@ -367,6 +369,40 @@ export class ContextManager {
     }
     
     logger.info("Conversation history cleared");
+  }
+
+  /**
+   * Sets the last diagram type
+   * @param diagramType - The diagram type to set
+   */
+  public setLastDiagramType(diagramType: DiagramType): void {
+    this.lastDiagramType = diagramType;
+    logger.info("Diagram type updated", { diagramType });
+  }
+
+  /**
+   * Gets the last diagram type
+   * @returns The last diagram type
+   */
+  public getLastDiagramType(): DiagramType {
+    return this.lastDiagramType;
+  }
+
+  /**
+   * Sets the last analysis type
+   * @param analysisType - The analysis type to set
+   */
+  public setLastAnalysisType(analysisType: AnalysisType): void {
+    this.lastAnalysisType = analysisType;
+    logger.info("Analysis type updated", { analysisType });
+  }
+
+  /**
+   * Gets the last analysis type
+   * @returns The last analysis type
+   */
+  public getLastAnalysisType(): AnalysisType {
+    return this.lastAnalysisType;
   }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -16,6 +16,15 @@ import {
 } from 'lucide-react';
 import { PromptFormData, TemplateValidationResult, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { 
+  validatePromptFormData, 
+  PROMPT_DEFAULTS, 
+  getDefaultOperation,
+  shouldShowDiagramTypes,
+  allowsMultipleDiagramTypes, 
+  getValidOperations,
+  getAgentDescription
+} from '@/lib/prompt-mgmt/validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,11 +51,11 @@ export default function NewPromptEditPage() {
   
   const [formData, setFormData] = useState<PromptFormData>({
     name: '',
-    agentType: AgentType.GENERATOR,
-    diagramType: [],
-    operation: PromptOperation.GENERATION,
-    environments: [PromptEnvironment.DEVELOPMENT],
-    tags: [],
+    agentType: PROMPT_DEFAULTS.agentType,
+    diagramType: [...PROMPT_DEFAULTS.diagramType],
+    operation: PROMPT_DEFAULTS.operation,
+    environments: [...PROMPT_DEFAULTS.environments],
+    tags: [...PROMPT_DEFAULTS.tags],
     template: '',
     changelog: 'Initial version',
     metadata: {}
@@ -55,6 +64,11 @@ export default function NewPromptEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<TemplateValidationResult | null>(null);
+  // Use useMemo for form validation to prevent unnecessary recalculations
+  const formValidation = useMemo(() => 
+    validatePromptFormData(formData), 
+    [formData.name, formData.agentType, formData.diagramType, formData.operation, formData.environments, formData.template]
+  );
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState('template');
   const [previewVariables, setPreviewVariables] = useState<Record<string, unknown>>({});
@@ -88,10 +102,13 @@ export default function NewPromptEditPage() {
       const result = validateTemplate(formData.template);
       setValidationResult(result);
       
-      // Update preview variables based on extracted variables
+      // Update preview variables based on extracted variables (only if variables changed)
       const newVariables: Record<string, unknown> = {};
+      let hasChanges = false;
+      
       result.variables.forEach(variable => {
         if (!previewVariables[variable.name]) {
+          hasChanges = true;
           newVariables[variable.name] = variable.defaultValue || 
             (variable.type === 'string' ? `Example ${variable.name}` :
              variable.type === 'number' ? 42 :
@@ -102,23 +119,56 @@ export default function NewPromptEditPage() {
           newVariables[variable.name] = previewVariables[variable.name];
         }
       });
-      setPreviewVariables(newVariables);
+      
+      // Only update if there are actual changes
+      if (hasChanges || Object.keys(newVariables).length !== Object.keys(previewVariables).length) {
+        setPreviewVariables(newVariables);
+      }
     }
-  }, [formData.template, previewVariables]);
+  }, [formData.template]); // Removed previewVariables from dependencies
   
   const updateFormData = (updates: Partial<PromptFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+    setFormData(prev => {
+      // Check if we actually need to update
+      const hasChanges = Object.keys(updates).some(key => {
+        const updateKey = key as keyof PromptFormData;
+        return JSON.stringify(prev[updateKey]) !== JSON.stringify(updates[updateKey]);
+      });
+      
+      if (!hasChanges) {
+        return prev; // No changes, return the same object to prevent re-render
+      }
+      
+      const newData = { ...prev, ...updates };
+      
+      // Auto-update operation when agent type changes
+      if (updates.agentType && updates.agentType !== prev.agentType) {
+        newData.operation = getDefaultOperation(updates.agentType);
+        
+        // Clear diagram types for classifier
+        if (updates.agentType === AgentType.CLASSIFIER) {
+          newData.diagramType = [];
+        } else if (!shouldShowDiagramTypes(updates.agentType)) {
+          newData.diagramType = [];
+        } else if (newData.diagramType.length === 0) {
+          // Set default diagram type for agents that need it
+          newData.diagramType = [DiagramType.SEQUENCE];
+        } else if (!allowsMultipleDiagramTypes(updates.agentType) && newData.diagramType.length > 1) {
+          // Limit to single diagram type for agents that don't support multiple
+          newData.diagramType = [newData.diagramType[0]];
+        }
+      }
+      
+      return newData;
+    });
     setIsDirty(true);
   };
+
   
   const handleSave = async () => {
-    if (!formData.name.trim()) {
-      setError('Please enter a prompt name');
-      return;
-    }
-    
-    if (!formData.template.trim()) {
-      setError('Please enter a template');
+    // Validate form data
+    if (!formValidation.isValid) {
+      setError(formValidation.errors[0] || 'Please fix validation errors');
       return;
     }
     
@@ -193,18 +243,23 @@ export default function NewPromptEditPage() {
   
   const handleDiagramTypeToggle = (type: DiagramType) => {
     const current = formData.diagramType;
-    const updated = current.includes(type)
-      ? current.filter(t => t !== type)
-      : [...current, type];
-    updateFormData({ diagramType: updated });
+    
+    if (allowsMultipleDiagramTypes(formData.agentType)) {
+      // Multi-select behavior
+      const updated = current.includes(type)
+        ? current.filter(t => t !== type)
+        : [...current, type];
+      updateFormData({ diagramType: updated });
+    } else {
+      // Single-select behavior
+      const updated = current.includes(type) ? [] : [type];
+      updateFormData({ diagramType: updated });
+    }
   };
   
   const handleEnvironmentToggle = (env: PromptEnvironment) => {
-    const current = formData.environments;
-    const updated = current.includes(env)
-      ? current.filter(e => e !== env)
-      : [...current, env];
-    updateFormData({ environments: updated });
+    // Environments are mutually exclusive
+    updateFormData({ environments: [env] });
   };
   
   return (
@@ -227,7 +282,13 @@ export default function NewPromptEditPage() {
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               {isDirty && <span className="text-orange-600">• Unsaved changes</span>}
               {validationResult && !validationResult.isValid && (
-                <span className="text-red-600">• Validation errors</span>
+                <span className="text-red-600">• Template validation errors</span>
+              )}
+              {!formValidation.isValid && (
+                <span className="text-red-600">• Form validation errors</span>
+              )}
+              {formValidation.warnings.length > 0 && (
+                <span className="text-yellow-600">• {formValidation.warnings.length} warning{formValidation.warnings.length !== 1 ? 's' : ''}</span>
               )}
             </div>
           </div>
@@ -246,7 +307,7 @@ export default function NewPromptEditPage() {
           
           <Button 
             onClick={handleSave}
-            disabled={saving || !isDirty || !formData.name.trim() || !formData.template.trim()}
+            disabled={saving || !isDirty || !formValidation.isValid || (validationResult && !validationResult.isValid)}
           >
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -263,6 +324,34 @@ export default function NewPromptEditPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Form Validation Errors */}
+      {!formValidation.isValid && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            <div className="space-y-1">
+              {formValidation.errors.map((error, index) => (
+                <div key={index}>• {error}</div>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Form Validation Warnings */}
+      {formValidation.warnings.length > 0 && (
+        <Alert className="border-yellow-200 bg-yellow-50">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-700">
+            <div className="space-y-1">
+              {formValidation.warnings.map((warning, index) => (
+                <div key={index}>• {warning}</div>
+              ))}
+            </div>
+          </AlertDescription>
         </Alert>
       )}
       
@@ -418,7 +507,12 @@ export default function NewPromptEditPage() {
                   <SelectContent>
                     {Object.values(AgentType).map(type => (
                       <SelectItem key={type} value={type}>
-                        <span className="capitalize">{type}</span>
+                        <div>
+                          <div className="capitalize font-medium">{type}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {getAgentDescription(type)}
+                          </div>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -435,33 +529,55 @@ export default function NewPromptEditPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(PromptOperation).map(op => (
+                    {getValidOperations(formData.agentType).map(op => (
                       <SelectItem key={op} value={op}>
-                        <span className="capitalize">{op.replace('_', ' ')}</span>
+                        <span className="capitalize">{op.replace(/[_-]/g, ' ')}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div>
-                <Label>Diagram Types</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.values(DiagramType).map(type => (
-                    <Badge
-                      key={type}
-                      variant={formData.diagramType.includes(type) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => handleDiagramTypeToggle(type)}
-                    >
-                      {type}
-                    </Badge>
-                  ))}
+                <div className="text-xs text-gray-500 mt-1">
+                  Available operations for {formData.agentType} agent
                 </div>
               </div>
               
+              {shouldShowDiagramTypes(formData.agentType) && (
+                <div>
+                  <Label>Diagram Types</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {Object.values(DiagramType).map(type => (
+                      <Badge
+                        key={type}
+                        variant={formData.diagramType.includes(type) ? "default" : "outline"}
+                        className={cn(
+                          "cursor-pointer",
+                          !allowsMultipleDiagramTypes(formData.agentType) && 
+                          formData.diagramType.length > 0 && 
+                          !formData.diagramType.includes(type) && 
+                          "opacity-50"
+                        )}
+                        onClick={() => handleDiagramTypeToggle(type)}
+                      >
+                        {type.replace(/-/g, ' ')}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {allowsMultipleDiagramTypes(formData.agentType) 
+                      ? "Select one or more diagram types" 
+                      : "Select one diagram type"}
+                  </div>
+                </div>
+              )}
+              
+              {formData.agentType === AgentType.CLASSIFIER && (
+                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+                  <strong>Note:</strong> Classifier agents work with intent classification and do not require specific diagram types.
+                </div>
+              )}
+              
               <div>
-                <Label>Environments</Label>
+                <Label>Environment</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {Object.values(PromptEnvironment).map(env => (
                     <Badge
@@ -470,9 +586,12 @@ export default function NewPromptEditPage() {
                       className="cursor-pointer"
                       onClick={() => handleEnvironmentToggle(env)}
                     >
-                      {env}
+                      {env.charAt(0).toUpperCase() + env.slice(1)}
                     </Badge>
                   ))}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Select deployment environment (mutually exclusive)
                 </div>
               </div>
               

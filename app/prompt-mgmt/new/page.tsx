@@ -128,7 +128,7 @@ Focus Areas: {focusAreas}`,
       </div>
       
       {/* Quick Create */}
-      <Card className="border-2 border-dashed border-blue-200 bg-blue-50">
+      <Card className="border-2 border-blue-200 ">
         <CardHeader>
           <CardTitle className="text-lg">Start from Scratch</CardTitle>
           <CardDescription>
