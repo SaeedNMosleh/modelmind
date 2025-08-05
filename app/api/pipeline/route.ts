@@ -120,20 +120,23 @@ export async function POST(req: NextRequest) {
     // Success case - we have a result from the appropriate agent
     const { intent, result, classification } = routerResponse;
 
+    // Type assertion for better type safety
+    const typedIntent = intent as DiagramIntent;
+
     logger.info("Request processed successfully", {
-      intent,
+      intent: typedIntent,
       confidence: classification.confidence,
-      diagramType: 'diagramType' in classification ? classification.diagramType : 'N/A',
-      analysisType: 'analysisType' in classification ? classification.analysisType : 'N/A'
+      diagramType: 'diagramType' in classification ? classification.diagramType as DiagramType : DiagramType.UNKNOWN,
+      analysisType: 'analysisType' in classification ? classification.analysisType as AnalysisType : 'N/A'
     });
 
     // Update context manager with diagram if it was generated/modified
     if (result && 'diagram' in result && result.diagram) {
-      contextManager.updateDiagram(result.diagram, intent);
+      contextManager.updateDiagram(result.diagram, typedIntent);
     }
 
     // Format the response using the existing response formatter
-    const formattedResponse = responseFormatter.formatResponse(intent, result);
+    const formattedResponse = responseFormatter.formatResponse(typedIntent, result);
 
     // Add the assistant response to context
     if (formattedResponse.type === ResponseType.SCRIPT) {

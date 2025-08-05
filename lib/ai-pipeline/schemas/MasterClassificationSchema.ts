@@ -340,7 +340,7 @@ export function createFallbackClassification(
 export function validateClassification(data: unknown): MasterClassification {
   try {
     return masterClassificationSchema.parse(data);
-  } catch (error) {
+  } catch {
     // Return fallback if validation fails
     return createFallbackClassification(
       typeof data === 'object' && data !== null && 'cleanedInstruction' in data

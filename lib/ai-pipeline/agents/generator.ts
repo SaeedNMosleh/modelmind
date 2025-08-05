@@ -125,7 +125,7 @@ export class DiagramGenerator {
       
       return result;
     } catch (error) {
-      return this.handleGenerationError(error, params);
+      return this.handleGenerationError(error);
     }
   }
 
@@ -220,7 +220,7 @@ export class DiagramGenerator {
    * Handle generation errors with meaningful fallbacks
    * @private
    */
-  private handleGenerationError(error: unknown, params: GeneratorParams): GenerationResult {
+  private handleGenerationError(error: unknown): GenerationResult {
     if (error instanceof z.ZodError) {
       logger.error("Input validation error:", { errors: error.errors });
       return {

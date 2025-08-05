@@ -154,7 +154,7 @@ export class DiagramAnalyzer {
       
       return result;
     } catch (error) {
-      return this.handleAnalysisError(error, params);
+      return this.handleAnalysisError(error);
     }
   }
 
@@ -237,7 +237,7 @@ export class DiagramAnalyzer {
    * Handle analysis errors with meaningful fallbacks
    * @private
    */
-  private handleAnalysisError(error: unknown, params: AnalyzerParams): AnalysisResult {
+  private handleAnalysisError(error: unknown): AnalysisResult {
     if (error instanceof z.ZodError) {
       logger.error("Input validation error:", { errors: error.errors });
       return {

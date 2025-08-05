@@ -2,7 +2,7 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
 import { model, baseSystemPrompt } from "./baseChain";
-import { UnifiedOutputParser, UnifiedParserFactory } from "./parsers/UnifiedOutputParser";
+import { UnifiedOutputParser } from "./parsers/UnifiedOutputParser";
 import {
   masterClassificationSchema,
   MasterClassification,
@@ -18,8 +18,8 @@ import {
   DIAGRAM_TYPE_FALLBACK_MAPPINGS,
   ANALYSIS_TYPE_FALLBACK_MAPPINGS
 } from "./schemas/MasterClassificationSchema";
-import { getPrompt, substituteVariables, logPromptUsage } from "../prompts/loader";
-import { AgentType, PromptOperation } from "../database/types";
+// import { getPrompt, substituteVariables, logPromptUsage } from "../prompts/loader";
+// import { AgentType, PromptOperation } from "../database/types";
 import pino from "pino";
 
 // Setup logger
@@ -439,8 +439,8 @@ IMPORTANT:
 export const masterClassifier = new MasterClassifier();
 
 // Export types for external use
-export type { MasterClassifierParams };
-export {
+// Removed duplicate export to resolve conflict
+export type {
   MasterClassification,
   DiagramIntent,
   DiagramType,

@@ -3,12 +3,11 @@ import { masterClassifier, MasterClassifierParams } from "./MasterClassifier";
 import {
   MasterClassification,
   DiagramIntent,
-  DiagramType,
-  AnalysisType,
   isGenerateClassification,
   isModifyClassification,
   isAnalyzeClassification,
-  isUnknownClassification
+  isUnknownClassification,
+  ConfidenceLevel
 } from "./schemas/MasterClassificationSchema";
 import { diagramGenerator, GeneratorParams, GenerationResult } from "./agents/generator";
 import { diagramModifier, ModifierParams, ModificationResult } from "./agents/modifier";
@@ -92,7 +91,11 @@ export class RequestRouter {
       // Step 2: Validate classification requirements
       const validationResult = this.validateClassification(classification, validatedParams);
       if (!validationResult.isValid) {
-        return this.createErrorResponse(classification, 'validation', validationResult.message);
+        return this.createErrorResponse(
+          classification,
+          'validation',
+          validationResult.message ?? 'Validation failed.'
+        );
       }
 
       // Step 3: Route to appropriate agent based on classification
@@ -195,7 +198,7 @@ export class RequestRouter {
       }
 
       // This should never happen due to discriminated union, but adding for safety
-      throw new Error(`Unsupported intent: ${classification.intent}`);
+      throw new Error('Unsupported intent');
 
     } catch (error) {
       logger.error("Agent routing failed", { 
@@ -341,7 +344,7 @@ export class RequestRouter {
    */
   private createErrorResponse(
     classification: MasterClassification,
-    errorType: RouterResponse['error']['type'],
+    errorType: 'validation' | 'classification' | 'routing' | 'agent' | 'unknown',
     message: string,
     details?: unknown
   ): RouterResponse {
@@ -366,7 +369,7 @@ export class RequestRouter {
     const fallbackClassification: MasterClassification = {
       intent: DiagramIntent.UNKNOWN,
       confidence: 0.0,
-      confidenceLevel: 'VERY_LOW' as const,
+      confidenceLevel: ConfidenceLevel.VERY_LOW,
       reasoning: "Error occurred during request processing",
       cleanedInstruction: params.userInput.trim(),
       hasDiagramContext: !!params.currentDiagram
@@ -390,7 +393,7 @@ export class RequestRouter {
       });
 
       // Determine error type based on error message
-      let errorType: RouterResponse['error']['type'] = 'unknown';
+      let errorType: 'validation' | 'classification' | 'routing' | 'agent' | 'unknown' = 'unknown';
       if (error.message.includes('Classification failed')) {
         errorType = 'classification';
       } else if (error.message.includes('Current diagram is required')) {
@@ -467,16 +470,8 @@ export class RequestRouter {
 export const requestRouter = new RequestRouter();
 
 // Export types for external use
-export type { 
-  RequestRouterParams, 
-  RouterResponse, 
-  AgentResult 
-};
+// (Removed duplicate type exports to resolve conflicts)
 
 // Re-export useful types from classification schema
-export {
-  DiagramIntent,
-  DiagramType,
-  AnalysisType,
-  MasterClassification
-} from "./schemas/MasterClassificationSchema";
+export { DiagramIntent } from "./schemas/MasterClassificationSchema";
+export type { DiagramType, AnalysisType, MasterClassification } from "./schemas/MasterClassificationSchema";

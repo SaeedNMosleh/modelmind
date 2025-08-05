@@ -34,6 +34,8 @@ export interface UnifiedParserConfig<T> {
  */
 export class UnifiedOutputParser<T> extends BaseOutputParser<T> {
   private config: UnifiedParserConfig<T>;
+  
+  lc_namespace = ["langchain", "output_parsers", "unified"];
 
   constructor(config: UnifiedParserConfig<T>) {
     super();
@@ -102,7 +104,7 @@ export class UnifiedOutputParser<T> extends BaseOutputParser<T> {
           // Validate with Zod schema
           const validated = this.config.schema.parse(parsed);
           return validated;
-        } catch (parseError) {
+        } catch {
           // Continue to next match or strategy
           continue;
         }
@@ -157,7 +159,7 @@ export class UnifiedOutputParser<T> extends BaseOutputParser<T> {
         // Apply extracted patterns to the result
         for (const [key, value] of Object.entries(extractedData)) {
           if (key in merged) {
-            (merged as any)[key] = value;
+            (merged as Record<string, unknown>)[key] = value;
           }
         }
 
@@ -199,7 +201,7 @@ export class UnifiedOutputParser<T> extends BaseOutputParser<T> {
     }
 
     // Pattern data matches
-    for (const [patternName, value] of Object.entries(extractedData)) {
+    for (const [, value] of Object.entries(extractedData)) {
       if (value.toUpperCase().includes(upperKey)) {
         score += 5;
       }
@@ -238,7 +240,7 @@ ${this.generateExampleJson()}
     try {
       // Create a sample object to understand the schema structure
       const sampleResult = this.config.defaultFallback;
-      const entries = Object.entries(sampleResult as any);
+      const entries = Object.entries(sampleResult as Record<string, unknown>);
       
       return entries.map(([key, value]) => {
         const type = typeof value;
@@ -246,7 +248,7 @@ ${this.generateExampleJson()}
         const typeDesc = isArray ? `array of ${typeof value[0] || 'unknown'}` : type;
         return `  "${key}": (${typeDesc}) - required`;
       }).join('\n');
-    } catch (error) {
+    } catch {
       return "Structure determined by the specific agent schema";
     }
   }
@@ -257,7 +259,7 @@ ${this.generateExampleJson()}
   private generateExampleJson(): string {
     try {
       return JSON.stringify(this.config.defaultFallback, null, 2);
-    } catch (error) {
+    } catch {
       return '{\n  "example": "value"\n}';
     }
   }
@@ -308,10 +310,10 @@ export class UnifiedParserFactory {
         confidence: CommonPatterns.CONFIDENCE,
       },
       fallbackMappings: {
-        'GENERATE': { intent: 'GENERATE', confidence: 0.8 } as Partial<T>,
-        'MODIFY': { intent: 'MODIFY', confidence: 0.8 } as Partial<T>,
-        'ANALYZE': { intent: 'ANALYZE', confidence: 0.8 } as Partial<T>,
-        'UNKNOWN': { intent: 'UNKNOWN', confidence: 0.3 } as Partial<T>,
+        'GENERATE': { intent: 'GENERATE', confidence: 0.8 } as unknown as Partial<T>,
+        'MODIFY': { intent: 'MODIFY', confidence: 0.8 } as unknown as Partial<T>,
+        'ANALYZE': { intent: 'ANALYZE', confidence: 0.8 } as unknown as Partial<T>,
+        'UNKNOWN': { intent: 'UNKNOWN', confidence: 0.3 } as unknown as Partial<T>,
       }
     });
   }
@@ -328,14 +330,14 @@ export class UnifiedParserFactory {
         diagramType: CommonPatterns.DIAGRAM_TYPE,
       },
       fallbackMappings: {
-        'SEQUENCE': { diagramType: 'SEQUENCE' } as Partial<T>,
-        'CLASS': { diagramType: 'CLASS' } as Partial<T>,
-        'ACTIVITY': { diagramType: 'ACTIVITY' } as Partial<T>,
-        'STATE': { diagramType: 'STATE' } as Partial<T>,
-        'COMPONENT': { diagramType: 'COMPONENT' } as Partial<T>,
-        'DEPLOYMENT': { diagramType: 'DEPLOYMENT' } as Partial<T>,
-        'USE_CASE': { diagramType: 'USE_CASE' } as Partial<T>,
-        'ENTITY_RELATIONSHIP': { diagramType: 'ENTITY_RELATIONSHIP' } as Partial<T>,
+        'SEQUENCE': { diagramType: 'SEQUENCE' } as unknown as Partial<T>,
+        'CLASS': { diagramType: 'CLASS' } as unknown as Partial<T>,
+        'ACTIVITY': { diagramType: 'ACTIVITY' } as unknown as Partial<T>,
+        'STATE': { diagramType: 'STATE' } as unknown as Partial<T>,
+        'COMPONENT': { diagramType: 'COMPONENT' } as unknown as Partial<T>,
+        'DEPLOYMENT': { diagramType: 'DEPLOYMENT' } as unknown as Partial<T>,
+        'USE_CASE': { diagramType: 'USE_CASE' } as unknown as Partial<T>,
+        'ENTITY_RELATIONSHIP': { diagramType: 'ENTITY_RELATIONSHIP' } as unknown as Partial<T>,
       }
     });
   }
@@ -353,9 +355,9 @@ export class UnifiedParserFactory {
         changes: CommonPatterns.LIST_ITEMS,
       },
       fallbackMappings: {
-        'MODIFIED': { changes: ['Diagram modified as requested'] } as Partial<T>,
-        'UPDATED': { changes: ['Diagram updated'] } as Partial<T>,
-        'CHANGED': { changes: ['Changes applied'] } as Partial<T>,
+        'MODIFIED': { changes: ['Diagram modified as requested'] } as unknown as Partial<T>,
+        'UPDATED': { changes: ['Diagram updated'] } as unknown as Partial<T>,
+        'CHANGED': { changes: ['Changes applied'] } as unknown as Partial<T>,
       }
     });
   }
@@ -373,12 +375,12 @@ export class UnifiedParserFactory {
         score: CommonPatterns.SCORE,
       },
       fallbackMappings: {
-        'GENERAL': { analysisType: 'GENERAL' } as Partial<T>,
-        'QUALITY': { analysisType: 'QUALITY' } as Partial<T>,
-        'COMPONENTS': { analysisType: 'COMPONENTS' } as Partial<T>,
-        'RELATIONSHIPS': { analysisType: 'RELATIONSHIPS' } as Partial<T>,
-        'COMPLEXITY': { analysisType: 'COMPLEXITY' } as Partial<T>,
-        'IMPROVEMENTS': { analysisType: 'IMPROVEMENTS' } as Partial<T>,
+        'GENERAL': { analysisType: 'GENERAL' } as unknown as Partial<T>,
+        'QUALITY': { analysisType: 'QUALITY' } as unknown as Partial<T>,
+        'COMPONENTS': { analysisType: 'COMPONENTS' } as unknown as Partial<T>,
+        'RELATIONSHIPS': { analysisType: 'RELATIONSHIPS' } as unknown as Partial<T>,
+        'COMPLEXITY': { analysisType: 'COMPLEXITY' } as unknown as Partial<T>,
+        'IMPROVEMENTS': { analysisType: 'IMPROVEMENTS' } as unknown as Partial<T>,
       }
     });
   }

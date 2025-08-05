@@ -65,9 +65,10 @@ export default function NewPromptEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<TemplateValidationResult | null>(null);
   // Use useMemo for form validation to prevent unnecessary recalculations
+  // Fix exhaustive-deps: use full formData as dependency
   const formValidation = useMemo(() => 
     validatePromptFormData(formData), 
-    [formData.name, formData.agentType, formData.diagramType, formData.operation, formData.environments, formData.template]
+    [formData]
   );
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState('template');
@@ -97,6 +98,7 @@ export default function NewPromptEditPage() {
   }, []);
   
   // Template validation
+  // Fix exhaustive-deps: add previewVariables to dependency array
   useEffect(() => {
     if (formData.template) {
       const result = validateTemplate(formData.template);
@@ -125,7 +127,7 @@ export default function NewPromptEditPage() {
         setPreviewVariables(newVariables);
       }
     }
-  }, [formData.template]); // Removed previewVariables from dependencies
+  }, [formData.template, previewVariables]);
   
   const updateFormData = (updates: Partial<PromptFormData>) => {
     setFormData(prev => {
@@ -299,7 +301,7 @@ export default function NewPromptEditPage() {
             variant="outline" 
             size="sm" 
             onClick={handleTest}
-            disabled={saving || !!(validationResult && !validationResult.isValid)}
+            disabled={saving || Boolean(validationResult && !validationResult.isValid)}
           >
             <Play className="h-4 w-4 mr-2" />
             Test
@@ -307,7 +309,7 @@ export default function NewPromptEditPage() {
           
           <Button 
             onClick={handleSave}
-            disabled={saving || !isDirty || !formValidation.isValid || (validationResult && !validationResult.isValid)}
+            disabled={saving || !isDirty || !formValidation.isValid || Boolean(validationResult && !validationResult.isValid)}
           >
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

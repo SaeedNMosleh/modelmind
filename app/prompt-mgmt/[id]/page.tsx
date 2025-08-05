@@ -329,7 +329,6 @@ export default function PromptDetailPage() {
             
             <TabsContent value="versions" className="space-y-4">
               <VersionHistory
-                promptId={promptId}
                 versions={prompt.versions}
                 primaryVersion={prompt.primaryVersion}
                 onVersionSelect={() => {

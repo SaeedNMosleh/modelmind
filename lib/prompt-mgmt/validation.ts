@@ -5,28 +5,28 @@ import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../d
  */
 export const AGENT_RULES = {
   [AgentType.CLASSIFIER]: {
-    operations: [PromptOperation.INTENT_CLASSIFICATION],
+    operations: [PromptOperation.INTENT_CLASSIFICATION] as PromptOperation[],
     allowDiagramTypes: false,
     allowMultipleDiagramTypes: false,
     requiredFields: ['name', 'agentType', 'operation'],
     description: 'Classifies user intent - does not work with specific diagram types'
   },
   [AgentType.GENERATOR]: {
-    operations: [PromptOperation.GENERATION],
+    operations: [PromptOperation.GENERATION] as PromptOperation[],
     allowDiagramTypes: true,
     allowMultipleDiagramTypes: true,
     requiredFields: ['name', 'agentType', 'operation', 'diagramType'],
     description: 'Generates new diagrams - can handle multiple diagram types'
   },
   [AgentType.MODIFIER]: {
-    operations: [PromptOperation.MODIFICATION],
+    operations: [PromptOperation.MODIFICATION] as PromptOperation[],
     allowDiagramTypes: true,
     allowMultipleDiagramTypes: false,
     requiredFields: ['name', 'agentType', 'operation', 'diagramType'],
     description: 'Modifies existing diagrams - works best with single diagram type'
   },
   [AgentType.ANALYZER]: {
-    operations: [PromptOperation.ANALYSIS],
+    operations: [PromptOperation.ANALYSIS] as PromptOperation[],
     allowDiagramTypes: true,
     allowMultipleDiagramTypes: false,
     requiredFields: ['name', 'agentType', 'operation', 'diagramType'],
@@ -147,7 +147,7 @@ export function allowsMultipleDiagramTypes(agentType: AgentType): boolean {
  * Get valid operations for an agent type
  */
 export function getValidOperations(agentType: AgentType): PromptOperation[] {
-  return AGENT_RULES[agentType].operations;
+  return [...AGENT_RULES[agentType].operations];
 }
 
 /**
