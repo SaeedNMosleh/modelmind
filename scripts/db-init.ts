@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
 import { TestCase } from '../lib/database/models/testCase';
@@ -12,7 +13,6 @@ import {
   PromptEnvironment,
   IPromptFooAssertion
 } from '../lib/database/types';
-import pino from 'pino';
 import { Types } from 'mongoose';
 
 // Define a simpler interface for creating test cases without the Document methods
@@ -27,7 +27,7 @@ interface TestCaseTemplate {
   metadata?: Record<string, unknown>;
 }
 
-const logger = pino({ name: 'db-init' });
+const logger = createEnhancedLogger('db-init');
 
 interface InitStats {
   prompts: number;

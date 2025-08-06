@@ -8,14 +8,10 @@ import { listTemplates } from "../../knowledge/templates";
 import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType } from "../schemas/MasterClassificationSchema";
-import pino from "pino";
+import { createEnhancedLogger } from "../../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Use enhanced logger
+const logger = createEnhancedLogger('generator');
 
 /**
  * Schema defining the structure of the diagram generation output
@@ -101,27 +97,29 @@ export class DiagramGenerator {
       const validatedParams = generatorParamsSchema.parse(params);
       const { userInput, diagramType } = validatedParams;
       
-      logger.info("Generating diagram", { diagramType, userInput: userInput.substring(0, 100) });
+      logger.stageStart(`diagram generation (${diagramType})`);
+      logger.debug(`🎨 Generation request received`);
       
       // Fetch relevant guidelines and templates
       const { guidelinesText, templatesText } = await this.fetchDiagramResources(diagramType);
       
-      // Load and execute the generation prompt
-      const promptTemplate = await this.buildGenerationPrompt(userInput, diagramType, guidelinesText, templatesText);
+      // Load the generation prompt template (without variable substitution)
+      const promptData = await this.getPromptTemplate(userInput, diagramType, guidelinesText, templatesText);
       
       // Create and execute the generation chain
       const generationChain = RunnableSequence.from([
-        PromptTemplate.fromTemplate(promptTemplate),
+        PromptTemplate.fromTemplate(promptData.template),
         model,
         this.parser
       ]);
       
-      const result = await generationChain.invoke({});
+      // Pass all required variables to the chain
+      const result = await generationChain.invoke(promptData.variables);
       
-      logger.info("Diagram generation completed", { 
-        diagramType: result.diagramType,
-        diagramLength: result.diagram.length
-      });
+      // Calculate performance metrics and diagram stats
+      const lineCount = result.diagram.split('\n').length;
+      const startTime = Date.now();
+      logger.generation(result.diagramType, Date.now() - startTime, lineCount);
       
       return result;
     } catch (error) {
@@ -165,15 +163,24 @@ export class DiagramGenerator {
   }
 
   /**
-   * Build the generation prompt template
+   * Get the generation prompt template and variables
    * @private
    */
-  private async buildGenerationPrompt(
+  private async getPromptTemplate(
     userInput: string,
     diagramType: DiagramType,
     guidelinesText: string,
     templatesText: string
-  ): Promise<string> {
+  ): Promise<{ template: string; variables: Record<string, string> }> {
+    const variables = {
+      baseSystemPrompt,
+      userInput,
+      diagramType: diagramType.toString(),
+      guidelines: guidelinesText,
+      templates: templatesText,
+      formatInstructions: this.parser.getFormatInstructions()
+    };
+
     try {
       const startTime = Date.now();
       const promptData = await getPrompt(AgentType.GENERATOR, PromptOperation.GENERATION);
@@ -181,38 +188,37 @@ export class DiagramGenerator {
       const duration = Date.now() - startTime;
       logPromptUsage(AgentType.GENERATOR, PromptOperation.GENERATION, promptData.source, duration);
       
-      return substituteVariables(promptData.template, {
-        baseSystemPrompt,
-        userInput,
-        diagramType: diagramType.toString(),
-        guidelines: guidelinesText,
-        templates: templatesText,
-        formatInstructions: this.parser.getFormatInstructions()
-      });
+      return {
+        template: promptData.template,
+        variables
+      };
     } catch (promptError) {
       logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
       
-      // Fallback to hardcoded prompt
-      return `
-        ${baseSystemPrompt}
-        
-        You are a specialist in creating PlantUML diagrams based on user requirements.
-        
-        User requirements: ${userInput}
-        
-        Diagram type: ${diagramType}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Available Templates:
-        ${templatesText}
-        
-        Based on the requirements, create a detailed PlantUML diagram.
-        Focus on clarity, proper syntax, and following best practices.
-        
-        ${this.parser.getFormatInstructions()}
-      `;
+      // Fallback template with proper variable placeholders
+      const fallbackTemplate = `{baseSystemPrompt}
+
+You are a specialist in creating PlantUML diagrams based on user requirements.
+
+User requirements: {userInput}
+
+Diagram type: {diagramType}
+
+PlantUML Guidelines:
+{guidelines}
+
+Available Templates:
+{templates}
+
+Based on the requirements, create a detailed PlantUML diagram.
+Focus on clarity, proper syntax, and following best practices.
+
+{formatInstructions}`;
+
+      return {
+        template: fallbackTemplate,
+        variables
+      };
     }
   }
 

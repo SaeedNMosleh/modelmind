@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
@@ -7,10 +8,9 @@ import { TestCase } from '../lib/database/models/testCase';
 import { TestResult } from '../lib/database/models/testResult';
 import { PromptMetrics } from '../lib/database/models/promptMetrics';
 import { initializeCollections } from './db-init';
-import pino from 'pino';
 import readline from 'readline';
 
-const logger = pino({ name: 'db-reset' });
+const logger = createEnhancedLogger('db-reset');
 
 interface ResetStats {
   collectionsDropped: number;

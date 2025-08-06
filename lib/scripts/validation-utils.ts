@@ -1,4 +1,4 @@
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 import { connectToDatabase } from '../database/connection';
 import { 
   Prompt, 
@@ -11,7 +11,7 @@ import {
 } from '../database/models/testCase';
 import { PromptEnvironment } from '../database/types';
 
-const logger = pino({ name: 'validation-utils' });
+const logger = createEnhancedLogger('validation-utils');
 
 export interface ValidationIssue {
   type: 'error' | 'warning';

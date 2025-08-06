@@ -13,14 +13,10 @@ import { diagramGenerator, GeneratorParams, GenerationResult } from "./agents/ge
 import { diagramModifier, ModifierParams, ModificationResult } from "./agents/modifier";
 import { diagramAnalyzer, AnalyzerParams, AnalysisResult } from "./agents/analyzer";
 import { contextManager } from "./contextManager";
-import pino from "pino";
+import { createEnhancedLogger, withTiming } from "../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('pipeline');
 
 /**
  * Schema for request router input parameters
@@ -72,21 +68,13 @@ export class RequestRouter {
       // Validate input parameters
       const validatedParams = requestRouterParamsSchema.parse(params);
       
-      logger.info("Processing request", {
-        userInput: validatedParams.userInput.substring(0, 100),
-        hasDiagram: !!validatedParams.currentDiagram,
-        hasContext: !!validatedParams.context
-      });
+      logger.requestStart(!!validatedParams.currentDiagram || !!validatedParams.context);
+      logger.debug(`📋 Processing request with pipeline architecture`);
 
       // Step 1: Comprehensive classification using MasterClassifier (single LLM call)
       const classification = await this.classifyRequest(validatedParams);
       
-      logger.info("Request classified", {
-        intent: classification.intent,
-        confidence: classification.confidence,
-        diagramType: 'diagramType' in classification ? classification.diagramType : 'N/A',
-        analysisType: 'analysisType' in classification ? classification.analysisType : 'N/A'
-      });
+      logger.debug(`✅ Request classified | Intent: ${classification.intent} | Confidence: ${(classification.confidence * 100).toFixed(1)}%`);
 
       // Step 2: Validate classification requirements
       const validationResult = this.validateClassification(classification, validatedParams);
@@ -228,10 +216,7 @@ export class RequestRouter {
       }
     };
 
-    logger.info("Routing to generator", {
-      diagramType: classification.diagramType,
-      requirements: classification.generationRequirements?.length || 0
-    });
+    logger.debug(`🎨 Routing to generator | Type: ${classification.diagramType}`);
 
     return await diagramGenerator.generate(generatorParams);
   }
@@ -260,11 +245,7 @@ export class RequestRouter {
       }
     };
 
-    logger.info("Routing to modifier", {
-      diagramType: classification.diagramType,
-      modifications: classification.modificationRequests.length,
-      scope: classification.modificationScope
-    });
+    logger.debug(`🔧 Routing to modifier | Type: ${classification.diagramType}`);
 
     return await diagramModifier.modify(modifierParams);
   }
@@ -293,11 +274,7 @@ export class RequestRouter {
       }
     };
 
-    logger.info("Routing to analyzer", {
-      diagramType: classification.diagramType,
-      analysisType: classification.analysisType,
-      aspects: classification.analysisAspects?.length || 0
-    });
+    logger.debug(`🔍 Routing to analyzer | Type: ${classification.diagramType} | Analysis: ${classification.analysisType}`);
 
     return await diagramAnalyzer.analyze(analyzerParams);
   }

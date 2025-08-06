@@ -11,9 +11,9 @@ import {
   zodErrorsToValidationDetails
 } from '@/lib/api/responses';
 import { CreatePromptSchema, PromptQuerySchema } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompts-api' });
+const logger = createEnhancedLogger('prompts-api');
 
 export async function GET(request: NextRequest) {
   try {

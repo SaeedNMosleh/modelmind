@@ -7,14 +7,10 @@ import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/g
 import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType } from "../schemas/MasterClassificationSchema";
-import pino from "pino";
+import { createEnhancedLogger, withTiming } from "../../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('modifier');
 
 /**
  * Schema defining the structure of the diagram modification output
@@ -102,39 +98,44 @@ export class DiagramModifier {
       const validatedParams = modifierParamsSchema.parse(params);
       const { userInput, currentDiagram, diagramType } = validatedParams;
       
-      logger.info("Modifying diagram", { diagramType, userInput: userInput.substring(0, 100) });
+      logger.stageStart(`diagram modification (${diagramType})`);
+      logger.debug(`📋 Modification request received`);
       
       // Fetch relevant guidelines
       const guidelinesText = await this.fetchGuidelines(diagramType);
       
-      // Build and execute the modification prompt
-      const promptTemplate = await this.buildModificationPrompt(
+      // Get the modification prompt template and variables
+      const promptData = await this.getModificationPromptTemplate(
         userInput, 
         currentDiagram, 
         diagramType, 
         guidelinesText
       );
       
-      // Create and execute the modification chain
+      // Create and execute the modification chain with timing
       const modificationChain = RunnableSequence.from([
-        PromptTemplate.fromTemplate(promptTemplate),
+        PromptTemplate.fromTemplate(promptData.template),
         model,
         this.parser
       ]);
       
-      const result = await modificationChain.invoke({});
+      const result = await withTiming(
+        logger,
+        "LLM modification",
+        () => modificationChain.invoke(promptData.variables)
+      );
       
       // Validate the result has actual changes
+      const changeCount = result.changes?.length || 0;
       if (result.diagram === currentDiagram) {
-        logger.warn("No changes detected in modified diagram", { request: userInput });
+        logger.warn(`⚠️ No structural changes detected | Original preserved`);
         // Add a note about no changes but still return the result
         result.changes = [...(result.changes || []), "Note: Original diagram structure preserved"];
       }
       
-      logger.info("Diagram modification completed", { 
-        diagramType: result.diagramType,
-        changes: result.changes ? result.changes.length : 0
-      });
+      // Calculate performance metrics
+      const startTime = Date.now();
+      logger.modification(result.diagramType, changeCount, Date.now() - startTime);
       
       return result;
     } catch (error) {
@@ -161,15 +162,24 @@ export class DiagramModifier {
   }
 
   /**
-   * Build the modification prompt template
+   * Get the modification prompt template and variables
    * @private
    */
-  private async buildModificationPrompt(
+  private async getModificationPromptTemplate(
     userInput: string,
     currentDiagram: string,
     diagramType: DiagramType,
     guidelinesText: string
-  ): Promise<string> {
+  ): Promise<{ template: string; variables: Record<string, string> }> {
+    const variables = {
+      baseSystemPrompt,
+      currentDiagram,
+      userInput,
+      diagramType: diagramType.toString(),
+      guidelines: guidelinesText,
+      formatInstructions: this.parser.getFormatInstructions()
+    };
+
     try {
       const startTime = Date.now();
       const promptData = await getPrompt(AgentType.MODIFIER, PromptOperation.MODIFICATION);
@@ -177,41 +187,40 @@ export class DiagramModifier {
       const duration = Date.now() - startTime;
       logPromptUsage(AgentType.MODIFIER, PromptOperation.MODIFICATION, promptData.source, duration);
       
-      return substituteVariables(promptData.template, {
-        baseSystemPrompt,
-        currentDiagram,
-        userInput,
-        diagramType: diagramType.toString(),
-        guidelines: guidelinesText,
-        formatInstructions: this.parser.getFormatInstructions()
-      });
+      return {
+        template: promptData.template,
+        variables
+      };
     } catch (promptError) {
       logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
       
-      // Fallback to hardcoded prompt
-      return `
-        ${baseSystemPrompt}
-        
-        You are a specialist in modifying PlantUML diagrams based on user instructions.
-        
-        Current diagram:
-        \`\`\`plantuml
-        ${currentDiagram}
-        \`\`\`
-        
-        User modification request: ${userInput}
-        
-        Diagram type: ${diagramType}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Modify the diagram according to the user's instructions.
-        Preserve existing structure while implementing the requested changes.
-        Ensure the modified diagram uses correct PlantUML syntax.
-        
-        ${this.parser.getFormatInstructions()}
-      `;
+      // Fallback template with proper variable placeholders
+      const fallbackTemplate = `{baseSystemPrompt}
+
+You are a specialist in modifying PlantUML diagrams based on user instructions.
+
+Current diagram:
+\`\`\`plantuml
+{currentDiagram}
+\`\`\`
+
+User modification request: {userInput}
+
+Diagram type: {diagramType}
+
+PlantUML Guidelines:
+{guidelines}
+
+Modify the diagram according to the user's instructions.
+Preserve existing structure while implementing the requested changes.
+Ensure the modified diagram uses correct PlantUML syntax.
+
+{formatInstructions}`;
+
+      return {
+        template: fallbackTemplate,
+        variables
+      };
     }
   }
 

@@ -10,9 +10,9 @@ import {
   ValidationErrorDetails
 } from '@/lib/api/responses';
 import { DuplicatePromptSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-duplicate-api' });
+const logger = createEnhancedLogger('prompt-duplicate-api');
 
 export async function POST(
   request: NextRequest,

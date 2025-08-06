@@ -4,9 +4,9 @@ import { Prompt } from '@/lib/database/models/prompt';
 import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
 import { PromptFilters, PromptSortOptions, ApiResponse, PaginatedResponse, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { filterPrompts, sortPrompts } from '@/lib/prompt-mgmt/utils';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino();
+const logger = createEnhancedLogger('prompt-mgmt-api');
 
 // GET /api/prompt-mgmt - List all prompts with filtering, sorting, and pagination
 export async function GET(request: NextRequest) {

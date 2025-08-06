@@ -5,9 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { TestExecutionJob, TestExecutionOptions, PromptFooExecutionResult } from './types';
 import { configGenerator } from './config-generator';
 import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'promptfoo-runner' });
+const logger = createEnhancedLogger('promptfoo-runner');
 
 export class PromptFooRunner {
   private activeJobs = new Map<string, TestExecutionJob>();

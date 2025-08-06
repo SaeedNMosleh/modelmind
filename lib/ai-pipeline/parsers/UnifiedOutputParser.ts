@@ -1,13 +1,9 @@
 import { BaseOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
-import pino from "pino";
+import { createEnhancedLogger } from "../../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('pipeline');
 
 /**
  * Configuration interface for the unified parser
@@ -58,7 +54,7 @@ export class UnifiedOutputParser<T> extends BaseOutputParser<T> {
     if (this.config.tryJsonFirst) {
       const jsonResult = await this.tryJsonParsing(cleanText);
       if (jsonResult !== null) {
-        logger.info("Successfully parsed with JSON strategy");
+        logger.debug("📋 JSON parsing successful");
         return jsonResult;
       }
     }

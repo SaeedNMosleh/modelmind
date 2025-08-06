@@ -15,9 +15,9 @@ import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-test-execution-api' });
+const logger = createEnhancedLogger('prompt-test-execution-api');
 
 // Extended TestExecutionOptions with test-specific fields
 interface PromptTestExecutionOptions extends TestExecutionOptions {

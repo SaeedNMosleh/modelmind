@@ -8,9 +8,9 @@ import {
   createNotFoundResponse
 } from '@/lib/api/responses';
 import { ObjectIdSchema, VersionSchema } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-version-compare-api' });
+const logger = createEnhancedLogger('prompt-version-compare-api');
 
 function computeTextDiff(text1: string, text2: string) {
   const lines1 = text1.split('\n');

@@ -10,9 +10,9 @@ import {
 } from '@/lib/api/responses';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-results-api' });
+const logger = createEnhancedLogger('test-results-api');
 
 const TestResultQuerySchema = z.object({
   page: z

@@ -15,9 +15,9 @@ import { testResultParser } from '@/lib/testing/result-parser';
 import { TestComparisonResult, TestExecutionOptions } from '@/lib/testing/types';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-comparison-test-api' });
+const logger = createEnhancedLogger('prompt-comparison-test-api');
 
 // Extended TestExecutionOptions with comparison-specific fields
 interface ComparisonTestExecutionOptions extends TestExecutionOptions {

@@ -12,9 +12,9 @@ import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { PromptEnvironment } from '@/lib/database/types';
 import { TestAnalytics } from '@/lib/testing/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-analytics-api' });
+const logger = createEnhancedLogger('test-analytics-api');
 
 const AnalyticsQuerySchema = z.object({
   startDate: z

@@ -11,9 +11,9 @@ import {
 } from '@/lib/api/responses';
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-cases-bulk-api' });
+const logger = createEnhancedLogger('test-cases-bulk-api');
 
 const BulkTestCaseSchema = z.object({
   promptId: z.string().refine(val => /^[0-9a-fA-F]{24}$/.test(val), 'Invalid prompt ID'),

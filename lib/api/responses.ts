@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 import { ZodIssue } from 'zod';
 
-const logger = pino({ name: 'api' });
+const logger = createEnhancedLogger('api');
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

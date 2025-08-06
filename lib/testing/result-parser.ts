@@ -19,9 +19,9 @@ interface PromptFooResultObject {
   version?: number;
 }
 import { PromptEnvironment } from '@/lib/database/types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'result-parser' });
+const logger = createEnhancedLogger('result-parser');
 
 export class TestResultParser {
   async parseAndStore(

@@ -15,9 +15,9 @@ import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'single-test-execution-api' });
+const logger = createEnhancedLogger('single-test-execution-api');
 
 const SingleTestExecutionSchema = z.object({
   environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.DEVELOPMENT),

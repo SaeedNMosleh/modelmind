@@ -1,3 +1,4 @@
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
@@ -10,9 +11,8 @@ import {
   PromptEnvironment,
   IPromptFooAssertion
 } from '../lib/database/types';
-import pino from 'pino';
 
-const logger = pino({ name: 'db-migrate' });
+const logger = createEnhancedLogger('db-migrate');
 
 interface MigrationStats {
   promptsProcessed: number;

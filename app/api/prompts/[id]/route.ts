@@ -12,9 +12,9 @@ import {
   ValidationErrors
 } from '@/lib/api/responses';
 import { UpdatePromptSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-detail-api' });
+const logger = createEnhancedLogger('prompt-detail-api');
 
 export async function GET(
   request: NextRequest,

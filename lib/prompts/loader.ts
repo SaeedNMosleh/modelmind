@@ -2,16 +2,12 @@
  * Simple prompt loader with MongoDB fallback for serverless compatibility
  */
 
-import pino from 'pino';
+import { createEnhancedLogger } from '../utils/consola-logger';
 import { Prompt } from '../database/models/prompt';
 import { AgentType, PromptOperation, PromptEnvironment } from '../database/types';
 import { getEmbeddedPrompt, EMBEDDED_PROMPTS } from './embedded';
 
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+const logger = createEnhancedLogger('prompts');
 
 /**
  * Configuration for prompt loading
@@ -73,13 +69,7 @@ export class PromptLoader {
       const dbPrompt = await this.loadFromMongoDB(agentType, operation, diagramType);
       if (dbPrompt) {
         const duration = Date.now() - startTime;
-        logger.info('Prompt loaded from MongoDB', { 
-          agentType, 
-          operation, 
-          diagramType,
-          duration,
-          version: dbPrompt.version 
-        });
+        logger.promptLoaded('mongodb', agentType, duration);
         return dbPrompt;
       }
     } catch (error) {
@@ -95,12 +85,7 @@ export class PromptLoader {
       const embeddedPrompt = this.loadFromEmbedded(agentType, operation);
       if (embeddedPrompt) {
         const duration = Date.now() - startTime;
-        logger.info('Prompt loaded from embedded fallback', { 
-          agentType, 
-          operation, 
-          diagramType,
-          duration 
-        });
+        logger.promptLoaded('embedded', agentType, duration);
         return embeddedPrompt;
       }
     }
@@ -181,10 +166,14 @@ export class PromptLoader {
         metadata: promptResult.metadata
       };
     } catch (error) {
-      logger.error('MongoDB query failed', { 
-        agentType, 
-        operation, 
-        error: error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      logger.error(`💥 MongoDB query failed for ${operation}`, {
+        agentType,
+        operation,
+        error: errorMessage,
+        ...(errorStack && { stack: errorStack })
       });
       return null;
     }
@@ -301,12 +290,5 @@ export function logPromptUsage(
   duration: number,
   success: boolean = true
 ) {
-  logger.info('Prompt usage logged', {
-    agentType,
-    operation,
-    source,
-    duration,
-    success,
-    timestamp: new Date().toISOString()
-  });
+  logger.debug(`📊 Prompt usage tracked | Agent: ${agentType} | Source: ${source} | Duration: ${duration}ms`);
 }

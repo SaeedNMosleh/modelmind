@@ -1,5 +1,8 @@
 # Sequence Diagram Guidelines
 
+## Theme 
+Always use theme :sunlust
+
 ## Basic Principles
 - Use sequence diagrams to show interactions between objects over time
 - Time flows from top to bottom

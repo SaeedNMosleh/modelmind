@@ -4,9 +4,9 @@ import {
   createErrorResponse, 
   withTimeout
 } from '@/lib/api/responses';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompts-health-api' });
+const logger = createEnhancedLogger('prompts-health-api');
 
 export async function GET() {
   const startTime = Date.now();

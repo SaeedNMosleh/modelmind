@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
 import { disconnectFromDatabase } from '../lib/database/connection';
 import { validationManager } from '../lib/scripts/validation-utils';
-import pino from 'pino';
 
-const logger = pino({ name: 'db-validate' });
+const logger = createEnhancedLogger('db-validate');
 
 /**
  * Validate all prompts and generate report

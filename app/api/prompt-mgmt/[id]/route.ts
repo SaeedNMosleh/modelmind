@@ -6,9 +6,9 @@ import { TestResult } from '@/lib/database/models/testResult';
 import { ApiResponse } from '@/lib/prompt-mgmt/types';
 import { validateSemanticVersion } from '@/lib/prompt-mgmt/utils';
 import mongoose from 'mongoose';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino();
+const logger = createEnhancedLogger('prompt-mgmt-detail-api');
 
 // GET /api/prompt-mgmt/[id] - Get a specific prompt with full details
 export async function GET(

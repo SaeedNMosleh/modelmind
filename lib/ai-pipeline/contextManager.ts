@@ -1,13 +1,9 @@
 import { BufferMemory } from "langchain/memory";
 import { DiagramIntent, DiagramType, AnalysisType } from "./schemas/MasterClassificationSchema";
-import pino from "pino";
+import { createEnhancedLogger } from "../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Use enhanced logger
+const logger = createEnhancedLogger('pipeline');
 
 /**
  * Interface defining a message in the conversation history
@@ -76,7 +72,7 @@ export class ContextManager {
       history: initialDiagram ? [initialDiagram] : []
     };
     
-    logger.info("Context manager initialized", { sessionId: this.sessionId });
+    logger.debug(`🔧 Context manager initialized | Session: ${this.sessionId}`);
   }
 
   /**
@@ -108,10 +104,7 @@ export class ContextManager {
       this.diagramMetadata.version = 1;
     }
     
-    logger.info("Diagram updated", { 
-      version: this.diagramMetadata.version,
-      intent: intent
-    });
+    logger.debug(`📝 Diagram updated | Version: ${this.diagramMetadata.version} | Intent: ${intent}`);
   }
 
   /**
@@ -137,49 +130,27 @@ export class ContextManager {
           this.isMemoryInitialized = true;
         } else if (role === "assistant" && this.isMemoryInitialized) {
           try {
-            // For assistant messages, update the last output if memory is initialized
-            const memoryVariables = await this.memory.loadMemoryVariables({});
-            const chatHistory = memoryVariables.conversation_history || [];
+            // For assistant messages, get the most recent user message from our messages array
+            const recentUserMessages = this.messages
+              .filter(msg => msg.role === "user")
+              .slice(-1);
             
-            // Only try to update if we have history and it's properly structured
-            if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-              const lastMessage = chatHistory[chatHistory.length - 1];
-              
-              // More robust checking of message structure
-              if (lastMessage && 
-                  (typeof lastMessage.content === 'string' || 
-                   (lastMessage.input && typeof lastMessage.input === 'string'))) {
-                
-                const inputContent = typeof lastMessage.content === 'string' 
-                  ? lastMessage.content 
-                  : (lastMessage.input || "");
-                
-                await this.memory.saveContext(
-                  { input: inputContent }, 
-                  { output: content }
-                );
-              } else {
-                // If we can't find a valid last message, just add this as a new entry
-                logger.info("No valid last message found in memory, adding as new entry");
-                await this.memory.saveContext(
-                  { input: `[Assistant message at ${new Date().toISOString()}]` }, 
-                  { output: content }
-                );
-              }
-            } else {
-              logger.info("No chat history found in memory, initializing with current message");
+            if (recentUserMessages.length > 0) {
+              const lastUserMessage = recentUserMessages[0];
               await this.memory.saveContext(
-                { input: `[Assistant message at ${new Date().toISOString()}]` }, 
+                { input: lastUserMessage.content }, 
+                { output: content }
+              );
+            } else {
+              // If no user message found, save as standalone entry
+              await this.memory.saveContext(
+                { input: `[Context at ${new Date().toISOString()}]` }, 
                 { output: content }
               );
             }
           } catch (memoryError) {
             logger.error("Error accessing memory variables:", memoryError);
-            // Fallback: Just save as a new entry
-            await this.memory.saveContext(
-              { input: `[Assistant fallback at ${new Date().toISOString()}]` }, 
-              { output: content }
-            );
+            // Continue execution - memory failure shouldn't break the flow
           }
         }
       } catch (error) {
@@ -188,7 +159,7 @@ export class ContextManager {
       }
     }
     
-    logger.info("Message added to context", { role });
+    logger.debug(`💬 Message added | Role: ${role}`);
   }
 
   /**
@@ -197,7 +168,7 @@ export class ContextManager {
    */
   public setLastIntent(intent: DiagramIntent): void {
     this.lastIntent = intent;
-    logger.info("Intent updated", { intent });
+    logger.debug(`🎯 Intent updated | Intent: ${intent}`);
   }
 
   /**
@@ -377,7 +348,7 @@ export class ContextManager {
    */
   public setLastDiagramType(diagramType: DiagramType): void {
     this.lastDiagramType = diagramType;
-    logger.info("Diagram type updated", { diagramType });
+    logger.debug(`📊 Diagram type updated | Type: ${diagramType}`);
   }
 
   /**
@@ -394,7 +365,7 @@ export class ContextManager {
    */
   public setLastAnalysisType(analysisType: AnalysisType): void {
     this.lastAnalysisType = analysisType;
-    logger.info("Analysis type updated", { analysisType });
+    logger.debug(`🔍 Analysis type updated | Type: ${analysisType}`);
   }
 
   /**

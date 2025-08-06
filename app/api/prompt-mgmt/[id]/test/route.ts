@@ -6,9 +6,9 @@ import { TestResult } from '@/lib/database/models/testResult';
 import { TestExecutionRequest, TestExecutionResponse, ApiResponse } from '@/lib/prompt-mgmt/types';
 import { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino();
+const logger = createEnhancedLogger('prompt-mgmt-test-api');
 const promptFooRunner = new PromptFooRunner();
 
 // Store for tracking running tests (in production, use Redis or similar)

@@ -7,14 +7,10 @@ import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/g
 import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType, AnalysisType } from "../schemas/MasterClassificationSchema";
-import pino from "pino";
+import { createEnhancedLogger, withTiming } from "../../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('analyzer');
 
 /**
  * Schema defining the structure of the diagram analysis output
@@ -120,17 +116,14 @@ export class DiagramAnalyzer {
       const validatedParams = analyzerParamsSchema.parse(params);
       const { userInput, diagram, analysisType, diagramType } = validatedParams;
       
-      logger.info("Analyzing diagram", { 
-        diagramType, 
-        analysisType, 
-        userInput: userInput.substring(0, 100) 
-      });
+      logger.stageStart(`diagram analysis (${analysisType} on ${diagramType})`);
+      logger.debug(`🔍 Analysis request received`);
       
       // Fetch relevant guidelines
       const guidelinesText = await this.fetchGuidelines(diagramType);
       
-      // Build and execute the analysis prompt
-      const promptTemplate = await this.buildAnalysisPrompt(
+      // Get the analysis prompt template and variables
+      const promptData = await this.getAnalysisPromptTemplate(
         userInput,
         diagram,
         analysisType,
@@ -138,19 +131,26 @@ export class DiagramAnalyzer {
         guidelinesText
       );
       
-      // Create and execute the analysis chain
+      // Create and execute the analysis chain with timing
       const analysisChain = RunnableSequence.from([
-        PromptTemplate.fromTemplate(promptTemplate),
+        PromptTemplate.fromTemplate(promptData.template),
         model,
         this.parser
       ]);
       
-      const result = await analysisChain.invoke({});
+      const result = await withTiming(
+        logger,
+        "LLM analysis",
+        () => analysisChain.invoke(promptData.variables)
+      );
       
-      logger.info("Diagram analysis completed", { 
-        diagramType: result.diagramType,
-        analysisType: result.analysisType
-      });
+      // Calculate insights count and performance metrics
+      const findingsCount = (result.components?.length || 0) + 
+                          (result.relationships?.length || 0) +
+                          (result.suggestedImprovements?.length || 0);
+      
+      const startTime = Date.now();
+      logger.analysis(result.analysisType, result.diagramType, findingsCount, Date.now() - startTime);
       
       return result;
     } catch (error) {
@@ -177,16 +177,26 @@ export class DiagramAnalyzer {
   }
 
   /**
-   * Build the analysis prompt template
+   * Get the analysis prompt template and variables
    * @private
    */
-  private async buildAnalysisPrompt(
+  private async getAnalysisPromptTemplate(
     userInput: string,
     diagram: string,
     analysisType: AnalysisType,
     diagramType: DiagramType,
     guidelinesText: string
-  ): Promise<string> {
+  ): Promise<{ template: string; variables: Record<string, string> }> {
+    const variables = {
+      baseSystemPrompt,
+      diagram,
+      userInput,
+      analysisType: analysisType.toString(),
+      diagramType: diagramType.toString(),
+      guidelines: guidelinesText,
+      formatInstructions: this.parser.getFormatInstructions()
+    };
+
     try {
       const startTime = Date.now();
       const promptData = await getPrompt(AgentType.ANALYZER, PromptOperation.ANALYSIS);
@@ -194,42 +204,40 @@ export class DiagramAnalyzer {
       const duration = Date.now() - startTime;
       logPromptUsage(AgentType.ANALYZER, PromptOperation.ANALYSIS, promptData.source, duration);
       
-      return substituteVariables(promptData.template, {
-        baseSystemPrompt,
-        diagram,
-        userInput,
-        analysisType: analysisType.toString(),
-        diagramType: diagramType.toString(),
-        guidelines: guidelinesText,
-        formatInstructions: this.parser.getFormatInstructions()
-      });
+      return {
+        template: promptData.template,
+        variables
+      };
     } catch (promptError) {
       logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
       
-      // Fallback to hardcoded prompt
-      return `
-        ${baseSystemPrompt}
-        
-        You are a specialist in analyzing PlantUML diagrams.
-        
-        Diagram to analyze:
-        \`\`\`plantuml
-        ${diagram}
-        \`\`\`
-        
-        User analysis request: ${userInput}
-        
-        Analysis type: ${analysisType}
-        Diagram type: ${diagramType}
-        
-        PlantUML Guidelines:
-        ${guidelinesText}
-        
-        Analyze the diagram based on the analysis type and user request.
-        Provide detailed and insightful analysis.
-        
-        ${this.parser.getFormatInstructions()}
-      `;
+      // Fallback template with proper variable placeholders
+      const fallbackTemplate = `{baseSystemPrompt}
+
+You are a specialist in analyzing PlantUML diagrams.
+
+Diagram to analyze:
+\`\`\`plantuml
+{diagram}
+\`\`\`
+
+User analysis request: {userInput}
+
+Analysis type: {analysisType}
+Diagram type: {diagramType}
+
+PlantUML Guidelines:
+{guidelines}
+
+Analyze the diagram based on the analysis type and user request.
+Provide detailed and insightful analysis.
+
+{formatInstructions}`;
+
+      return {
+        template: fallbackTemplate,
+        variables
+      };
     }
   }
 

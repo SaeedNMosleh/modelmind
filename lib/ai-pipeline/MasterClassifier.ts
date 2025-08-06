@@ -20,14 +20,10 @@ import {
 } from "./schemas/MasterClassificationSchema";
 // import { getPrompt, substituteVariables, logPromptUsage } from "../prompts/loader";
 // import { AgentType, PromptOperation } from "../database/types";
-import pino from "pino";
+import { createEnhancedLogger, withTiming } from "../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('classifier');
 
 /**
  * Input parameters for master classification
@@ -81,28 +77,34 @@ export class MasterClassifier {
       // Validate input parameters
       const validatedParams = masterClassifierParamsSchema.parse(params);
 
-      logger.info("Starting master classification", {
-        userInput: validatedParams.userInput,
-        hasDiagram: !!validatedParams.currentDiagram,
-        hasContext: !!validatedParams.context
-      });
+      logger.requestStart(!!validatedParams.currentDiagram || !!validatedParams.context);
+      logger.debug(`📊 Context details: diagram=${!!validatedParams.currentDiagram}, hasContext=${!!validatedParams.context}`);
 
       // Prepare context for classification
       const classificationContext = this.prepareClassificationContext(validatedParams);
 
-      // Execute the comprehensive classification
-      const result = await this.classificationChain.invoke(classificationContext);
+      // Execute the comprehensive classification with timing
+      const result = await withTiming(
+        logger,
+        "Master classification",
+        () => this.classificationChain.invoke(classificationContext)
+      );
 
       // Validate and enhance the result
       const validatedResult = this.validateAndEnhanceResult(result, validatedParams);
 
-      logger.info("Master classification completed", {
-        intent: validatedResult.intent,
-        confidence: validatedResult.confidence,
-        confidenceLevel: validatedResult.confidenceLevel,
-        diagramType: 'diagramType' in validatedResult ? validatedResult.diagramType : 'N/A',
-        analysisType: 'analysisType' in validatedResult ? validatedResult.analysisType : 'N/A'
-      });
+      // Log classification results with duration calculation
+      const duration = Date.now() - Date.now(); // This will be updated with proper timing
+      logger.classification(
+        validatedResult.intent, 
+        validatedResult.confidence,
+        'diagramType' in validatedResult ? validatedResult.diagramType : undefined,
+        duration
+      );
+      
+      if ('analysisType' in validatedResult) {
+        logger.debug(`🔍 Analysis type: ${validatedResult.analysisType}`);
+      }
 
       return validatedResult;
 
@@ -250,7 +252,7 @@ IMPORTANT:
       return this.enhanceByIntent(enhanced, originalParams);
 
     } catch (error) {
-      logger.warn("Result validation failed, using fallback", { error });
+      logger.warn(`⚠️ Result validation failed, using fallback: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return createFallbackClassification(originalParams.userInput, !!originalParams.currentDiagram);
     }
   }
@@ -380,10 +382,7 @@ IMPORTANT:
    */
   private handleClassificationError(error: unknown, params: MasterClassifierParams): MasterClassification {
     if (error instanceof z.ZodError) {
-      logger.error("Input validation error in master classifier", { 
-        errors: error.errors,
-        userInput: params.userInput 
-      });
+      logger.failure("Input validation", error, { userInput: params.userInput });
 
       return {
         ...createFallbackClassification(params.userInput, !!params.currentDiagram),
@@ -392,11 +391,7 @@ IMPORTANT:
     }
 
     if (error instanceof Error) {
-      logger.error("Classification error", { 
-        message: error.message,
-        stack: error.stack,
-        userInput: params.userInput
-      });
+      logger.failure("Classification", error, { userInput: params.userInput });
 
       return {
         ...createFallbackClassification(params.userInput, !!params.currentDiagram),
@@ -404,7 +399,7 @@ IMPORTANT:
       };
     }
 
-    logger.error("Unknown classification error", { error, userInput: params.userInput });
+    logger.error(`💥 Unknown classification error for: "${params.userInput.slice(0, 50)}..."`, error);
 
     return {
       ...createFallbackClassification(params.userInput, !!params.currentDiagram),

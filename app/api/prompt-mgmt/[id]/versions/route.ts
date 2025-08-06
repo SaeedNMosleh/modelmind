@@ -4,9 +4,9 @@ import { Prompt } from '@/lib/database/models/prompt';
 import { TestResult } from '@/lib/database/models/testResult';
 import { ApiResponse, VersionComparison } from '@/lib/prompt-mgmt/types';
 import { generateDiff, validateSemanticVersion } from '@/lib/prompt-mgmt/utils';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino();
+const logger = createEnhancedLogger('prompt-mgmt-versions-api');
 
 // GET /api/prompt-mgmt/[id]/versions - Get all versions of a prompt
 export async function GET(

@@ -10,9 +10,9 @@ import {
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { z } from 'zod';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-cases-api' });
+const logger = createEnhancedLogger('test-cases-api');
 
 const TestCaseQuerySchema = z.object({
   page: z

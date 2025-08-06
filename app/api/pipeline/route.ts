@@ -4,14 +4,10 @@ import { DiagramIntent, DiagramType, AnalysisType } from '@/lib/ai-pipeline/sche
 import { contextManager } from '@/lib/ai-pipeline/contextManager';
 import { responseFormatter, ResponseType } from '@/lib/ai-pipeline/responseFormatter';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from '@/lib/utils/consola-logger';
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Use enhanced logger
+const logger = createEnhancedLogger('pipeline');
 
 // Schema for request validation
 const requestSchema = z.object({
@@ -59,11 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Log details for debugging
-    logger.info("Processing request with new pipeline architecture", {
-      messageLength: lastUserMessage.content.length,
-      conversationLength: conversation.length,
-      hasDiagram: !!currentScript && currentScript.trim() !== ''
-    });
+    logger.debug(`🔧 Processing with new pipeline architecture`);
 
     // Prepare request router parameters
     const routerParams: RequestRouterParams = {
@@ -123,12 +115,8 @@ export async function POST(req: NextRequest) {
     // Type assertion for better type safety
     const typedIntent = intent as DiagramIntent;
 
-    logger.info("Request processed successfully", {
-      intent: typedIntent,
-      confidence: classification.confidence,
-      diagramType: 'diagramType' in classification ? classification.diagramType as DiagramType : DiagramType.UNKNOWN,
-      analysisType: 'analysisType' in classification ? classification.analysisType as AnalysisType : 'N/A'
-    });
+    const resultType = 'diagramType' in classification ? classification.diagramType as DiagramType : undefined;
+    logger.requestComplete(Date.now() - Date.now(), typedIntent, resultType);
 
     // Update context manager with diagram if it was generated/modified
     if (result && 'diagram' in result && result.diagram) {

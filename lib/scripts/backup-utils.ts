@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 import { gzip, unzip } from 'zlib';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 import { connectToDatabase } from '../database/connection';
 import { Prompt } from '../database/models/prompt';
 import { TestCase } from '../database/models/testCase';
@@ -13,7 +13,7 @@ import { IPrompt, ITestCase, ITestResult, IPromptMetrics } from '../database/typ
 const gzipAsync = promisify(gzip);
 const unzipAsync = promisify(unzip);
 
-const logger = pino({ name: 'backup-utils' });
+const logger = createEnhancedLogger('backup-utils');
 
 export interface BackupMetadata {
   timestamp: Date;

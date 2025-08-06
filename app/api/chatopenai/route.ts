@@ -19,7 +19,7 @@ const ResponseObjectSchema = z.object({
 
 const ResponseSchema = z.object({
   mandatory: ResponseObjectSchema,
-  optional: ResponseObjectSchema.optional(),
+  optional: ResponseObjectSchema.nullable().optional(),
 });
 
 export async function POST(req: Request) {

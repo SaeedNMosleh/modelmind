@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
 import { backupManager } from '../lib/scripts/backup-utils';
-import pino from 'pino';
 import path from 'path';
 
-const logger = pino({ name: 'db-list-backups' });
+const logger = createEnhancedLogger('db-list-backups');
 
 /**
  * Format file size in human-readable format

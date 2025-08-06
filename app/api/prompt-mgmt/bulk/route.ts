@@ -5,10 +5,10 @@ import { TestCase } from '@/lib/database/models/testCase';
 import { TestResult } from '@/lib/database/models/testResult';
 import { BulkOperation, BulkOperationResult, ApiResponse } from '@/lib/prompt-mgmt/types';
 import { exportPromptData } from '@/lib/prompt-mgmt/utils';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 import { PipelineStage } from 'mongoose';
 
-const logger = pino();
+const logger = createEnhancedLogger('prompt-mgmt-bulk-api');
 
 // POST /api/prompt-mgmt/bulk - Execute bulk operations
 export async function POST(request: NextRequest) {

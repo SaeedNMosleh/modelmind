@@ -11,9 +11,9 @@ import {
 } from '@/lib/api/responses';
 import { ObjectIdSchema, ExportConfigSchema } from '@/lib/api/validation/prompts';
 import { IPromptFooConfig } from '@/lib/database/types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-export-config-api' });
+const logger = createEnhancedLogger('prompt-export-config-api');
 
 export async function POST(
   request: NextRequest,

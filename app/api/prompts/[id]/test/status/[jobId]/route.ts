@@ -8,9 +8,9 @@ import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { PromptFooExecutionResult } from '@/lib/testing/types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-status-api' });
+const logger = createEnhancedLogger('test-status-api');
 
 export async function GET(
   request: NextRequest,

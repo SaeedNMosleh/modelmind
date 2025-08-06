@@ -2,14 +2,10 @@ import { DiagramIntent } from "./schemas/MasterClassificationSchema";
 import { GenerationResult } from "./agents/generator";
 import { ModificationResult } from "./agents/modifier";
 import { AnalysisResult } from "./agents/analyzer";
-import pino from "pino";
+import { createEnhancedLogger } from "../utils/consola-logger";
 
-// Setup logger
-const logger = pino({
-  browser: {
-    asObject: true
-  }
-});
+// Setup enhanced logger
+const logger = createEnhancedLogger('pipeline');
 
 /**
  * Types of possible responses
@@ -115,7 +111,7 @@ export class ResponseFormatter {
    */
   public formatGeneratorResponse(result: GenerationResult): FormattedResponse {
     try {
-      logger.info("Formatting generator response");
+      logger.debug("📤 Formatting generator response");
       
       return ResponseFactory.createScriptResponse(
         result.diagram,
@@ -137,7 +133,7 @@ export class ResponseFormatter {
    */
   public formatModifierResponse(result: ModificationResult): FormattedResponse {
     try {
-      logger.info("Formatting modifier response");
+      logger.debug("📤 Formatting modifier response");
       
       // Format the changes summary
       const changesList = result.changes.join('\n- ');
@@ -163,7 +159,7 @@ export class ResponseFormatter {
    */
   public formatAnalyzerResponse(result: AnalysisResult): FormattedResponse {
     try {
-      logger.info("Formatting analyzer response");
+      logger.debug("📤 Formatting analyzer response");
       
       // Prepare the analysis message based on available data
       let analysisMessage = result.overview;

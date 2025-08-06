@@ -4,9 +4,9 @@ import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { IPrompt, ITestCase } from '@/lib/database/types';
 import { PromptFooConfig, TestExecutionOptions } from './types';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'config-generator' });
+const logger = createEnhancedLogger('config-generator');
 
 export class PromptFooConfigGenerator {
   private tempDir: string;

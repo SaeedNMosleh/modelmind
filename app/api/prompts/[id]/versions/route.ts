@@ -10,9 +10,9 @@ import {
 } from '@/lib/api/responses';
 import { CreateVersionSchema, ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-versions-api' });
+const logger = createEnhancedLogger('prompt-versions-api');
 
 export async function GET(
   request: NextRequest,

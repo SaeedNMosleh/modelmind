@@ -3,9 +3,9 @@
 import { fileURLToPath } from 'url';
 import { disconnectFromDatabase } from '../lib/database/connection';
 import { backupManager } from '../lib/scripts/backup-utils';
-import pino from 'pino';
+import { createEnhancedLogger } from '../lib/utils/consola-logger';
 
-const logger = pino({ name: 'db-backup' });
+const logger = createEnhancedLogger('db-backup');
 
 /**
  * Create a database backup

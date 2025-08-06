@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
-import pino from 'pino';
+import { createEnhancedLogger } from '../utils/consola-logger';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const logger = pino({ name: 'database' });
+const logger = createEnhancedLogger('database');
 
 declare global {
   // We need to use interface declaration merging instead of 'var' with 'any'
@@ -17,7 +17,7 @@ declare global {
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error('Please define the MONGODB_URI environment variable in your .env file');
 }
 
 // Use the typed global interface
@@ -50,10 +50,17 @@ export async function connectToDatabase() {
 
   try {
     cached.conn = await cached.promise;
-    logger.info('Database connected successfully');
+    logger.info('📊 Database connected successfully');
     return cached.conn;
   } catch (error) {
-    logger.error({ error }, 'Failed to connect to database');
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    logger.error('💥 Failed to connect to database', {
+      error: errorMessage,
+      uri: MONGODB_URI ? `${MONGODB_URI.substring(0, 20)}...` : 'undefined',
+      ...(errorStack && { stack: errorStack })
+    });
     cached.promise = null;
     throw error;
   }
@@ -69,7 +76,8 @@ export async function disconnectFromDatabase() {
 }
 
 mongoose.connection.on('error', (error) => {
-  logger.error({ error }, 'Database connection error');
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logger.error('💥 Database connection error', { error: errorMessage });
 });
 
 mongoose.connection.on('disconnected', () => {

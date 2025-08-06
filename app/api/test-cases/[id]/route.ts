@@ -11,9 +11,9 @@ import {
 import { TestCaseValidationSchema } from '@/lib/database/models/testCase';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'test-case-detail-api' });
+const logger = createEnhancedLogger('test-case-detail-api');
 
 export async function GET(
   request: NextRequest,

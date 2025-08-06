@@ -12,9 +12,9 @@ import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-test-results-api' });
+const logger = createEnhancedLogger('prompt-test-results-api');
 
 const PromptTestResultQuerySchema = z.object({
   page: z

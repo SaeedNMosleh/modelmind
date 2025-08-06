@@ -3,9 +3,9 @@ import { connectToDatabase, Prompt, PromptEnvironment, AgentType, DiagramType } 
 import { createSuccessResponse, createErrorResponse, handleApiError, withTimeout } from '@/lib/api/responses';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { z } from 'zod';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'active-prompts-api' });
+const logger = createEnhancedLogger('active-prompts-api');
 
 const ActivePromptsQuerySchema = z.object({
   environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.PRODUCTION),

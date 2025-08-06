@@ -8,9 +8,9 @@ import {
   createNotFoundResponse
 } from '@/lib/api/responses';
 import { ObjectIdSchema, VersionSchema } from '@/lib/api/validation/prompts';
-import pino from 'pino';
+import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
-const logger = pino({ name: 'prompt-version-detail-api' });
+const logger = createEnhancedLogger('prompt-version-detail-api');
 
 export async function GET(
   request: NextRequest,
