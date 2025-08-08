@@ -215,6 +215,8 @@ function mapAgentTypeToOperation(agentType: AgentType): PromptOperation {
       return PromptOperation.ANALYSIS;
     case AgentType.CLASSIFIER:
       return PromptOperation.INTENT_CLASSIFICATION;
+    case AgentType.MASTER_CLASSIFIER:
+      return PromptOperation.COMPREHENSIVE_CLASSIFICATION;
     default:
       return PromptOperation.GENERATION;
   }
@@ -302,6 +304,24 @@ function createBasicTestCases(extracted: ExtractedPrompt): TestCaseData[] {
         testType: 'basic'
       }
     });
+  } else if (extracted.agentType === AgentType.MASTER_CLASSIFIER) {
+    testCases.push({
+      name: `${extracted.name}-basic-comprehensive-classification`,
+      description: `Basic test case for ${extracted.name}`,
+      vars: createVariablesForMasterClassifier(extracted.variables),
+      assert: [
+        ...baseAssertions,
+        { type: 'contains', value: 'GENERATE' },
+        { type: 'contains', value: 'confidence' }
+      ],
+      tags: ['migrated', 'basic', 'master-classifier'],
+      isActive: true,
+      metadata: {
+        migrated: true,
+        migratedAt: new Date(),
+        testType: 'comprehensive'
+      }
+    });
   }
 
   return testCases;
@@ -379,6 +399,29 @@ function createVariablesForClassifier(templateVars: string[]): Record<string, un
     currentDiagramStatus: 'No diagram present',
     userInput: 'Create a class diagram for a library system',
     conversationHistory: 'This is the first message in the conversation'
+  };
+
+  for (const variable of templateVars) {
+    if (!(variable in defaultVars)) {
+      defaultVars[variable] = `[${variable} placeholder]`;
+    }
+  }
+
+  return defaultVars;
+}
+
+/**
+ * Create variables for master classifier test cases
+ */
+function createVariablesForMasterClassifier(templateVars: string[]): Record<string, unknown> {
+  const defaultVars: Record<string, unknown> = {
+    baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+    userInput: 'Create a sequence diagram for user login process',
+    hasDiagramContext: 'false',
+    currentDiagram: '',
+    conversationHistory: 'This is the first message in the conversation',
+    additionalContext: 'User wants to design a new system',
+    formatInstructions: 'Return structured classification in JSON format'
   };
 
   for (const variable of templateVars) {

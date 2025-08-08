@@ -4,12 +4,28 @@ import { Prompt } from '@/lib/database/models/prompt';
 import { TestCase } from '@/lib/database/models/testCase';
 import { TestResult } from '@/lib/database/models/testResult';
 import { TestExecutionRequest, TestExecutionResponse, ApiResponse } from '@/lib/prompt-mgmt/types';
-import { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 const logger = createEnhancedLogger('prompt-mgmt-test-api');
-const promptFooRunner = new PromptFooRunner();
+
+// Dynamically import PromptFooRunner to avoid bundling issues
+let PromptFooRunner: any = null;
+let promptFooRunner: any = null;
+
+async function loadPromptFooRunner() {
+  if (!PromptFooRunner && typeof window === 'undefined') {
+    try {
+      const { PromptFooRunner: Runner } = await import('@/lib/testing/promptfoo-runner');
+      PromptFooRunner = Runner;
+      promptFooRunner = new Runner();
+    } catch (error) {
+      logger.error({ error }, 'Failed to load PromptFooRunner');
+      return null;
+    }
+  }
+  return promptFooRunner;
+}
 
 // Store for tracking running tests (in production, use Redis or similar)
 const runningTests = new Map<string, TestExecutionResponse>();
@@ -162,6 +178,12 @@ async function executeTestsAsync(
   if (!testExecution) return;
   
   try {
+    // Load PromptFooRunner dynamically
+    const runner = await loadPromptFooRunner();
+    if (!runner) {
+      throw new Error('PromptFooRunner is not available in this environment');
+    }
+    
     testExecution.status = 'running';
     testExecution.results = [];
     
@@ -178,7 +200,7 @@ async function executeTestsAsync(
         const testVars = { ...testCase.vars, ...(variables || {}) };
         
         // Run the test using PromptFoo
-        const { result } = await promptFooRunner.executeTests(
+        const { result } = await runner.executeTests(
           prompt,
           [testCase],
           {

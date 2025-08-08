@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
@@ -35,14 +35,16 @@ import {
 import { MonacoEditor } from '@/components/prompt-mgmt/MonacoEditor';
 import { PromptPreview } from '@/components/prompt-mgmt/PromptPreview';
 import { VariableEditor } from '@/components/prompt-mgmt/VariableEditor';
-import { validateTemplate } from '@/lib/prompt-mgmt/utils';
+import { validateTemplate, validateSemanticVersion } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
 export default function PromptEditPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const promptId = params.id as string;
   const isNew = promptId === 'new';
+  const editVersionParam = searchParams.get('version');
   
   const [prompt, setPrompt] = useState<PromptMgmtPrompt | null>(null);
   const [formData, setFormData] = useState<PromptFormData>({
@@ -57,6 +59,11 @@ export default function PromptEditPage() {
     metadata: {}
   });
   
+  // Additional state for version management
+  const [currentEditingVersion, setCurrentEditingVersion] = useState<string>('');
+  const [newVersion, setNewVersion] = useState<string>('');
+  const [originalVersion, setOriginalVersion] = useState<string>('');
+  
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +71,10 @@ export default function PromptEditPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [activeTab, setActiveTab] = useState('template');
   const [previewVariables, setPreviewVariables] = useState<Record<string, unknown>>({});
-  const [autoSave, setAutoSave] = useState(true);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [editingVersion, setEditingVersion] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState<PromptMgmtVersion | null>(null);
+  const [versionValidation, setVersionValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: true });
   
   // Fetch existing prompt for editing
   useEffect(() => {
@@ -79,9 +89,29 @@ export default function PromptEditPage() {
             throw new Error(data.error || 'Failed to fetch prompt');
           }
           
-          const currentVersion = data.data.versions.find(
-            (v: PromptMgmtVersion) => v.version === data.data.currentVersion
-          );
+          // Determine which version to edit
+          let targetVersion: PromptMgmtVersion;
+          if (editVersionParam) {
+            // Editing a specific version
+            targetVersion = data.data.versions.find(
+              (v: PromptMgmtVersion) => v.version === editVersionParam
+            ) || data.data.versions.find(
+              (v: PromptMgmtVersion) => v.version === data.data.primaryVersion
+            )!;
+            setEditingVersion(editVersionParam);
+          } else {
+            // Check if there's an existing draft
+            const existingDraft = data.data.versions.find((v: PromptMgmtVersion) => v.version.endsWith('-draft'));
+            if (existingDraft) {
+              targetVersion = existingDraft;
+              setDraftVersion(existingDraft);
+            } else {
+              // Use primary version as base
+              targetVersion = data.data.versions.find(
+                (v: PromptMgmtVersion) => v.version === data.data.primaryVersion
+              )!;
+            }
+          }
           
           setPrompt(data.data);
           setFormData({
@@ -91,10 +121,21 @@ export default function PromptEditPage() {
             operation: data.data.operation,
             environments: data.data.environments,
             tags: data.data.tags,
-            template: currentVersion?.template || '',
-            changelog: '',
+            template: targetVersion?.template || '',
+            changelog: editVersionParam ? `Edit of version ${editVersionParam}` : '',
             metadata: data.data.metadata || {}
           });
+          
+          // Set version states
+          const versionToEdit = targetVersion?.version || data.data.primaryVersion;
+          
+          if (!versionToEdit) {
+            throw new Error('No version to edit found');
+          }
+          
+          setCurrentEditingVersion(versionToEdit);
+          setOriginalVersion(versionToEdit);
+          setNewVersion(versionToEdit);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
@@ -104,7 +145,7 @@ export default function PromptEditPage() {
       
       fetchPrompt();
     }
-  }, [promptId, isNew]);
+  }, [promptId, isNew, editVersionParam]);
   
   // Template validation
   useEffect(() => {
@@ -132,8 +173,37 @@ export default function PromptEditPage() {
     }
   }, [formData.template]);
   
+  // Check if version has changed (determines save vs save-as-new)
+  const hasVersionChanged = newVersion !== originalVersion;
+  
+  // Version validation
+  useEffect(() => {
+    if (!isNew && newVersion) {
+      // Check if it's a draft version (skip validation)
+      if (newVersion.endsWith('-draft')) {
+        setVersionValidation({ isValid: true });
+        return;
+      }
+      
+      // Validate semantic versioning
+      const versionError = validateSemanticVersion(newVersion);
+      if (versionError) {
+        setVersionValidation({ isValid: false, error: versionError });
+        return;
+      }
+      
+      // Check if version already exists (only for new versions)
+      if (hasVersionChanged && prompt?.versions.some(v => v.version === newVersion)) {
+        setVersionValidation({ isValid: false, error: 'Version already exists' });
+        return;
+      }
+      
+      setVersionValidation({ isValid: true });
+    }
+  }, [newVersion, hasVersionChanged, prompt?.versions, isNew]);
+  
   // Save function
-  const handleSave = useCallback(async (isAutoSave = false) => {
+  const handleSave = useCallback(async () => {
     if (!validationResult?.isValid && !isAutoSave) {
       alert('Please fix template validation errors before saving');
       return;
@@ -146,12 +216,35 @@ export default function PromptEditPage() {
       const url = isNew ? '/api/prompt-mgmt' : `/api/prompt-mgmt/${promptId}`;
       const method = isNew ? 'POST' : 'PUT';
       
+      let versionStrategy: string;
+      let saveMode: 'overwrite' | 'new';
+      
+      // For manual save, check if version changed
+      if (hasVersionChanged) {
+        // Save as new version
+        saveMode = 'new';
+        versionStrategy = newVersion;
+      } else {
+        // Overwrite existing version
+        saveMode = 'overwrite';
+        versionStrategy = originalVersion;
+      }
+      
+      // Validate that we have a version
+      if (!versionStrategy) {
+        throw new Error('Version strategy is empty');
+      }
+      
       const payload = {
         ...formData,
-        // For updates, we create a new version
         ...(!isNew && { 
-          version: 'auto', // Let backend auto-increment
-          changelog: formData.changelog || 'Updated template'
+          version: versionStrategy,
+          changelog: formData.changelog || (
+            hasVersionChanged ? `New version ${newVersion}` : 
+            'Updated template'
+          ),
+          baseVersion: originalVersion,
+          saveMode: saveMode
         })
       };
       
@@ -167,34 +260,66 @@ export default function PromptEditPage() {
         throw new Error(result.error || `Failed to ${isNew ? 'create' : 'update'} prompt`);
       }
       
+      // Clear draft on successful save
+      const draftKey = `prompt-draft-${promptId}`;
+      localStorage.removeItem(draftKey);
+      setHasDraft(false);
       setIsDirty(false);
       
-      if (!isAutoSave) {
-        if (isNew) {
-          router.push(`/prompt-mgmt/${result.data._id}`);
-        } else {
-          // Refresh the data
-          setPrompt(result.data);
-          setFormData(prev => ({ ...prev, changelog: '' }));
-        }
+      if (isNew) {
+        router.push(`/prompt-mgmt/${result.data._id}`);
+      } else {
+        // For manual save, redirect back to view page
+        router.push(`/prompt-mgmt/${promptId}?tab=versions`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSaving(false);
     }
-  }, [formData, isNew, promptId, router, validationResult]);
+  }, [formData, isNew, promptId, router, validationResult, originalVersion, newVersion, hasVersionChanged]);
   
-  // Auto-save functionality
+  // Draft state management using localStorage
   useEffect(() => {
-    if (!autoSave || !isDirty || isNew) return;
+    if (!isDirty || isNew) return;
     
-    const timer: NodeJS.Timeout = setTimeout(() => {
-      handleSave(true);
-    }, 5000);
+    // Save draft to localStorage
+    const draftKey = `prompt-draft-${promptId}`;
+    const draftData = {
+      formData,
+      newVersion,
+      timestamp: Date.now(),
+      originalVersion
+    };
+    localStorage.setItem(draftKey, JSON.stringify(draftData));
+    setHasDraft(true);
+  }, [formData, isDirty, isNew, promptId, originalVersion, newVersion]);
+  
+  // Load draft on mount - after prompt data is loaded
+  useEffect(() => {
+    if (isNew || !promptId || !originalVersion) return;
     
-    return () => clearTimeout(timer);
-  }, [formData, isDirty, autoSave, isNew, handleSave]);
+    const draftKey = `prompt-draft-${promptId}`;
+    const draftData = localStorage.getItem(draftKey);
+    
+    if (draftData) {
+      try {
+        const parsed = JSON.parse(draftData);
+        if (parsed.originalVersion === originalVersion) {
+          // Restore draft data
+          setFormData(parsed.formData);
+          setNewVersion(parsed.newVersion || originalVersion);
+          setIsDirty(true);
+          setHasDraft(true);
+        } else {
+          // Clear outdated draft
+          localStorage.removeItem(draftKey);
+        }
+      } catch (e) {
+        localStorage.removeItem(draftKey);
+      }
+    }
+  }, [isNew, promptId, originalVersion]);
 
   const updateFormData = (updates: Partial<PromptFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -285,6 +410,12 @@ export default function PromptEditPage() {
               {isNew ? 'Create New Prompt' : `Edit: ${prompt?.name}`}
             </h1>
             <div className="flex items-center space-x-2 text-sm text-gray-500">
+              {editingVersion && (
+                <span className="text-blue-600">• Editing version {editingVersion}</span>
+              )}
+              {draftVersion && !editingVersion && (
+                <span className="text-purple-600">• Draft version {draftVersion.version}</span>
+              )}
               {isDirty && <span className="text-orange-600">• Unsaved changes</span>}
               {validationResult && !validationResult.isValid && (
                 <span className="text-red-600">• Validation errors</span>
@@ -294,14 +425,11 @@ export default function PromptEditPage() {
         </div>
         
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="auto-save" className="text-sm">Auto-save</Label>
-            <Switch
-              id="auto-save"
-              checked={autoSave}
-              onCheckedChange={setAutoSave}
-            />
-          </div>
+          {hasDraft && (
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+              Draft
+            </Badge>
+          )}
           
           <Button 
             variant="outline" 
@@ -314,15 +442,32 @@ export default function PromptEditPage() {
           </Button>
           
           <Button 
-            onClick={() => handleSave(false)}
-            disabled={saving || !isDirty}
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              const draftKey = `prompt-draft-${promptId}`;
+              localStorage.removeItem(draftKey);
+              setHasDraft(false);
+              setIsDirty(false);
+              router.push(isNew ? "/prompt-mgmt" : `/prompt-mgmt/${promptId}`);
+            }}
+            disabled={saving}
+          >
+            Discard
+          </Button>
+          
+          <Button 
+            onClick={() => handleSave()}
+            disabled={saving || (!isDirty && !hasVersionChanged) || (!versionValidation.isValid && hasVersionChanged)}
           >
             {saving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
               <Save className="h-4 w-4 mr-2" />
             )}
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : (
+              hasVersionChanged ? `Save as v${newVersion}` : 'Save'
+            )}
           </Button>
         </div>
       </div>
@@ -342,8 +487,8 @@ export default function PromptEditPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="template">Template Editor</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="variables">Variables</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
             </TabsList>
             
             <TabsContent value="template" className="space-y-4">
@@ -419,28 +564,6 @@ export default function PromptEditPage() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="preview" className="space-y-4">
-              <PromptPreview
-                prompt={{
-                  ...formData,
-                  _id: promptId,
-                  versions: [{
-                    version: '1.0.0',
-                    template: formData.template,
-                    createdAt: new Date(),
-                    changelog: formData.changelog || 'Current edit'
-                  }],
-                  currentVersion: '1.0.0',
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  isProduction: false
-                } as unknown as PromptMgmtPrompt}
-                variables={previewVariables}
-                onVariablesChange={setPreviewVariables}
-                showVariableEditor
-              />
-            </TabsContent>
-            
             <TabsContent value="variables" className="space-y-4">
               <VariableEditor
                 variables={validationResult?.variables || []}
@@ -449,6 +572,27 @@ export default function PromptEditPage() {
                 onVariableUpdate={() => {
                   // Handle variable metadata updates
                 }}
+              />
+            </TabsContent>
+            
+            <TabsContent value="preview" className="space-y-4">
+              <PromptPreview
+                prompt={{
+                  ...formData,
+                  _id: promptId,
+                  primaryVersion: '1.0.0',
+                  versions: [{
+                    version: '1.0.0',
+                    template: formData.template,
+                    createdAt: new Date(),
+                    changelog: formData.changelog || 'Current edit'
+                  }],
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  isProduction: false
+                } as unknown as PromptMgmtPrompt}
+                variables={previewVariables}
+                onVariablesChange={setPreviewVariables}
               />
             </TabsContent>
           </Tabs>
@@ -475,6 +619,37 @@ export default function PromptEditPage() {
                   required
                 />
               </div>
+              
+              {!isNew && (
+                <div>
+                  <Label htmlFor="version">Version</Label>
+                  <Input
+                    id="version"
+                    value={newVersion}
+                    onChange={(e) => {
+                      setNewVersion(e.target.value);
+                      setIsDirty(true);
+                    }}
+                    placeholder="e.g., 1.0.1"
+                    className={cn(
+                      !versionValidation.isValid && hasVersionChanged && "border-red-500 focus:border-red-500"
+                    )}
+                    required
+                  />
+                  <div className="text-xs mt-1">
+                    {!versionValidation.isValid && hasVersionChanged ? (
+                      <p className="text-red-600">{versionValidation.error}</p>
+                    ) : (
+                      <p className="text-gray-500">
+                        {hasVersionChanged ? 
+                          `Will create new version ${newVersion}` : 
+                          `Editing version ${originalVersion}`
+                        }
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               
               <div>
                 <Label htmlFor="agentType">Agent Type</Label>

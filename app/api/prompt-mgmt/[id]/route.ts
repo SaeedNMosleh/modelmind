@@ -121,31 +121,109 @@ export async function PUT(
       );
     }
     
-    // Handle template updates - create new version if template changed
-    const primaryVersion = existingPrompt.versions.find(v => v.version === existingPrompt.primaryVersion);
-    if (updateData.template && updateData.template !== primaryVersion?.template) {
-      const newVersion = updateData.version || incrementVersion(existingPrompt.primaryVersion);
+    // Handle template updates based on save mode
+    const baseVersion = updateData.baseVersion || existingPrompt.primaryVersion;
+    const saveMode = updateData.saveMode || 'new'; // 'new', 'overwrite', or 'draft'
+    
+    if (updateData.template !== undefined) {
+      let newVersion: string;
       
-      // Validate version
-      const versionError = validateSemanticVersion(newVersion);
-      if (versionError) {
-        return NextResponse.json(
-          { success: false, error: versionError },
-          { status: 400 }
-        );
+      if (updateData.version === 'auto') {
+        newVersion = incrementVersion(baseVersion);
+      } else {
+        newVersion = updateData.version || incrementVersion(baseVersion);
       }
       
-      // Add new version
-      existingPrompt.versions.push({
-        version: newVersion,
-        template: updateData.template,
-        changelog: updateData.changelog || 'Updated template',
-        createdAt: new Date(),
-        metadata: updateData.versionMetadata || {}
+      logger.info('Version info:', {
+        existingPrimaryVersion: existingPrompt.primaryVersion,
+        baseVersion: baseVersion,
+        updateDataVersion: updateData.version,
+        newVersion: newVersion,
+        saveMode: saveMode
       });
       
-      // Set as new primary version (automatically becomes primary if it's the only version)
-      existingPrompt.primaryVersion = newVersion;
+      // For draft versions, skip semantic validation
+      if (!newVersion.endsWith('-draft')) {
+        const versionError = validateSemanticVersion(newVersion);
+        if (versionError) {
+          logger.error('Version validation failed:', {
+            newVersion,
+            error: versionError
+          });
+          return NextResponse.json(
+            { success: false, error: versionError },
+            { status: 400 }
+          );
+        }
+      }
+      
+      // Handle different save modes
+      const existingVersionIndex = existingPrompt.versions.findIndex(v => v.version === newVersion);
+      
+      if (saveMode === 'overwrite' || (saveMode === 'draft' && existingVersionIndex >= 0)) {
+        // Update existing version
+        if (existingVersionIndex >= 0) {
+          existingPrompt.versions[existingVersionIndex] = {
+            ...existingPrompt.versions[existingVersionIndex],
+            version: newVersion, // Ensure version field is always present
+            template: updateData.template,
+            changelog: updateData.changelog || 'Updated template',
+            metadata: updateData.versionMetadata || {}
+          };
+        } else {
+          // Version doesn't exist, create new
+          existingPrompt.versions.push({
+            version: newVersion,
+            template: updateData.template,
+            changelog: updateData.changelog || 'Updated template',
+            createdAt: new Date(),
+            metadata: updateData.versionMetadata || {}
+          });
+        }
+      } else if (saveMode === 'new') {
+        // Check if version already exists for new versions
+        if (existingVersionIndex >= 0) {
+          return NextResponse.json(
+            { success: false, error: `Version ${newVersion} already exists` },
+            { status: 400 }
+          );
+        }
+        
+        // Create new version
+        existingPrompt.versions.push({
+          version: newVersion,
+          template: updateData.template,
+          changelog: updateData.changelog || `New version ${newVersion}`,
+          createdAt: new Date(),
+          metadata: updateData.versionMetadata || {}
+        });
+        
+        // Set as new primary version if it's not a draft
+        if (!newVersion.endsWith('-draft')) {
+          existingPrompt.primaryVersion = newVersion;
+        }
+      } else { // saveMode === 'draft'
+        // Create or update draft
+        if (existingVersionIndex >= 0) {
+          // Update existing draft
+          existingPrompt.versions[existingVersionIndex] = {
+            ...existingPrompt.versions[existingVersionIndex],
+            version: newVersion, // Ensure version field is always present
+            template: updateData.template,
+            changelog: updateData.changelog || 'Draft save',
+            metadata: updateData.versionMetadata || {}
+          };
+        } else {
+          // Create new draft
+          existingPrompt.versions.push({
+            version: newVersion,
+            template: updateData.template,
+            changelog: updateData.changelog || 'Draft save',
+            createdAt: new Date(),
+            metadata: updateData.versionMetadata || {}
+          });
+        }
+      }
     }
     
     // Update other fields
@@ -230,7 +308,15 @@ export async function DELETE(
 
 // Helper function to increment semantic version
 function incrementVersion(currentVersion: string): string {
+  if (!currentVersion) {
+    return '1.0.1'; // Default if no current version
+  }
+  
   const parts = currentVersion.split('.');
+  if (parts.length !== 3) {
+    return '1.0.1'; // Default if invalid format
+  }
+  
   const patch = parseInt(parts[2]) + 1;
   return `${parts[0]}.${parts[1]}.${patch}`;
 }

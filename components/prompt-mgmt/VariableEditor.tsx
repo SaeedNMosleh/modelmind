@@ -210,7 +210,7 @@ export function VariableEditor({
           const isEditing = editingVariable === variable.name;
           
           return (
-            <Card key={variable.name} className={cn(
+            <Card key={`editor-var-${variable.name}`} className={cn(
               'transition-all duration-200',
               validationError && 'border-red-200 bg-red-50'
             )}>
@@ -298,13 +298,39 @@ export function VariableEditor({
                         const parsed = parseInputValue(variable, e.target.value);
                         handleValueChange(variable.name, parsed);
                       }}
+                      onInput={(e) => {
+                        // Auto-resize textarea
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
                       placeholder={
                         variable.type === 'array' 
                           ? '["item1", "item2"] or item1, item2'
                           : '{"key": "value"}'
                       }
                       rows={3}
-                      className="font-mono text-sm"
+                      className="font-mono text-sm resize-none overflow-hidden"
+                      style={{ minHeight: '60px' }}
+                    />
+                  ) : variable.type === 'string' ? (
+                    <Textarea
+                      id={`var-${variable.name}`}
+                      value={formatDisplayValue(variable, currentValue)}
+                      onChange={(e) => {
+                        const parsed = parseInputValue(variable, e.target.value);
+                        handleValueChange(variable.name, parsed);
+                      }}
+                      onInput={(e) => {
+                        // Auto-resize textarea
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                      placeholder={variable.defaultValue ? `Default: ${variable.defaultValue}` : `Enter ${variable.name}...`}
+                      rows={1}
+                      className={cn('text-sm resize-none overflow-hidden', validationError && 'border-red-300')}
+                      style={{ minHeight: '40px' }}
                     />
                   ) : (
                     <Input

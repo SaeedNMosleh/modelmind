@@ -1,5 +1,11 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# PromptFoo CLI local files
+.promptfoo/.env.local
+.promptfoo/temp/
+.promptfoo/results/
+.promptfoo/*.log
+
 # dependencies
 /node_modules
 /.pnp

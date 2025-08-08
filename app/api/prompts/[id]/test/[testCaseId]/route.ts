@@ -10,7 +10,21 @@ import {
   zodErrorsToValidationDetails
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
-import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
+// Dynamically import PromptFooRunner to avoid bundling issues
+let promptFooRunner: any = null;
+
+async function loadPromptFooRunner() {
+  if (!promptFooRunner && typeof window === 'undefined') {
+    try {
+      const { promptFooRunner: runner } = await import('@/lib/testing/promptfoo-runner');
+      promptFooRunner = runner;
+    } catch (error) {
+      console.error('Failed to load PromptFooRunner:', error);
+      return null;
+    }
+  }
+  return promptFooRunner;
+}
 import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
 import { PromptEnvironment } from '@/lib/database/types';

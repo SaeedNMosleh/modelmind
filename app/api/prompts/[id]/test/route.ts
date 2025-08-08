@@ -10,7 +10,6 @@ import {
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
 import { PromptEnvironment } from '@/lib/database/types';
@@ -18,6 +17,22 @@ import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 const logger = createEnhancedLogger('prompt-test-execution-api');
+
+// Dynamically import PromptFooRunner to avoid bundling issues
+let promptFooRunner: any = null;
+
+async function loadPromptFooRunner() {
+  if (!promptFooRunner && typeof window === 'undefined') {
+    try {
+      const { promptFooRunner: runner } = await import('@/lib/testing/promptfoo-runner');
+      promptFooRunner = runner;
+    } catch (error) {
+      logger.error({ error }, 'Failed to load PromptFooRunner');
+      return null;
+    }
+  }
+  return promptFooRunner;
+}
 
 // Extended TestExecutionOptions with test-specific fields
 interface PromptTestExecutionOptions extends TestExecutionOptions {
@@ -106,6 +121,16 @@ export async function POST(
       );
     }
 
+    // Load PromptFooRunner dynamically
+    const runner = await loadPromptFooRunner();
+    if (!runner) {
+      return createErrorResponse(
+        'Test execution service is not available',
+        'SERVICE_UNAVAILABLE',
+        503
+      );
+    }
+
     logger.info({
       promptId: id,
       promptName: prompt.name,
@@ -115,7 +140,7 @@ export async function POST(
       environment: options.environment
     }, 'Starting prompt test execution');
 
-    const executionResult = await promptFooRunner.executeTests(
+    const executionResult = await runner.executeTests(
       prompt,
       testCases,
       options

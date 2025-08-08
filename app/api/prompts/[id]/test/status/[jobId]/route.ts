@@ -4,7 +4,21 @@ import {
   createErrorResponse, 
   createNotFoundResponse
 } from '@/lib/api/responses';
-import { promptFooRunner } from '@/lib/testing/promptfoo-runner';
+// Dynamically import PromptFooRunner to avoid bundling issues
+let promptFooRunner: any = null;
+
+async function loadPromptFooRunner() {
+  if (!promptFooRunner && typeof window === 'undefined') {
+    try {
+      const { promptFooRunner: runner } = await import('@/lib/testing/promptfoo-runner');
+      promptFooRunner = runner;
+    } catch (error) {
+      console.error('Failed to load PromptFooRunner:', error);
+      return null;
+    }
+  }
+  return promptFooRunner;
+}
 import { testResultParser } from '@/lib/testing/result-parser';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { PromptFooExecutionResult } from '@/lib/testing/types';

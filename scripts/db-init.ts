@@ -141,6 +141,7 @@ async function initializeCollections(): Promise<InitStats> {
 
 /**
  * Create empty prompt templates for each agent type
+ * Updated to match the new unified architecture from embedded.ts
  */
 function createPromptTemplates() {
   const baseMetadata = {
@@ -150,22 +151,137 @@ function createPromptTemplates() {
   };
 
   return [
+    // Master Classifier - NEW UNIFIED APPROACH
+    {
+      name: 'master-classifier-comprehensive-template',
+      agentType: AgentType.MASTER_CLASSIFIER,
+      diagramType: [
+        DiagramType.SEQUENCE, 
+        DiagramType.CLASS, 
+        DiagramType.ACTIVITY, 
+        DiagramType.STATE,
+        DiagramType.COMPONENT,
+        DiagramType.DEPLOYMENT,
+        DiagramType.USE_CASE,
+        DiagramType.ENTITY_RELATIONSHIP,
+        DiagramType.UNKNOWN
+      ],
+      operation: PromptOperation.COMPREHENSIVE_CLASSIFICATION,
+      isProduction: false,
+      environments: [PromptEnvironment.DEVELOPMENT],
+      tags: ['template', 'master-classifier', 'comprehensive'],
+      versions: [{
+        version: '1.0.0',
+        template: `{baseSystemPrompt}
+
+You are a master classifier for PlantUML diagram operations. Your task is to comprehensively analyze the user's request and provide a complete classification in a single response.
+
+CONTEXT:
+- User Input: {userInput}
+- Current Diagram Present: {hasDiagramContext}
+- Current Diagram: {currentDiagram}
+- Conversation History: {conversationHistory}
+- Additional Context: {additionalContext}
+
+CLASSIFICATION TASK:
+Analyze the user's request and determine:
+
+1. PRIMARY INTENT:
+   - GENERATE: User wants to create a new diagram or completely different one
+   - MODIFY: User wants to change, update, or edit an existing diagram
+   - ANALYZE: User wants to understand, explain, or get insights about a diagram
+   - UNKNOWN: Intent cannot be clearly determined
+
+2. DIAGRAM TYPE (if applicable):
+   - SEQUENCE: Interactions between components over time
+   - CLASS: System structure, objects, and relationships
+   - ACTIVITY: Workflows, processes, and business logic
+   - STATE: State transitions and behaviors
+   - COMPONENT: System components and interfaces
+   - DEPLOYMENT: Physical deployment of components
+   - USE_CASE: System/actor interactions and use cases
+   - ENTITY_RELATIONSHIP: Data modeling and database schemas
+   - UNKNOWN: Cannot determine type
+
+3. ANALYSIS TYPE (for ANALYZE intent):
+   - GENERAL: Overall assessment and explanation
+   - QUALITY: Best practices and quality assessment
+   - COMPONENTS: Inventory and explanation of parts
+   - RELATIONSHIPS: Analysis of connections and associations
+   - COMPLEXITY: Complexity and maintainability assessment
+   - IMPROVEMENTS: Suggestions for enhancement
+
+4. CONFIDENCE ASSESSMENT:
+   - Provide numerical confidence (0.0 to 1.0)
+   - Explain your reasoning
+   - Consider context and clarity of the request
+
+CLASSIFICATION GUIDELINES:
+
+For GENERATE intent:
+- Look for words like: create, generate, build, make, new, design
+- User wants something that doesn't exist yet
+- May specify diagram type or describe what they want
+
+For MODIFY intent:
+- Look for words like: modify, change, update, edit, add, remove, delete
+- User references existing diagram or wants changes
+- Requires current diagram context
+
+For ANALYZE intent:
+- Look for words like: analyze, explain, describe, review, check, what, how, why
+- User wants to understand or get insights
+- May specify what aspect to analyze
+
+DIAGRAM TYPE DETECTION:
+- Look for explicit mentions of diagram types
+- Infer from context (e.g., "login flow" suggests SEQUENCE)
+- Consider domain (e.g., "database design" suggests ENTITY_RELATIONSHIP)
+- Default to most likely type based on intent and context
+
+{formatInstructions}
+
+IMPORTANT:
+- Be thorough in your analysis but concise in reasoning
+- Always provide confidence score with justification
+- Clean and normalize the user instruction
+- Consider the full context when making decisions
+- If unsure, be honest about low confidence rather than guessing`,
+        changelog: 'Initial unified master classifier template',
+        metadata: { ...baseMetadata }
+      }],
+      primaryVersion: '1.0.0',
+      metadata: { ...baseMetadata }
+    },
+    // Generator - SIMPLIFIED (no type detection needed)
     {
       name: 'generator-main-template',
       agentType: AgentType.GENERATOR,
-      diagramType: [DiagramType.SEQUENCE, DiagramType.CLASS, DiagramType.ACTIVITY],
+      diagramType: [
+        DiagramType.SEQUENCE, 
+        DiagramType.CLASS, 
+        DiagramType.ACTIVITY, 
+        DiagramType.STATE,
+        DiagramType.COMPONENT,
+        DiagramType.DEPLOYMENT,
+        DiagramType.USE_CASE,
+        DiagramType.ENTITY_RELATIONSHIP
+      ],
       operation: PromptOperation.GENERATION,
       isProduction: false,
       environments: [PromptEnvironment.DEVELOPMENT],
       tags: ['template', 'generator', 'main'],
       versions: [{
         version: '1.0.0',
-        template: `You are a specialist in creating PlantUML diagrams based on user requirements.
+        template: `{baseSystemPrompt}
+
+You are a specialist in creating PlantUML diagrams based on user requirements.
 
 User requirements: {userInput}
+
 Diagram type: {diagramType}
 
-Guidelines:
+PlantUML Guidelines:
 {guidelines}
 
 Available Templates:
@@ -175,23 +291,35 @@ Based on the requirements, create a detailed PlantUML diagram.
 Focus on clarity, proper syntax, and following best practices.
 
 {formatInstructions}`,
-        changelog: 'Initial template for diagram generation',
+        changelog: 'Simplified template for diagram generation (no type detection needed)',
         metadata: { ...baseMetadata }
       }],
       primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     },
+    // Modifier - SIMPLIFIED (no type detection needed)
     {
       name: 'modifier-main-template',
       agentType: AgentType.MODIFIER,
-      diagramType: [DiagramType.SEQUENCE, DiagramType.CLASS, DiagramType.ACTIVITY],
+      diagramType: [
+        DiagramType.SEQUENCE, 
+        DiagramType.CLASS, 
+        DiagramType.ACTIVITY, 
+        DiagramType.STATE,
+        DiagramType.COMPONENT,
+        DiagramType.DEPLOYMENT,
+        DiagramType.USE_CASE,
+        DiagramType.ENTITY_RELATIONSHIP
+      ],
       operation: PromptOperation.MODIFICATION,
       isProduction: false,
       environments: [PromptEnvironment.DEVELOPMENT],
       tags: ['template', 'modifier', 'main'],
       versions: [{
         version: '1.0.0',
-        template: `You are a specialist in modifying PlantUML diagrams based on user instructions.
+        template: `{baseSystemPrompt}
+
+You are a specialist in modifying PlantUML diagrams based on user instructions.
 
 Current diagram:
 \`\`\`plantuml
@@ -200,7 +328,9 @@ Current diagram:
 
 User modification request: {userInput}
 
-Guidelines:
+Diagram type: {diagramType}
+
+PlantUML Guidelines:
 {guidelines}
 
 Modify the diagram according to the user's instructions.
@@ -208,23 +338,35 @@ Preserve existing structure while implementing the requested changes.
 Ensure the modified diagram uses correct PlantUML syntax.
 
 {formatInstructions}`,
-        changelog: 'Initial template for diagram modification',
+        changelog: 'Simplified template for diagram modification (no type detection needed)',
         metadata: { ...baseMetadata }
       }],
       primaryVersion: '1.0.0',
       metadata: { ...baseMetadata }
     },
+    // Analyzer - SIMPLIFIED (no type detection needed)
     {
       name: 'analyzer-main-template',
       agentType: AgentType.ANALYZER,
-      diagramType: [DiagramType.SEQUENCE, DiagramType.CLASS, DiagramType.ACTIVITY],
+      diagramType: [
+        DiagramType.SEQUENCE, 
+        DiagramType.CLASS, 
+        DiagramType.ACTIVITY, 
+        DiagramType.STATE,
+        DiagramType.COMPONENT,
+        DiagramType.DEPLOYMENT,
+        DiagramType.USE_CASE,
+        DiagramType.ENTITY_RELATIONSHIP
+      ],
       operation: PromptOperation.ANALYSIS,
       isProduction: false,
       environments: [PromptEnvironment.DEVELOPMENT],
       tags: ['template', 'analyzer', 'main'],
       versions: [{
         version: '1.0.0',
-        template: `You are a specialist in analyzing PlantUML diagrams.
+        template: `{baseSystemPrompt}
+
+You are a specialist in analyzing PlantUML diagrams.
 
 Diagram to analyze:
 \`\`\`plantuml
@@ -232,45 +374,18 @@ Diagram to analyze:
 \`\`\`
 
 User analysis request: {userInput}
+
 Analysis type: {analysisType}
 Diagram type: {diagramType}
 
-Guidelines:
+PlantUML Guidelines:
 {guidelines}
 
 Analyze the diagram based on the analysis type and user request.
 Provide detailed and insightful analysis.
 
 {formatInstructions}`,
-        changelog: 'Initial template for diagram analysis',
-        metadata: { ...baseMetadata }
-      }],
-      primaryVersion: '1.0.0',
-      metadata: { ...baseMetadata }
-    },
-    {
-      name: 'classifier-intent-template',
-      agentType: AgentType.CLASSIFIER,
-      diagramType: [DiagramType.SEQUENCE, DiagramType.CLASS, DiagramType.ACTIVITY],
-      operation: PromptOperation.INTENT_CLASSIFICATION,
-      isProduction: false,
-      environments: [PromptEnvironment.DEVELOPMENT],
-      tags: ['template', 'classifier', 'intent'],
-      versions: [{
-        version: '1.0.0',
-        template: `Your task is to classify the user's intent regarding PlantUML diagrams.
-
-Current diagram present: {currentDiagramStatus}
-User request: {userInput}
-
-{conversationHistory}
-
-Classify the intent as one of: GENERATE (for creating a new diagram), MODIFY (for changing an existing diagram), ANALYZE (for examining a diagram), or UNKNOWN (if unclear).
-
-Return ONLY ONE WORD: GENERATE, MODIFY, ANALYZE, or UNKNOWN.
-
-If you cannot clearly determine the user's intent, respond with UNKNOWN.`,
-        changelog: 'Initial template for intent classification',
+        changelog: 'Simplified template for diagram analysis (no type detection needed)',
         metadata: { ...baseMetadata }
       }],
       primaryVersion: '1.0.0',
@@ -281,6 +396,7 @@ If you cannot clearly determine the user's intent, respond with UNKNOWN.`,
 
 /**
  * Create sample test case templates with proper PromptFoo format
+ * Updated to match the new unified architecture from embedded.ts
  */
 async function createTestCaseTemplates() {
   // Get the created prompts to reference their IDs
@@ -316,15 +432,93 @@ async function createTestCaseTemplates() {
       }
     };
 
-    if (prompt.agentType === AgentType.GENERATOR) {
+    if (prompt.agentType === AgentType.MASTER_CLASSIFIER) {
+      testCases.push({
+        ...baseTemplate,
+        name: `${prompt.name}-sample-generate-classification`,
+        vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          userInput: 'Create a sequence diagram for user login process',
+          hasDiagramContext: 'false',
+          currentDiagram: '',
+          conversationHistory: 'This is the first message in the conversation',
+          additionalContext: 'User wants to design a new system',
+          formatInstructions: 'Return structured classification in JSON format'
+        },
+        assert: [
+          {
+            type: 'contains',
+            value: 'GENERATE'
+          },
+          {
+            type: 'contains',
+            value: 'SEQUENCE'
+          }
+        ]
+      });
+
+      testCases.push({
+        ...baseTemplate,
+        name: `${prompt.name}-sample-modify-classification`,
+        vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          userInput: 'Add error handling to the existing diagram',
+          hasDiagramContext: 'true',
+          currentDiagram: '@startuml\\nAlice -> Bob: Login\\n@enduml',
+          conversationHistory: 'Previous messages about login flow',
+          additionalContext: 'User wants to enhance existing diagram',
+          formatInstructions: 'Return structured classification in JSON format'
+        },
+        assert: [
+          {
+            type: 'contains',
+            value: 'MODIFY'
+          }
+        ]
+      });
+
+      testCases.push({
+        ...baseTemplate,
+        name: `${prompt.name}-sample-analyze-classification`,
+        vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          userInput: 'Explain the interactions in this diagram',
+          hasDiagramContext: 'true',
+          currentDiagram: '@startuml\\nAlice -> Bob: Login\\nBob -> Database: Validate\\n@enduml',
+          conversationHistory: 'User uploaded a diagram',
+          additionalContext: 'User wants to understand the diagram',
+          formatInstructions: 'Return structured classification in JSON format'
+        },
+        assert: [
+          {
+            type: 'contains',
+            value: 'ANALYZE'
+          }
+        ]
+      });
+    } else if (prompt.agentType === AgentType.GENERATOR) {
       testCases.push({
         ...baseTemplate,
         name: `${prompt.name}-sample-sequence`,
         vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
           userInput: 'Create a sequence diagram for user login process',
           diagramType: 'SEQUENCE',
-          guidelines: 'Follow PlantUML best practices',
+          guidelines: 'Follow PlantUML best practices for sequence diagrams',
           templates: 'Use standard sequence diagram patterns',
+          formatInstructions: 'Return only the PlantUML code'
+        }
+      });
+
+      testCases.push({
+        ...baseTemplate,
+        name: `${prompt.name}-sample-class`,
+        vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          userInput: 'Create a class diagram for a library management system',
+          diagramType: 'CLASS',
+          guidelines: 'Follow PlantUML best practices for class diagrams',
+          templates: 'Use standard class diagram patterns',
           formatInstructions: 'Return only the PlantUML code'
         }
       });
@@ -333,22 +527,38 @@ async function createTestCaseTemplates() {
         ...baseTemplate,
         name: `${prompt.name}-sample-modify`,
         vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
           currentDiagram: '@startuml\\nAlice -> Bob: Hello\\n@enduml',
           userInput: 'Add a response from Bob to Alice',
-          guidelines: 'Preserve existing interactions',
+          diagramType: 'SEQUENCE',
+          guidelines: 'Preserve existing interactions and follow PlantUML best practices',
+          formatInstructions: 'Return only the modified PlantUML code'
+        }
+      });
+
+      testCases.push({
+        ...baseTemplate,
+        name: `${prompt.name}-sample-add-error-handling`,
+        vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          currentDiagram: '@startuml\\nUser -> System: Login\\nSystem -> Database: Validate\\n@enduml',
+          userInput: 'Add error handling for invalid credentials',
+          diagramType: 'SEQUENCE',
+          guidelines: 'Add proper error flows while maintaining existing structure',
           formatInstructions: 'Return only the modified PlantUML code'
         }
       });
     } else if (prompt.agentType === AgentType.ANALYZER) {
       testCases.push({
         ...baseTemplate,
-        name: `${prompt.name}-sample-analysis`,
+        name: `${prompt.name}-sample-relationship-analysis`,
         vars: {
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
           diagram: '@startuml\\nAlice -> Bob: Hello\\nBob -> Alice: Hi\\n@enduml',
-          userInput: 'Analyze the interactions in this diagram',
+          userInput: 'Analyze the relationships in this diagram',
           analysisType: 'RELATIONSHIPS',
           diagramType: 'SEQUENCE',
-          guidelines: 'Provide detailed analysis',
+          guidelines: 'Provide detailed analysis of interactions and relationships',
           formatInstructions: 'Return structured analysis'
         },
         assert: [
@@ -359,22 +569,34 @@ async function createTestCaseTemplates() {
           {
             type: 'contains',
             value: 'Bob'
+          },
+          {
+            type: 'contains',
+            value: 'relationship'
           }
         ]
       });
-    } else if (prompt.agentType === AgentType.CLASSIFIER) {
+
       testCases.push({
         ...baseTemplate,
-        name: `${prompt.name}-sample-classify`,
+        name: `${prompt.name}-sample-quality-analysis`,
         vars: {
-          currentDiagramStatus: 'No diagram present',
-          userInput: 'Create a class diagram for a library system',
-          conversationHistory: 'This is the first message in the conversation'
+          baseSystemPrompt: 'You are an expert assistant specializing in PlantUML diagrams.',
+          diagram: '@startuml\\nclass User {\\n  +login()\\n}\\nclass Database\\n@enduml',
+          userInput: 'Assess the quality of this class diagram',
+          analysisType: 'QUALITY',
+          diagramType: 'CLASS',
+          guidelines: 'Evaluate best practices and design quality',
+          formatInstructions: 'Return structured quality assessment'
         },
         assert: [
           {
-            type: 'equals',
-            value: 'GENERATE'
+            type: 'contains',
+            value: 'quality'
+          },
+          {
+            type: 'contains',
+            value: 'User'
           }
         ]
       });

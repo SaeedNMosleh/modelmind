@@ -113,7 +113,7 @@ export function TestCaseEditor({
         if (data.success) {
           setTestCases(data.data || []);
         } else {
-          setError(data.error || 'Failed to load test cases');
+          setError(data.error?.message || data.error || 'Failed to load test cases');
         }
       } catch {
         setError('Failed to load test cases');
@@ -168,7 +168,7 @@ export function TestCaseEditor({
         
         onTestCasesChange?.();
       } else {
-        setError(result.error || 'Failed to save test case');
+        setError(result.error?.message || result.error || 'Failed to save test case');
       }
     } catch {
       setError('Failed to save test case');
@@ -189,7 +189,7 @@ export function TestCaseEditor({
         setTestCases(prev => prev.filter(tc => tc._id !== id));
         onTestCasesChange?.();
       } else {
-        setError(result.error || 'Failed to delete test case');
+        setError(result.error?.message || result.error || 'Failed to delete test case');
       }
     } catch {
       setError('Failed to delete test case');
@@ -238,7 +238,7 @@ export function TestCaseEditor({
         // Navigate to test results or show success message
         alert('Test started successfully!');
       } else {
-        setError(result.error || 'Failed to start test');
+        setError(result.error?.message || result.error || 'Failed to start test');
       }
     } catch {
       setError('Failed to start test');

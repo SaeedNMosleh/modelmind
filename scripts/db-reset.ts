@@ -56,43 +56,6 @@ async function getDatabaseStats() {
   return { prompts, testCases, testResults, promptMetrics };
 }
 
-/**
- * Drop all prompt-related collections
- * Note: This function is kept for future use but currently deleteAllRecords is preferred
- * @internal
- */
-// Commented out to avoid the unused variable warning while keeping for future reference
-/* 
-async function dropCollections(stats: ResetStats): Promise<void> {
-  logger.info('Dropping collections...');
-  
-  const collections = [
-    { name: 'prompts', model: Prompt },
-    { name: 'testcases', model: TestCase },
-    { name: 'testresults', model: TestResult },
-    { name: 'promptmetrics', model: PromptMetrics }
-  ];
-
-  for (const { name, model } of collections) {
-    try {
-      await model.collection.drop();
-      stats.collectionsDropped++;
-      stats.operations.push(`Dropped collection: ${name}`);
-      console.log(`✅ Dropped collection: ${name}`);
-    } catch (error) {
-      // Collection might not exist, that's okay
-      const err = error as Error;
-      if (err.message.includes('ns not found')) {
-        stats.operations.push(`Collection ${name} did not exist`);
-        console.log(`ℹ️  Collection ${name} did not exist`);
-      } else {
-        logger.warn({ error }, `Failed to drop collection ${name}`);
-        stats.operations.push(`Failed to drop collection ${name}: ${err.message}`);
-      }
-    }
-  }
-}
-*/
 
 /**
  * Delete all records (alternative to dropping collections)

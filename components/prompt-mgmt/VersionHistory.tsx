@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   GitBranch, 
   Clock, 
@@ -11,7 +11,9 @@ import {
   ChevronUp,
   Calendar,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { PromptMgmtVersion } from '@/lib/prompt-mgmt/types';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,17 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { formatTimestamp } from '@/lib/prompt-mgmt/utils';
 import { cn } from '@/lib/utils';
 
@@ -35,8 +48,11 @@ interface VersionHistoryProps {
   onVersionSelect?: (version: string) => void;
   onVersionCompare?: (v1: string, v2: string) => void;
   onSetPrimary?: (version: string) => void;
+  onVersionEdit?: (version: string) => void;
+  onVersionDelete?: (version: string) => Promise<void>;
   showActions?: boolean;
   className?: string;
+  promptId?: string;
 }
 
 export function VersionHistory({
@@ -45,17 +61,66 @@ export function VersionHistory({
   onVersionSelect,
   onVersionCompare,
   onSetPrimary,
+  onVersionEdit,
+  onVersionDelete,
   showActions = true,
-  className
+  className,
+  promptId
 }: VersionHistoryProps) {
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [showVersionDetails, setShowVersionDetails] = useState<string | null>(null);
+  const [deletingVersions, setDeletingVersions] = useState<Set<string>>(new Set());
   
-  // Sort versions by creation date (newest first)
-  const sortedVersions = [...versions].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // Check for draft changes and which version it's based on
+  const getDraftVersionInfo = () => {
+    if (!promptId) return null;
+    
+    const draftData = localStorage.getItem(`prompt-draft-${promptId}`);
+    if (!draftData) return null;
+    
+    try {
+      const parsed = JSON.parse(draftData);
+      return {
+        originalVersion: parsed.originalVersion,
+        hasDraft: true
+      };
+    } catch {
+      return null;
+    }
+  };
+  
+  // Helper function to parse semantic version for sorting
+  const parseVersion = (version: string) => {
+    const isDraft = version.endsWith('-draft');
+    const cleanVersion = isDraft ? version.replace('-draft', '') : version;
+    const parts = cleanVersion.split('.').map(Number);
+    return { parts, isDraft };
+  };
+
+  // Sort versions: primary first, then by version number (oldest to newest), drafts last
+  const sortedVersions = [...versions].sort((a, b) => {
+    // Primary version always comes first
+    if (a.version === primaryVersion) return -1;
+    if (b.version === primaryVersion) return 1;
+    
+    const aVersion = parseVersion(a.version);
+    const bVersion = parseVersion(b.version);
+    
+    // Drafts go to the bottom
+    if (aVersion.isDraft && !bVersion.isDraft) return 1;
+    if (!aVersion.isDraft && bVersion.isDraft) return -1;
+    
+    // Compare version numbers (oldest to newest)
+    for (let i = 0; i < Math.max(aVersion.parts.length, bVersion.parts.length); i++) {
+      const aPart = aVersion.parts[i] || 0;
+      const bPart = bVersion.parts[i] || 0;
+      if (aPart !== bPart) return aPart - bPart;
+    }
+    
+    // If versions are identical, sort by creation date (newest first)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
   
   const toggleExpanded = (version: string) => {
     const newExpanded = new Set(expandedVersions);
@@ -88,6 +153,24 @@ export function VersionHistory({
       onVersionCompare(selectedVersions[0], selectedVersions[1]);
     }
   };
+
+  const handleDeleteVersion = async (version: string) => {
+    if (!onVersionDelete) return;
+    
+    setDeletingVersions(prev => new Set(prev).add(version));
+    
+    try {
+      await onVersionDelete(version);
+    } catch (error) {
+      console.error('Failed to delete version:', error);
+      // Remove from deleting state if failed
+      setDeletingVersions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(version);
+        return newSet;
+      });
+    }
+  };
   
   
   const getVersionStatus = (version: PromptMgmtVersion) => {
@@ -95,11 +178,15 @@ export function VersionHistory({
       return { label: 'Primary', variant: 'default' as const, color: 'bg-green-100 text-green-800' };
     }
     
+    if (version.version.endsWith('-draft')) {
+      return { label: 'Draft', variant: 'outline' as const, color: 'bg-purple-100 text-purple-800' };
+    }
+    
     if (version._stats && version._stats.usageCount > 0) {
       return { label: 'Used', variant: 'secondary' as const, color: 'bg-blue-100 text-blue-800' };
     }
     
-    return { label: 'Draft', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800' };
+    return { label: 'Secondary', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800' };
   };
   
   const getTimeAgo = (date: Date) => {
@@ -170,6 +257,11 @@ export function VersionHistory({
           const isExpanded = expandedVersions.has(version.version);
           const isSelected = selectedVersions.includes(version.version);
           const canSetPrimary = version.version !== primaryVersion && showActions && onSetPrimary;
+          const canDelete = showActions && onVersionDelete && versions.length > 1;
+          const isPrimary = version.version === primaryVersion;
+          const isDeleting = deletingVersions.has(version.version);
+          const draftInfo = getDraftVersionInfo();
+          const hasDraftForThisVersion = draftInfo && draftInfo.originalVersion === version.version;
           
           return (
             <Card 
@@ -177,7 +269,8 @@ export function VersionHistory({
               className={cn(
                 'transition-all duration-200',
                 isSelected && 'ring-2 ring-blue-500',
-                version.version === primaryVersion && 'border-green-700 bg-green-600'
+                version.version === primaryVersion && 'border-green-700 bg-green-600',
+                isDeleting && 'opacity-50 pointer-events-none'
               )}
             >
               <CardHeader className="pb-3">
@@ -196,7 +289,7 @@ export function VersionHistory({
                       <div className="flex items-center space-x-2">
                         <h4 className={cn(
                           "font-semibold",
-                          version.version === primaryVersion ? "text-gray-900" : "text-gray-800"
+                          version.version === primaryVersion ? "text-gray-900" : "text-white-800"
                         )}>v{version.version}</h4>
                         <Badge 
                           variant={status.variant}
@@ -204,9 +297,9 @@ export function VersionHistory({
                         >
                           {status.label}
                         </Badge>
-                        {index === 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            Latest
+                        {hasDraftForThisVersion && (
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+                            Draft Changes
                           </Badge>
                         )}
                       </div>
@@ -258,6 +351,18 @@ export function VersionHistory({
                   </div>
                   
                   <div className="flex items-center space-x-1">
+                    {onVersionEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onVersionEdit(version.version)}
+                        title="Edit this version"
+                        className={version.version === primaryVersion ? "text-gray-700 hover:text-gray-900" : ""}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    
                     <Button
                       variant="ghost"
                       size="sm"
@@ -278,6 +383,58 @@ export function VersionHistory({
                       >
                         <GitBranch className="h-4 w-4" />
                       </Button>
+                    )}
+                    
+                    {canDelete && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Delete version"
+                            className={cn(
+                              "hover:text-red-600",
+                              version.version === primaryVersion ? "text-gray-700 hover:text-red-600" : ""
+                            )}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              {isPrimary ? "Delete Primary Version?" : "Delete Version?"}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {isPrimary ? (
+                                <>
+                                  You are about to delete the primary version <strong>{version.version}</strong>.
+                                  <br />
+                                  <br />
+                                  The next available version will automatically become the new primary version.
+                                  This action cannot be undone.
+                                </>
+                              ) : (
+                                <>
+                                  Are you sure you want to delete version <strong>{version.version}</strong>?
+                                  <br />
+                                  This action cannot be undone.
+                                </>
+                              )}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteVersion(version.version)}
+                              className="bg-red-600 hover:bg-red-700"
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? "Deleting..." : (isPrimary ? "Delete Primary Version" : "Delete Version")}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                     
                     <Button

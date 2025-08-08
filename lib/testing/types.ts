@@ -30,29 +30,25 @@ export interface ProviderConfig {
 }
 
 export interface PromptFooConfig {
-  prompts: Array<{
-    id: string;
-    template: string;
+  prompts: Array<string | {
+    id?: string;
+    template?: string;
+    content?: string;
+    path?: string;
   }>;
-  providers: Array<{
-    id: string;
-    config: ProviderConfig;
-  }>;
+  providers: Array<string>;
   tests: Array<{
-    vars: Record<string, unknown>;
-    assert: IPromptFooAssertion[];
+    vars?: Record<string, any>;
+    assert?: IPromptFooAssertion[];
     description?: string;
   }>;
   defaultTest?: {
-    vars?: Record<string, unknown>;
+    vars?: Record<string, any>;
     assert?: IPromptFooAssertion[];
   };
-  outputPath?: string;
-  evaluateOptions?: {
-    maxConcurrency?: number;
-    repeat?: number;
-    delay?: number;
-  };
+  outputPath?: string | string[];
+  writeLatestResults?: boolean;
+  env?: Record<string, string>;
 }
 
 export interface PromptFooExecutionResult {

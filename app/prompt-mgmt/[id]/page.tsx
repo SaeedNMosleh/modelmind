@@ -41,7 +41,17 @@ export default function PromptDetailPage() {
   const [prompt, setPrompt] = useState<PromptMgmtPrompt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('template');
+  const [activeTab, setActiveTab] = useState('versions');
+  const [templateVariables, setTemplateVariables] = useState<Record<string, unknown>>({});
+  
+  // Check for URL tab parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, []);
   
   // Fetch prompt details
   useEffect(() => {
@@ -320,19 +330,73 @@ export default function PromptDetailPage() {
               <PromptPreview
                 prompt={prompt}
                 version={primaryVersion}
+                variables={templateVariables}
+                onVariablesChange={setTemplateVariables}
                 showMetadata
                 showVariables
                 allowTesting
+                allowVariableEditing
                 showMissingVariableWarning={false}
               />
             </TabsContent>
             
             <TabsContent value="versions" className="space-y-4">
               <VersionHistory
+                promptId={promptId}
                 versions={prompt.versions}
                 primaryVersion={prompt.primaryVersion}
                 onVersionSelect={() => {
                   // Handle version selection
+                }}
+                onVersionEdit={(version: string) => {
+                  // Navigate to edit page with specific version
+                  window.location.href = `/prompt-mgmt/${promptId}/edit?version=${version}`;
+                }}
+                onVersionDelete={async (version: string) => {
+                  try {
+                    const response = await fetch(`/api/prompt-mgmt/${promptId}/versions/${version}`, {
+                      method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      if (result.success) {
+                        // Update the prompt state smoothly
+                        setPrompt(prevPrompt => {
+                          if (!prevPrompt) return prevPrompt;
+                          
+                          const updatedPrompt = {
+                            ...prevPrompt,
+                            versions: prevPrompt.versions.filter(v => v.version !== version),
+                            primaryVersion: result.data.primaryVersion
+                          };
+                          
+                          return updatedPrompt;
+                        });
+                        
+                        // Show success message if primary was reassigned
+                        if (result.message && result.message.includes('primary version changed')) {
+                          // You could show a toast notification here
+                          console.log(result.message);
+                        }
+                      } else {
+                        console.error('Failed to delete version:', result.error);
+                        alert(`Failed to delete version: ${result.error}`);
+                        throw new Error(result.error);
+                      }
+                    } else {
+                      const result = await response.json();
+                      console.error('Failed to delete version:', result.error);
+                      alert(`Failed to delete version: ${result.error || 'Unknown error'}`);
+                      throw new Error(result.error || 'Unknown error');
+                    }
+                  } catch (error) {
+                    console.error('Failed to delete version:', error);
+                    if (error instanceof Error && !error.message.includes('Failed to delete version:')) {
+                      alert('Failed to delete version. Please try again.');
+                    }
+                    throw error; // Re-throw to let VersionHistory handle loading state
+                  }
                 }}
                 onSetPrimary={async (version: string) => {
                   try {
@@ -342,8 +406,17 @@ export default function PromptDetailPage() {
                       body: JSON.stringify({ action: 'setPrimary', version })
                     });
                     if (response.ok) {
-                      // Refresh the page data
-                      window.location.reload();
+                      const result = await response.json();
+                      if (result.success) {
+                        // Update the prompt state smoothly
+                        setPrompt(prevPrompt => {
+                          if (!prevPrompt) return prevPrompt;
+                          return {
+                            ...prevPrompt,
+                            primaryVersion: version
+                          };
+                        });
+                      }
                     }
                   } catch (error) {
                     console.error('Failed to set primary version:', error);

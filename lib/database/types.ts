@@ -4,14 +4,16 @@ export enum AgentType {
   GENERATOR = 'generator',
   MODIFIER = 'modifier',
   ANALYZER = 'analyzer',
-  CLASSIFIER = 'classifier'
+  CLASSIFIER = 'classifier',
+  MASTER_CLASSIFIER = 'master-classifier'
 }
 
 export enum PromptOperation {
   GENERATION = 'generation',
   MODIFICATION = 'modification',
   ANALYSIS = 'analysis',
-  INTENT_CLASSIFICATION = 'intent-classification'
+  INTENT_CLASSIFICATION = 'intent-classification',
+  COMPREHENSIVE_CLASSIFICATION = 'comprehensive-classification'
 }
 
 export enum PromptEnvironment {
@@ -25,7 +27,10 @@ export enum DiagramType {
   ACTIVITY = 'activity',
   STATE = 'state',
   COMPONENT = 'component',
-  USE_CASE = 'use-case'
+  USE_CASE = 'use-case',
+  DEPLOYMENT = 'deployment',
+  ENTITY_RELATIONSHIP = 'entity-relationship',
+  UNKNOWN = 'unknown'
 }
 
 export interface IPromptVersion {

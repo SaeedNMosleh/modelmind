@@ -328,7 +328,7 @@ export function BulkActions({
                           .filter(r => !r.success)
                           .map((result, index) => (
                             <div key={index} className="text-sm text-red-600">
-                              Prompt {result.promptId}: {result.error}
+                              Prompt {result.promptId}: {result.error?.message || result.error || 'Unknown error'}
                             </div>
                           ))
                         }

@@ -1,0 +1,14 @@
+# Ignore temporary files and results
+temp/
+*.log
+*.tmp
+
+# Keep directory structure but ignore contents of results
+results/*
+!results/.keep
+
+# Environment file (will be copied from main .env)
+.env.local
+
+# Node modules if any CLI tools are installed here
+node_modules/

@@ -50,7 +50,7 @@ export function PromptAnalytics({
         if (data.success) {
           setAnalytics(data.data);
         } else {
-          setError(data.error || 'Failed to load analytics');
+          setError(data.error?.message || data.error || 'Failed to load analytics');
         }
       } catch (err) {
         setError('Failed to load analytics data');
