@@ -10,15 +10,12 @@ const logger = createEnhancedLogger('db-backup');
 /**
  * Create a database backup
  */
-async function createBackup(compress = true) {
+async function createBackup() {
   try {
     console.log('🚀 Starting database backup...');
-    
-    if (compress) {
-      console.log('📦 Compression enabled');
-    }
+    console.log('📄 Creating uncompressed JSON backup');
 
-    const backupPath = await backupManager.createBackup(compress);
+    const backupPath = await backupManager.createBackup(false);
     
     console.log('\\n' + '='.repeat(60));
     console.log('BACKUP COMPLETED SUCCESSFULLY');
@@ -36,12 +33,12 @@ async function createBackup(compress = true) {
       console.log(`   - Test Results: ${currentBackup.metadata.collections.testResults}`);
       console.log(`   - Prompt Metrics: ${currentBackup.metadata.collections.promptMetrics}`);
       console.log(`💾 File size: ${currentBackup.fileSize} bytes`);
-      console.log(`🗜️  Compressed: ${currentBackup.metadata.compressed ? 'Yes' : 'No'}`);
+      console.log(`📄 Format: Uncompressed JSON`);
     }
     
     console.log('\\nNext steps:');
     console.log('   - Backup is stored in the /backups directory');
-    console.log('   - Use "npm run db:list-backups" to view all backups');
+    console.log('   - Use "npm run db:list" to view all backups');
     console.log('   - Use "npm run db:restore <filename>" to restore if needed');
     console.log('='.repeat(60));
     
@@ -57,10 +54,7 @@ async function createBackup(compress = true) {
  */
 async function main() {
   try {
-    const args = process.argv.slice(2);
-    const compress = !args.includes('--no-compress');
-    
-    await createBackup(compress);
+    await createBackup();
     process.exit(0);
     
   } catch (error) {

@@ -1,5 +1,6 @@
 import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
+import readline from 'readline';
 import { connectToDatabase, disconnectFromDatabase } from '../lib/database/connection';
 import { Prompt } from '../lib/database/models/prompt';
 import { TestCase } from '../lib/database/models/testCase';
@@ -8,9 +9,9 @@ import {
   AgentType, 
   DiagramType, 
   PromptOperation, 
-  PromptEnvironment,
   IPromptFooAssertion
 } from '../lib/database/types';
+import { canSelectDiagramTypes } from '../lib/prompt-mgmt/agent-operation-config';
 
 const logger = createEnhancedLogger('db-migrate');
 
@@ -53,6 +54,23 @@ interface ExtractedPrompt {
 }
 
 /**
+ * Prompt user for confirmation
+ */
+function askConfirmation(message: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`${message} (y/N): `, (answer: string) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
  * Check if migration has already been run
  */
 async function checkMigrationStatus(): Promise<boolean> {
@@ -65,7 +83,7 @@ async function checkMigrationStatus(): Promise<boolean> {
 /**
  * Extract and migrate hardcoded prompts from agent files
  */
-async function migratePrompts(force = false): Promise<MigrationStats> {
+async function migratePrompts(): Promise<MigrationStats> {
   const stats: MigrationStats = {
     promptsProcessed: 0,
     promptsCreated: 0,
@@ -79,14 +97,22 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
     await connectToDatabase();
     
     // Check if migration has already been run
-    if (!force && await checkMigrationStatus()) {
-      stats.warnings.push('Migration has already been run. Use --force flag to run again.');
-      logger.warn('Migration already completed. Use --force to re-run.');
-      return stats;
-    }
-
-    if (force) {
-      logger.info('Force migration enabled - will overwrite existing migrated prompts');
+    const hasExistingMigration = await checkMigrationStatus();
+    let overwriteConfirmed = false;
+    
+    if (hasExistingMigration) {
+      const existingCount = await Prompt.countDocuments({ 'metadata.migrated': true });
+      console.log(`\n⚠️  Migration has already been run (${existingCount} migrated prompts found).`);
+      
+      overwriteConfirmed = await askConfirmation('Do you want to overwrite existing migrated prompts?');
+      
+      if (!overwriteConfirmed) {
+        console.log('❌ Migration cancelled by user');
+        stats.warnings.push('Migration cancelled by user');
+        return stats;
+      }
+      
+      logger.info('User confirmed overwrite of existing migrated prompts');
     }
 
     // Extract prompts from agent files
@@ -108,7 +134,7 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
         // Check if prompt already exists
         const existing = await Prompt.findOne({ name: extracted.name });
         
-        if (existing && !force) {
+        if (existing && !overwriteConfirmed) {
           stats.promptsSkipped++;
           stats.warnings.push(`Prompt "${extracted.name}" already exists - skipping`);
           continue;
@@ -123,15 +149,40 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
           metadata: {}
         };
 
+        const operation = mapAgentTypeToOperation(extracted.agentType);
+        
+        // Apply proper diagram type logic based on agent-operation compatibility
+        let diagramTypes: DiagramType[] = [];
+        if (canSelectDiagramTypes(extracted.agentType, operation)) {
+          // For agents that support diagram-specific prompts
+          if (extracted.diagramType) {
+            diagramTypes = [extracted.diagramType];
+          } else {
+            // Default to all diagram types for diagram-specific agents
+            diagramTypes = [
+              DiagramType.SEQUENCE, 
+              DiagramType.CLASS, 
+              DiagramType.ACTIVITY, 
+              DiagramType.STATE,
+              DiagramType.COMPONENT,
+              DiagramType.DEPLOYMENT,
+              DiagramType.USE_CASE,
+              DiagramType.ENTITY_RELATIONSHIP
+            ];
+          }
+        } else {
+          // For generic agents (classifier, master-classifier), leave empty
+          diagramTypes = [];
+        }
+
         const promptData = {
           name: extracted.name,
           agentType: extracted.agentType,
-          diagramType: extracted.diagramType ? [extracted.diagramType] : [DiagramType.SEQUENCE, DiagramType.CLASS],
-          operation: mapAgentTypeToOperation(extracted.agentType),
+          diagramType: diagramTypes,
+          operation,
           primaryVersion: extracted.version,
           versions: [initialVersion],
           isProduction: false,
-          environments: [PromptEnvironment.DEVELOPMENT],
           tags: ['migrated', extracted.agentType, 'ai-pipeline'],
           metadata: {
             migrated: true,
@@ -143,12 +194,12 @@ async function migratePrompts(force = false): Promise<MigrationStats> {
         };
 
         // Create or update prompt
-        if (existing && force) {
+        if (existing && overwriteConfirmed) {
           // Add new version to existing prompt
           const newVersion = {
             version: `${extracted.version}`,
             template: extracted.template,
-            changelog: `Re-migrated from ${extracted.metadata.originalFile} (forced)`,
+            changelog: `Re-migrated from ${extracted.metadata.originalFile} (overwrite confirmed)`,
             createdAt: new Date(),
             metadata: {}
           };
@@ -477,23 +528,9 @@ function printReport(stats: MigrationStats) {
  */
 async function main() {
   try {
-    const args = process.argv.slice(2);
-    const force = args.includes('--force');
-    const dryRun = args.includes('--dry-run');
-    
-    if (dryRun) {
-      console.log('🔍 Running in dry-run mode - no changes will be made');
-      // TODO: Implement dry-run logic
-      console.log('Dry-run mode not yet implemented');
-      return;
-    }
-
     console.log('🚀 Starting prompt migration...');
-    if (force) {
-      console.log('⚠️  Force mode enabled - will overwrite existing data');
-    }
     
-    const stats = await migratePrompts(force);
+    const stats = await migratePrompts();
     printReport(stats);
     
     if (stats.errors.length > 0) {

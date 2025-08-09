@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   GitBranch, 
   Clock, 
@@ -252,7 +252,7 @@ export function VersionHistory({
       
       {/* Version List */}
       <div className="space-y-3">
-        {sortedVersions.map((version, index) => {
+        {sortedVersions.map((version) => {
           const status = getVersionStatus(version);
           const isExpanded = expandedVersions.has(version.version);
           const isSelected = selectedVersions.includes(version.version);

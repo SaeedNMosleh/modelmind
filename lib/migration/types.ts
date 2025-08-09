@@ -2,7 +2,6 @@ import {
   DiagramType, 
   AgentType, 
   PromptOperation, 
-  PromptEnvironment,
   IPromptVersion
 } from '../database/types';
 
@@ -16,8 +15,7 @@ export interface PromptSeedData {
   operation: PromptOperation;
   primaryVersion: string;
   versions: IPromptVersion[];
-  isProduction: boolean;
-  environments: PromptEnvironment[];
+  isProduction: boolean;  
   tags: string[];
   metadata?: Record<string, unknown>;
 }

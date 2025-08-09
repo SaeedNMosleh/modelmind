@@ -18,7 +18,6 @@ interface PromptFooResultObject {
   summary: PromptFooResultSummary;
   version?: number;
 }
-import { PromptEnvironment } from '@/lib/database/types';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 const logger = createEnhancedLogger('result-parser');
@@ -33,7 +32,7 @@ export class TestResultParser {
   ): Promise<string[]> {
     await connectToDatabase();
     
-    const environment = options.environment || PromptEnvironment.DEVELOPMENT;
+    const environment = options.environment || 'development';
     const storedResultIds: string[] = [];
 
     try {
@@ -91,7 +90,7 @@ export class TestResultParser {
   private async updatePromptMetrics(
     promptId: string,
     promptVersion: string,
-    environment: PromptEnvironment
+    environment: 'production' | 'development'
   ): Promise<void> {
     try {
       const periods: Array<'hour' | 'day' | 'week' | 'month'> = ['hour', 'day', 'week', 'month'];

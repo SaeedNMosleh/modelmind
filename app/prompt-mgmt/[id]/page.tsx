@@ -115,21 +115,32 @@ export default function PromptDetailPage() {
     }
   };
   
-  const handleToggleProduction = async () => {
-    if (!prompt) return;
+  const handleActivatePrompt = async () => {
+    if (!prompt || prompt.isProduction) return;
     
     try {
-      const response = await fetch(`/api/prompt-mgmt/${promptId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isProduction: !prompt.isProduction })
+      const response = await fetch(`/api/prompt-mgmt/${promptId}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
       });
       
-      if (response.ok) {
-        setPrompt(prev => prev ? { ...prev, isProduction: !prev.isProduction } : null);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        // Update the local prompt state
+        setPrompt(prev => prev ? { ...prev, isProduction: true } : null);
+        
+        // Show success message if other prompts were deactivated
+        if (result.data?.deactivatedPrompts?.length > 0) {
+          const deactivatedNames = result.data.deactivatedPrompts.map((p: { name: string }) => p.name).join(', ');
+          alert(`Prompt activated successfully. Deactivated: ${deactivatedNames}`);
+        }
+      } else {
+        alert(`Failed to activate prompt: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Failed to toggle production status:', error);
+      console.error('Failed to activate prompt:', error);
+      alert('Failed to activate prompt due to network error');
     }
   };
   
@@ -272,10 +283,14 @@ export default function PromptDetailPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleToggleProduction}
-                  className="h-6 px-2 text-xs"
+                  onClick={handleActivatePrompt}
+                  disabled={prompt.isProduction}
+                  className={cn(
+                    "h-6 px-2 text-xs",
+                    prompt.isProduction ? "cursor-default opacity-50" : "cursor-pointer"
+                  )}
                 >
-                  {prompt.isProduction ? 'Deactivate' : 'Activate'}
+                  {prompt.isProduction ? 'Active' : 'Activate'}
                 </Button>
               </div>
               
@@ -475,13 +490,11 @@ export default function PromptDetailPage() {
               </div>
               
               <div>
-                <label className="text-sm font-medium text-gray-500">Environments</label>
+                <label className="text-sm font-medium text-gray-500">Environment</label>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {prompt.environments.map(env => (
-                    <Badge key={env} variant="outline" className="text-xs">
-                      {env}
-                    </Badge>
-                  ))}
+                  <Badge variant={prompt.isProduction ? "default" : "secondary"} className="text-xs">
+                    {prompt.isProduction ? 'Production' : 'Development'}
+                  </Badge>
                 </div>
               </div>
               

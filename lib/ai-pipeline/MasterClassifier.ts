@@ -135,10 +135,8 @@ You are a master classifier for PlantUML diagram operations. Your task is to com
 
 CONTEXT:
 - User Input: {userInput}
-- Current Diagram Present: {hasDiagramContext}
 - Current Diagram: {currentDiagram}
 - Conversation History: {conversationHistory}
-- Additional Context: {additionalContext}
 
 CLASSIFICATION TASK:
 Analyze the user's request and determine:
@@ -213,18 +211,14 @@ IMPORTANT:
    * Prepare context for classification
    */
   private prepareClassificationContext(params: MasterClassifierParams): Record<string, string> {
-    const { userInput, currentDiagram = "", conversation = [], context = {} } = params;
+    const { userInput, currentDiagram = "", conversation = [] } = params;
 
     return {
       userInput,
-      hasDiagramContext: currentDiagram ? "YES" : "NO",
-      currentDiagram: currentDiagram || "None",
+      currentDiagram: currentDiagram || "No diagram exists currently in editor",
       conversationHistory: conversation.length > 0 
         ? `Previous messages:\n${conversation.join('\n')}` 
         : "No previous conversation",
-      additionalContext: Object.keys(context).length > 0
-        ? JSON.stringify(context, null, 2)
-        : "No additional context",
       formatInstructions: getMasterClassificationInstructions()
     };
   }

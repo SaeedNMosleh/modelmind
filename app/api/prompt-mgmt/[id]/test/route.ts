@@ -4,20 +4,19 @@ import { Prompt } from '@/lib/database/models/prompt';
 import { TestCase } from '@/lib/database/models/testCase';
 import { TestResult } from '@/lib/database/models/testResult';
 import { TestExecutionRequest, TestExecutionResponse, ApiResponse } from '@/lib/prompt-mgmt/types';
-import { IPrompt, ITestCase, PromptEnvironment } from '@/lib/database/types';
+import { IPrompt, ITestCase } from '@/lib/database/types';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
+import type { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
 
 const logger = createEnhancedLogger('prompt-mgmt-test-api');
 
 // Dynamically import PromptFooRunner to avoid bundling issues
-let PromptFooRunner: any = null;
-let promptFooRunner: any = null;
+let promptFooRunner: PromptFooRunner | null = null;
 
 async function loadPromptFooRunner() {
-  if (!PromptFooRunner && typeof window === 'undefined') {
+  if (!promptFooRunner && typeof window === 'undefined') {
     try {
       const { PromptFooRunner: Runner } = await import('@/lib/testing/promptfoo-runner');
-      PromptFooRunner = Runner;
       promptFooRunner = new Runner();
     } catch (error) {
       logger.error({ error }, 'Failed to load PromptFooRunner');
@@ -200,19 +199,21 @@ async function executeTestsAsync(
         const testVars = { ...testCase.vars, ...(variables || {}) };
         
         // Run the test using PromptFoo
-        const { result } = await runner.executeTests(
+        const executionResult = await runner.executeTests(
           prompt,
           [testCase],
           {
             provider: 'openai',
             saveResults: true,
-            environment: PromptEnvironment.DEVELOPMENT
+            environment: 'development'
           }
         );
         
-        if (!result) {
+        if (!executionResult.result) {
           throw new Error('Test execution failed to return results');
         }
+        
+        const result = executionResult.result;
         
         // Extract test result data from the first result (we only ran one test)
         const testRun = result.results[0];
@@ -247,7 +248,7 @@ async function executeTestsAsync(
             provider: 'openai',
             model: 'gpt-4',
             timestamp: new Date(),
-            environment: PromptEnvironment.DEVELOPMENT
+            environment: 'development'
           }
         });
         

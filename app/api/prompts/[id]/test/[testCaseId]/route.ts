@@ -11,7 +11,7 @@ import {
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 // Dynamically import PromptFooRunner to avoid bundling issues
-let promptFooRunner: any = null;
+let promptFooRunner: typeof import('@/lib/testing/promptfoo-runner').promptFooRunner | null = null;
 
 async function loadPromptFooRunner() {
   if (!promptFooRunner && typeof window === 'undefined') {
@@ -27,14 +27,13 @@ async function loadPromptFooRunner() {
 }
 import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
-import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 const logger = createEnhancedLogger('single-test-execution-api');
 
 const SingleTestExecutionSchema = z.object({
-  environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.DEVELOPMENT),
+  environment: z.enum(['production', 'development']).default('development'),
   provider: z.string().default('openai'),
   model: z.string().default('gpt-4'),
   temperature: z.number().min(0).max(2).default(0.7),
@@ -125,7 +124,17 @@ export async function POST(
       hasCustomVars: !!validation.data.customVars
     }, 'Starting single test case execution');
 
-    const executionResult = await promptFooRunner.executeTests(
+    // Ensure promptFooRunner is loaded
+    const runner = await loadPromptFooRunner();
+    if (!runner) {
+      return createErrorResponse(
+        'PromptFoo runner not available',
+        'RUNNER_UNAVAILABLE',
+        500
+      );
+    }
+
+    const executionResult = await runner.executeTests(
       prompt,
       [testCase],
       options

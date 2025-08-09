@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { ITestResult, PromptEnvironment } from '../types';
+import { ITestResult } from '../types';
 
 // Extend the Model interface to include static methods
 export interface TestResultModel extends Model<ITestResult> {
@@ -38,13 +38,13 @@ export interface TestResultModel extends Model<ITestResult> {
         } | null;
       };
     },
-    environment: PromptEnvironment
+    environment: 'production' | 'development'
   ) => ITestResult;
   
   getAggregatedMetrics: (
     promptId: string,
     promptVersion?: string,
-    environment?: PromptEnvironment,
+    environment?: 'production' | 'development',
     startDate?: Date,
     endDate?: Date
   ) => Promise<{

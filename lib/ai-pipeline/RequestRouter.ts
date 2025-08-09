@@ -13,7 +13,7 @@ import { diagramGenerator, GeneratorParams, GenerationResult } from "./agents/ge
 import { diagramModifier, ModifierParams, ModificationResult } from "./agents/modifier";
 import { diagramAnalyzer, AnalyzerParams, AnalysisResult } from "./agents/analyzer";
 import { contextManager } from "./contextManager";
-import { createEnhancedLogger, withTiming } from "../utils/consola-logger";
+import { createEnhancedLogger } from "../utils/consola-logger";
 
 // Setup enhanced logger
 const logger = createEnhancedLogger('pipeline');
@@ -208,6 +208,7 @@ export class RequestRouter {
     const generatorParams: GeneratorParams = {
       userInput: classification.cleanedInstruction,
       diagramType: classification.diagramType,
+      currentDiagram: params.currentDiagram,
       context: {
         ...params.context,
         generationRequirements: classification.generationRequirements,

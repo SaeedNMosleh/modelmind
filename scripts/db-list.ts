@@ -170,18 +170,7 @@ async function listBackups(showDetails = true) {
  */
 async function main() {
   try {
-    const args = process.argv.slice(2);
-    const simple = args.includes('--simple');
-    const count = args.includes('--count');
-    
-    if (count) {
-      // Just show count
-      const backups = await backupManager.listBackups();
-      console.log(backups.length);
-      return;
-    }
-    
-    await listBackups(!simple);
+    await listBackups(true); // Always show detailed information
     process.exit(0);
     
   } catch (error) {

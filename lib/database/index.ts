@@ -27,6 +27,5 @@ export type {
 export {
   AgentType,
   PromptOperation,
-  PromptEnvironment,
   DiagramType
 } from './types';

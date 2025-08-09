@@ -8,7 +8,6 @@ import {
   createValidationErrorResponse,
   zodErrorsToValidationDetails
 } from '@/lib/api/responses';
-import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
@@ -30,7 +29,7 @@ const TestResultQuerySchema = z.object({
   promptId: z.string().optional(),
   testCaseId: z.string().optional(),
   promptVersion: z.string().optional(),
-  environment: z.nativeEnum(PromptEnvironment).optional(),
+  environment: z.enum(['production', 'development']).optional(),
   success: z
     .string()
     .optional()

@@ -68,29 +68,31 @@ export function VariableEditor({
     onChange(updated);
   };
   
-  const parseInputValue = (variable: TemplateVariable, inputValue: string): unknown => {
-    if (inputValue === '') return undefined;
+  const parseInputValue = (variable: TemplateVariable, inputValue: string | boolean): unknown => {
+    if (inputValue === '' || inputValue === undefined) return undefined;
     
     switch (variable.type) {
       case 'number':
-        const num = parseFloat(inputValue);
+        const num = parseFloat(String(inputValue));
         return isNaN(num) ? 0 : num;
       case 'boolean':
-        return inputValue.toLowerCase() === 'true';
+        // Handle both string and boolean inputs (from Switch component)
+        if (typeof inputValue === 'boolean') return inputValue;
+        return String(inputValue).toLowerCase() === 'true';
       case 'array':
         try {
-          return JSON.parse(inputValue);
+          return JSON.parse(String(inputValue));
         } catch {
-          return inputValue.split(',').map(s => s.trim());
+          return String(inputValue).split(',').map(s => s.trim());
         }
       case 'object':
         try {
-          return JSON.parse(inputValue);
+          return JSON.parse(String(inputValue));
         } catch {
-          return { value: inputValue };
+          return { value: String(inputValue) };
         }
       default:
-        return inputValue;
+        return String(inputValue);
     }
   };
   
@@ -111,6 +113,7 @@ export function VariableEditor({
       case 'boolean': return '☑️';
       case 'array': return '📋';
       case 'object': return '🗂️';
+      case 'enum': return '📋';
       default: return '❓';
     }
   };
@@ -274,7 +277,7 @@ export function VariableEditor({
                         {currentValue ? 'True' : 'False'}
                       </span>
                     </div>
-                  ) : variable.validation?.enum ? (
+                  ) : variable.type === 'enum' || variable.validation?.enum ? (
                     <Select
                       value={String(currentValue || '')}
                       onValueChange={(value) => handleValueChange(variable.name, value)}
@@ -283,11 +286,11 @@ export function VariableEditor({
                         <SelectValue placeholder="Select a value" />
                       </SelectTrigger>
                       <SelectContent>
-                        {variable.validation.enum.map((option) => (
+                        {variable.validation?.enum?.map((option) => (
                           <SelectItem key={String(option)} value={String(option)}>
                             {String(option)}
                           </SelectItem>
-                        ))}
+                        )) || []}
                       </SelectContent>
                     </Select>
                   ) : variable.type === 'object' || variable.type === 'array' ? (
@@ -444,6 +447,7 @@ export function VariableEditor({
                   <SelectItem value="boolean">Boolean</SelectItem>
                   <SelectItem value="array">Array</SelectItem>
                   <SelectItem value="object">Object</SelectItem>
+                  <SelectItem value="enum">Enum</SelectItem>
                 </SelectContent>
               </Select>
             </div>

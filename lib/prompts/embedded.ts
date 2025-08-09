@@ -34,10 +34,8 @@ You are a master classifier for PlantUML diagram operations. Your task is to com
 
 CONTEXT:
 - User Input: {userInput}
-- Current Diagram Present: {hasDiagramContext}
 - Current Diagram: {currentDiagram}
 - Conversation History: {conversationHistory}
-- Additional Context: {additionalContext}
 
 CLASSIFICATION TASK:
 Analyze the user's request and determine:
@@ -103,7 +101,7 @@ IMPORTANT:
 - Clean and normalize the user instruction
 - Consider the full context when making decisions
 - If unsure, be honest about low confidence rather than guessing`,
-    variables: ['baseSystemPrompt', 'userInput', 'hasDiagramContext', 'currentDiagram', 'conversationHistory', 'additionalContext', 'formatInstructions']
+    variables: ['baseSystemPrompt', 'userInput', 'currentDiagram', 'conversationHistory', 'formatInstructions']
   }
 ];
 
@@ -117,6 +115,11 @@ export const GENERATOR_PROMPTS: EmbeddedPrompt[] = [
     template: `{baseSystemPrompt}
 
 You are a specialist in creating PlantUML diagrams based on user requirements.
+
+Current diagram (for reference):
+\`\`\`plantuml
+{currentDiagram}
+\`\`\`
 
 User requirements: {userInput}
 
@@ -132,7 +135,7 @@ Based on the requirements, create a detailed PlantUML diagram.
 Focus on clarity, proper syntax, and following best practices.
 
 {formatInstructions}`,
-    variables: ['baseSystemPrompt', 'userInput', 'diagramType', 'guidelines', 'templates', 'formatInstructions']
+    variables: ['baseSystemPrompt', 'currentDiagram', 'userInput', 'diagramType', 'guidelines', 'templates', 'formatInstructions']
   }
 ];
 

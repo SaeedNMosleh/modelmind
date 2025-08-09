@@ -1,6 +1,6 @@
 import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
-import { ITestResult, PromptEnvironment } from '../types';
+import { ITestResult } from '../types';
 import { TestResultModel } from './testResult.types';
 
 export const TestResultValidationSchema = z.object({
@@ -25,7 +25,7 @@ export const TestResultValidationSchema = z.object({
     model: z.string(),
     temperature: z.number().optional(),
     timestamp: z.date(),
-    environment: z.nativeEnum(PromptEnvironment)
+    environment: z.enum(['production', 'development'])
   }).and(z.record(z.any()))
 });
 
@@ -120,7 +120,7 @@ const TestResultSchema = new Schema<ITestResult>({
     },
     environment: {
       type: String,
-      enum: Object.values(PromptEnvironment),
+      enum: ['production', 'development'],
       required: true,
       index: true
     }
@@ -213,7 +213,7 @@ TestResultSchema.statics.createFromPromptFoo = function(
       [key: string]: unknown;
     };
   },
-  environment: PromptEnvironment = PromptEnvironment.DEVELOPMENT
+  environment: 'production' | 'development' = 'development'
 ) {
   const assertions = promptFooResult.gradingResult ? 
     (Array.isArray(promptFooResult.gradingResult) ? promptFooResult.gradingResult : [promptFooResult.gradingResult])
@@ -270,14 +270,14 @@ TestResultSchema.methods.getAssertionResults = function() {
 TestResultSchema.statics.getAggregatedMetrics = async function(
   promptId: string,
   promptVersion?: string,
-  environment?: PromptEnvironment,
+  environment?: 'production' | 'development',
   startDate?: Date,
   endDate?: Date
 ) {
   interface MatchConditions {
     promptId: mongoose.Types.ObjectId;
     promptVersion?: string;
-    'metadata.environment'?: PromptEnvironment;
+    'metadata.environment'?: 'production' | 'development';
     createdAt?: {
       $gte?: Date;
       $lte?: Date;

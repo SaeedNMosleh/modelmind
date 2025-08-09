@@ -264,22 +264,18 @@ async function main() {
   try {
     const args = process.argv.slice(2);
     const backupFile = args[0];
-    const force = args.includes('--force');
     
     if (!backupFile) {
       console.error('❌ Error: Backup file path is required');
-      console.log('\\nUsage: npm run db:restore <backup-file> [--force]');
+      console.log('\\nUsage: npm run db:restore <backup-file>');
       console.log('\\nExample: npm run db:restore backups/backup-2024-01-15-12-30-45.json');
-      console.log('\\nUse "npm run db:list-backups" to see available backups');
+      console.log('\\nUse "npm run db:list" to see available backups');
       process.exit(1);
     }
     
     console.log('🚀 Starting database restore...');
-    if (force) {
-      console.log('⚠️  Force mode enabled - skipping confirmation prompts');
-    }
     
-    const stats = await restoreFromBackup(backupFile, force);
+    const stats = await restoreFromBackup(backupFile, false);
     printReport(stats, backupFile);
     
     if (stats.errors.length > 0) {

@@ -4,8 +4,9 @@
 
 import { createEnhancedLogger } from '../utils/consola-logger';
 import { Prompt } from '../database/models/prompt';
-import { AgentType, PromptOperation, PromptEnvironment } from '../database/types';
+import { AgentType, PromptOperation } from '../database/types';
 import { getEmbeddedPrompt, EMBEDDED_PROMPTS } from './embedded';
+import { shouldFilterByDiagramType } from './validation';
 
 const logger = createEnhancedLogger('prompts');
 
@@ -15,7 +16,7 @@ const logger = createEnhancedLogger('prompts');
 export interface PromptLoaderConfig {
   timeout: number; // DB query timeout in ms
   fallbackToEmbedded: boolean; // Whether to fallback to embedded prompts
-  environment: PromptEnvironment; // Current environment
+  environment: 'production' | 'development'; // Current environment
 }
 
 /**
@@ -25,8 +26,8 @@ const DEFAULT_CONFIG: PromptLoaderConfig = {
   timeout: 2000, // 2 second timeout
   fallbackToEmbedded: true,
   environment: process.env.NODE_ENV === 'production' 
-    ? PromptEnvironment.PRODUCTION 
-    : PromptEnvironment.DEVELOPMENT
+    ? 'production'
+    : 'development'
 };
 
 /**
@@ -107,20 +108,21 @@ export class PromptLoader {
     interface PromptQuery {
       agentType: AgentType | string;
       operation: PromptOperation | string;
-      environments: PromptEnvironment;
       isProduction: boolean;
       diagramType?: { $in: string[] };
     }
     const query: PromptQuery = {
       agentType,
       operation,
-      environments: this.config.environment,
-      isProduction: this.config.environment === PromptEnvironment.PRODUCTION
+      isProduction: this.config.environment === 'production'
     };
 
-    // Add diagram type filter if provided
-    if (diagramType) {
+    // Add diagram type filter if provided and applicable
+    if (diagramType && shouldFilterByDiagramType(agentType, operation, diagramType)) {
       query.diagramType = { $in: [diagramType] };
+      logger.debug(`Filtering by diagram type: ${diagramType} for ${agentType}/${operation}`);
+    } else if (diagramType) {
+      logger.debug(`Ignoring diagram type filter for generic operation: ${agentType}/${operation}`);
     }
 
     // Create a promise with timeout
@@ -287,8 +289,7 @@ export function logPromptUsage(
   agentType: string,
   operation: string,
   source: 'mongodb' | 'embedded',
-  duration: number,
-  success: boolean = true
+  duration: number
 ) {
   logger.debug(`📊 Prompt usage tracked | Agent: ${agentType} | Source: ${source} | Duration: ${duration}ms`);
 }

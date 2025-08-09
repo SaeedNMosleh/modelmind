@@ -12,14 +12,14 @@ import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { TestExecutionOptions } from '@/lib/testing/types';
-import { PromptEnvironment } from '@/lib/database/types';
+import type { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
 import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 const logger = createEnhancedLogger('prompt-test-execution-api');
 
 // Dynamically import PromptFooRunner to avoid bundling issues
-let promptFooRunner: any = null;
+let promptFooRunner: PromptFooRunner | null = null;
 
 async function loadPromptFooRunner() {
   if (!promptFooRunner && typeof window === 'undefined') {
@@ -41,7 +41,7 @@ interface PromptTestExecutionOptions extends TestExecutionOptions {
 
 const TestExecutionSchema = z.object({
   testCaseIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
-  environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.DEVELOPMENT),
+  environment: z.enum(['production', 'development']).default('development'),
   provider: z.string().default('openai'),
   model: z.string().default('gpt-4'),
   temperature: z.number().min(0).max(2).default(0.7),

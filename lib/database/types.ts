@@ -16,10 +16,7 @@ export enum PromptOperation {
   COMPREHENSIVE_CLASSIFICATION = 'comprehensive-classification'
 }
 
-export enum PromptEnvironment {
-  DEVELOPMENT = 'development',
-  PRODUCTION = 'production'
-}
+// PromptEnvironment enum removed - replaced by isProduction boolean
 
 export enum DiagramType {
   SEQUENCE = 'sequence',
@@ -50,7 +47,6 @@ export interface IPrompt extends Document {
   primaryVersion: string;
   versions: IPromptVersion[];
   isProduction: boolean;
-  environments: PromptEnvironment[];
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -103,7 +99,7 @@ export interface ITestResult extends Document {
     model: string;
     temperature?: number;
     timestamp: Date;
-    environment: PromptEnvironment;
+    environment: 'production' | 'development';
     [key: string]: unknown;
   };
   createdAt: Date;
@@ -126,7 +122,7 @@ export interface IPromptMetrics extends Document {
     p95LatencyMs: number;
     p99LatencyMs: number;
   };
-  environment: PromptEnvironment;
+  environment: 'production' | 'development';
   createdAt: Date;
 }
 
@@ -220,7 +216,7 @@ export type CreatePromptInput = Omit<IPrompt, '_id' | 'createdAt' | 'updatedAt' 
   };
 };
 
-export type UpdatePromptInput = Partial<Pick<IPrompt, 'name' | 'agentType' | 'diagramType' | 'operation' | 'isProduction' | 'environments' | 'tags' | 'metadata'>>;
+export type UpdatePromptInput = Partial<Pick<IPrompt, 'name' | 'agentType' | 'diagramType' | 'operation' | 'isProduction' | 'tags' | 'metadata'>>;
 
 export type CreatePromptVersionInput = Omit<IPromptVersion, 'createdAt'> & {
   isPrimary?: boolean;

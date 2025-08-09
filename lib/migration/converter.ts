@@ -8,7 +8,6 @@ import {
   DiagramType, 
   AgentType, 
   PromptOperation, 
-  PromptEnvironment,
   IPromptVersion
 } from '../database/types';
 
@@ -21,10 +20,9 @@ export type SimplifiedPrompt = {
   currentVersion: string;
   versions: SimplifiedPromptVersion[];
   isProduction: boolean;
-  environments: PromptEnvironment[];
   tags: string[];
   description?: string;
-  environment?: PromptEnvironment;
+  environment?: 'production' | 'development';
   version?: string;
   metadata?: {
     [key: string]: any;
@@ -93,7 +91,6 @@ export function convertExtractedPromptToDatabase(
       metadata: extracted.metadata
     } as SimplifiedPromptVersion],
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['migrated', 'ai-pipeline'],
     metadata: {
       ...extracted.metadata,
@@ -140,7 +137,6 @@ Create a detailed sequence diagram that accurately represents the interactions d
     } as SimplifiedPromptVersion],
     description: 'Specialized generator for sequence diagrams with proper interaction modeling',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['sequence', 'generator', 'enhanced'],
     metadata: {
       tags: ['sequence', 'generator', 'enhanced'],
@@ -175,7 +171,6 @@ Create a detailed class diagram that accurately represents the object-oriented d
     } as SimplifiedPromptVersion],
     description: 'Specialized generator for class diagrams with proper OOP modeling',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['class', 'generator', 'enhanced'],
     metadata: {
       tags: ['class', 'generator', 'enhanced'],
@@ -210,7 +205,6 @@ Create a detailed activity diagram that accurately represents the workflow or pr
     } as SimplifiedPromptVersion],
     description: 'Specialized generator for activity diagrams modeling workflows and processes',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['activity', 'generator', 'enhanced'],
     metadata: {
       tags: ['activity', 'generator', 'enhanced'],
@@ -245,7 +239,6 @@ Create a detailed state diagram that accurately represents the states and transi
     } as SimplifiedPromptVersion],
     description: 'Specialized generator for state diagrams modeling state transitions and behaviors',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['state', 'generator', 'enhanced'],
     metadata: {
       tags: ['state', 'generator', 'enhanced'],
@@ -291,7 +284,6 @@ Provide a comprehensive quality analysis with specific strengths, weaknesses, an
     } as SimplifiedPromptVersion],
     description: 'Specialized analyzer for assessing diagram quality and best practices',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['analyzer', 'quality', 'enhanced'],
     metadata: {
       tags: ['analyzer', 'quality', 'enhanced'],
@@ -337,7 +329,6 @@ Provide the updated diagram with the requested changes carefully implemented.
     } as SimplifiedPromptVersion],
     description: 'Intelligent modifier that preserves diagram structure while implementing changes',
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['modifier', 'enhancement', 'advanced'],
     metadata: {
       tags: ['modifier', 'enhancement', 'advanced'],
@@ -362,10 +353,9 @@ export function generateProductionPrompts(prompts: SimplifiedPrompt[]): Simplifi
     currentVersion: '1.0.0-prod',
     versions: [...prompt.versions],
     isProduction: true,
-    environments: [PromptEnvironment.PRODUCTION],
     tags: [...(prompt.tags || []), 'production'],
     description: `${prompt.description} (Production variant)`,
-    environment: PromptEnvironment.PRODUCTION,
+    environment: 'production',
     version: '1.0.0-prod',
     metadata: {
       ...prompt.metadata,

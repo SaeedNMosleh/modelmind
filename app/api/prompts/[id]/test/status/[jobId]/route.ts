@@ -5,7 +5,8 @@ import {
   createNotFoundResponse
 } from '@/lib/api/responses';
 // Dynamically import PromptFooRunner to avoid bundling issues
-let promptFooRunner: any = null;
+import type { PromptFooRunner } from '@/lib/testing/promptfoo-runner';
+let promptFooRunner: PromptFooRunner | null = null;
 
 async function loadPromptFooRunner() {
   if (!promptFooRunner && typeof window === 'undefined') {
@@ -13,7 +14,7 @@ async function loadPromptFooRunner() {
       const { promptFooRunner: runner } = await import('@/lib/testing/promptfoo-runner');
       promptFooRunner = runner;
     } catch (error) {
-      console.error('Failed to load PromptFooRunner:', error);
+      logger.error('Failed to load PromptFooRunner:', error);
       return null;
     }
   }
@@ -37,7 +38,11 @@ export async function GET(
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const job = promptFooRunner.getJobStatus(jobId);
+    const runner = await loadPromptFooRunner();
+    if (!runner) {
+      return createErrorResponse('Test execution service is not available', 'SERVICE_UNAVAILABLE', 503);
+    }
+    const job = runner.getJobStatus(jobId);
     
     if (!job) {
       return createNotFoundResponse('Test execution job');
@@ -81,7 +86,7 @@ export async function GET(
     } | null = null;
 
     if (job.status === 'completed') {
-      const promptFooResult = promptFooRunner.getJobResult(jobId);
+      const promptFooResult = runner.getJobResult(jobId);
       if (promptFooResult) {
         result = promptFooResult;
         report = testResultParser.generateTestReport(promptFooResult);
@@ -111,7 +116,7 @@ export async function GET(
     if (job.status === 'completed' || job.status === 'failed') {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       if (job.completedAt && job.completedAt < oneHourAgo) {
-        promptFooRunner.cleanupJob(jobId);
+        runner.cleanupJob(jobId);
         logger.debug({ jobId: jobId }, 'Auto-cleaned up old job');
       }
     }
@@ -152,7 +157,11 @@ export async function DELETE(
       return createErrorResponse('Invalid prompt ID format', 'INVALID_ID', 400);
     }
 
-    const job = promptFooRunner.getJobStatus(jobId);
+    const runner = await loadPromptFooRunner();
+    if (!runner) {
+      return createErrorResponse('Test execution service is not available', 'SERVICE_UNAVAILABLE', 503);
+    }
+    const job = runner.getJobStatus(jobId);
     
     if (!job) {
       return createNotFoundResponse('Test execution job');
@@ -174,7 +183,7 @@ export async function DELETE(
       );
     }
 
-    promptFooRunner.cleanupJob(jobId);
+    runner.cleanupJob(jobId);
     
     logger.info({
       jobId: jobId,

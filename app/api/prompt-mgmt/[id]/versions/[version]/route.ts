@@ -1,8 +1,10 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/database/connection';
 import { Prompt } from '@/lib/database/models/prompt';
 import { ApiResponse } from '@/lib/prompt-mgmt/types';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
+import { IPromptVersion } from '@/lib/database/types';
 
 const logger = createEnhancedLogger('prompt-version-api');
 
@@ -85,7 +87,7 @@ export async function DELETE(
 }
 
 // Helper function to find the next primary version
-function findNextPrimaryVersion(versions: any[]): string | null {
+function findNextPrimaryVersion(versions: IPromptVersion[]): string | null {
   // Filter out draft versions for primary consideration
   const nonDraftVersions = versions.filter(v => !v.version.endsWith('-draft'));
   

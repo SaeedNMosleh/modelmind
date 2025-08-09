@@ -114,7 +114,7 @@ export class PromptFooConfigGenerator {
     }
 
     return testCases.map(testCase => ({
-      vars: testCase.vars as Record<string, any>,
+      vars: testCase.vars as Record<string, unknown>,
       assert: testCase.assert,
       ...(testCase.description && { description: testCase.description })
     }));
@@ -156,17 +156,13 @@ ${config.prompts.map(p => typeof p === 'string'
 ${(p.content || p.template || 'unknown').split('\n').map(line => `      ${line}`).join('\n')}`).join('\n')}
 
 providers:
-${config.providers.map(p => typeof p === 'string' 
-  ? `  - "${p}"` 
-  : `  - id: ${p.id || 'unknown'}
-    config:
-${Object.entries(p.config || {}).map(([key, value]) => `      ${key}: ${typeof value === 'string' ? `"${value}"` : value}`).join('\n')}`).join('\n')}
+${config.providers.map(p => `  - "${p}"`).join('\n')}
 
 tests:
 ${config.tests.map(test => `  - vars:
 ${Object.entries(test.vars || {}).map(([key, value]) => `      ${key}: "${value}"`).join('\n')}
     assert:
-${test.assert.map(assertion => {
+${(test.assert || []).map(assertion => {
   let assertStr = `      - type: ${assertion.type}`;
   if (assertion.value !== undefined) assertStr += `\n        value: "${assertion.value}"`;
   if (assertion.threshold !== undefined) assertStr += `\n        threshold: ${assertion.threshold}`;
@@ -186,11 +182,6 @@ ${config.defaultTest.assert?.map(assertion => {
   if (assertion.threshold !== undefined) assertStr += `\n      threshold: ${assertion.threshold}`;
   return assertStr;
 }).join('\n') || ''}` : ''}
-
-evaluateOptions:
-  maxConcurrency: ${config.evaluateOptions?.maxConcurrency || 3}
-  repeat: ${config.evaluateOptions?.repeat || 1}
-  delay: ${config.evaluateOptions?.delay || 1000}
 `;
 
     return yaml;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database';
+import { AgentType, DiagramType, PromptOperation } from '@/lib/database';
 
 const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 
@@ -20,9 +20,6 @@ export const CreatePromptSchema = z.object({
     errorMap: () => ({ message: 'Invalid prompt operation' })
   }),
   isProduction: z.boolean().default(false),
-  environments: z
-    .array(z.nativeEnum(PromptEnvironment))
-    .min(1, 'At least one environment is required'),
   tags: z.array(z.string().trim().min(1)).default([]),
   metadata: z.record(z.any()).optional(),
   initialVersion: z.object({
@@ -55,10 +52,6 @@ export const UpdatePromptSchema = z.object({
     .optional(),
   operation: z.nativeEnum(PromptOperation).optional(),
   isProduction: z.boolean().optional(),
-  environments: z
-    .array(z.nativeEnum(PromptEnvironment))
-    .min(1, 'At least one environment is required')
-    .optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   metadata: z.record(z.any()).optional(),
   newVersion: z.object({
@@ -118,7 +111,6 @@ export const PromptQuerySchema = z.object({
   agentType: z.nativeEnum(AgentType).optional(),
   diagramType: z.nativeEnum(DiagramType).optional(),
   operation: z.nativeEnum(PromptOperation).optional(),
-  environment: z.nativeEnum(PromptEnvironment).optional(),
   isProduction: z
     .string()
     .optional()

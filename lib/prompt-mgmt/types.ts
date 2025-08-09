@@ -1,4 +1,4 @@
-import { IPrompt, IPromptVersion, AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../database/types';
+import { IPrompt, IPromptVersion, AgentType, DiagramType, PromptOperation } from '../database/types';
 
 // UI-specific types for prompt management
 export interface PromptMgmtPrompt extends Omit<IPrompt, 'versions'> {
@@ -41,7 +41,6 @@ export interface PromptFilters {
   agentType?: AgentType[];
   diagramType?: DiagramType[];
   operation?: PromptOperation[];
-  environment?: PromptEnvironment[];
   isProduction?: boolean;
   tags?: string[];
   search?: string;
@@ -136,7 +135,7 @@ export interface ComparisonMetrics {
 // Editor types
 export interface TemplateVariable {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'enum';
   description?: string;
   required: boolean;
   defaultValue?: unknown;
@@ -301,7 +300,8 @@ export interface PromptFormData {
   agentType: AgentType;
   diagramType: DiagramType[];
   operation: PromptOperation;
-  environments: PromptEnvironment[];
+  isProduction: boolean;
+  environments: ('development' | 'production')[];
   tags: string[];
   template: string;
   changelog: string;

@@ -1,17 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
 import { TestExecutionJob, TestExecutionOptions, PromptFooExecutionResult, PromptFooConfig } from './types';
 import { configGenerator } from './config-generator';
-import { IPrompt, ITestCase, PromptEnvironment, IPromptFooAssertion } from '@/lib/database/types';
+import { IPrompt, ITestCase, IPromptFooAssertion } from '@/lib/database/types';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
 // Dynamically import promptfoo to avoid bundling issues in Next.js
-let evaluate: any = null;
+let evaluate: ((...args: unknown[]) => Promise<unknown>) | null = null;
 
 async function loadPromptFoo() {
   if (!evaluate && typeof window === 'undefined') {
     try {
       const promptfoo = await import('promptfoo');
-      evaluate = promptfoo.evaluate;
+      evaluate = promptfoo.evaluate as ((...args: unknown[]) => Promise<unknown>) | null;
     } catch (error) {
       console.warn('Failed to load promptfoo:', error);
       evaluate = null;
@@ -44,7 +44,7 @@ export class PromptFooRunner {
         totalTests: testCases.length,
         completedTests: 0,
         failedTests: 0,
-        environment: options.environment || PromptEnvironment.DEVELOPMENT
+        environment: options.environment || 'development'
       }
     };
 

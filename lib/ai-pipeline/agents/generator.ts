@@ -5,7 +5,7 @@ import { model, baseSystemPrompt } from "../baseChain";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import { listTemplates } from "../../knowledge/templates";
-import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
+import { getPrompt, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType } from "../schemas/MasterClassificationSchema";
 import { createEnhancedLogger } from "../../utils/consola-logger";
@@ -34,6 +34,7 @@ export type GenerationResult = z.infer<typeof generationOutputSchema>;
 const generatorParamsSchema = z.object({
   userInput: z.string().min(1),
   diagramType: z.nativeEnum(DiagramType), // Now required from MasterClassifier
+  currentDiagram: z.string().optional(), // For reference-based generation
   context: z.record(z.unknown()).optional()
 });
 
@@ -95,7 +96,7 @@ export class DiagramGenerator {
     try {
       // Validate input params
       const validatedParams = generatorParamsSchema.parse(params);
-      const { userInput, diagramType } = validatedParams;
+      const { userInput, diagramType, currentDiagram = "" } = validatedParams;
       
       logger.stageStart(`diagram generation (${diagramType})`);
       logger.debug(`🎨 Generation request received`);
@@ -104,7 +105,7 @@ export class DiagramGenerator {
       const { guidelinesText, templatesText } = await this.fetchDiagramResources(diagramType);
       
       // Load the generation prompt template (without variable substitution)
-      const promptData = await this.getPromptTemplate(userInput, diagramType, guidelinesText, templatesText);
+      const promptData = await this.getPromptTemplate(userInput, diagramType, currentDiagram, guidelinesText, templatesText);
       
       // Create and execute the generation chain
       const generationChain = RunnableSequence.from([
@@ -169,11 +170,13 @@ export class DiagramGenerator {
   private async getPromptTemplate(
     userInput: string,
     diagramType: DiagramType,
+    currentDiagram: string,
     guidelinesText: string,
     templatesText: string
   ): Promise<{ template: string; variables: Record<string, string> }> {
     const variables = {
       baseSystemPrompt,
+      currentDiagram: currentDiagram || "No diagram exists currently in editor",
       userInput,
       diagramType: diagramType.toString(),
       guidelines: guidelinesText,
@@ -199,6 +202,11 @@ export class DiagramGenerator {
       const fallbackTemplate = `{baseSystemPrompt}
 
 You are a specialist in creating PlantUML diagrams based on user requirements.
+
+Current diagram (for reference):
+\`\`\`plantuml
+{currentDiagram}
+\`\`\`
 
 User requirements: {userInput}
 

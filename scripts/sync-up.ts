@@ -3,10 +3,10 @@
 import { promises as fs } from 'fs';
 import { resolve, basename, extname } from 'path';
 import { connectToDatabase, Prompt } from '@/lib/database';
+import { IPrompt } from '@/lib/database/types';
 import { testResultParser } from '@/lib/testing/result-parser';
 import { createEnhancedLogger } from '@/lib/utils/consola-logger';
 import { PromptFooExecutionResult } from '@/lib/testing/types';
-import { PromptEnvironment } from '@/lib/database/types';
 
 const logger = createEnhancedLogger('sync-up');
 
@@ -106,7 +106,7 @@ async function syncUp() {
           testCaseIds,
           resultData,
           {
-            environment: PromptEnvironment.DEVELOPMENT,
+            environment: 'development',
             provider: 'openai',
             model: 'gpt-4'
           }
@@ -202,9 +202,16 @@ function parseFilename(baseName: string): PromptInfo | null {
   return null;
 }
 
-async function findMatchingPrompt(info: PromptInfo) {
+interface MongoQuery {
+  isActive: boolean;
+  isDeleted: { $ne: boolean };
+  agentType?: string;
+  'metadata.operation'?: string;
+}
+
+async function findMatchingPrompt(info: PromptInfo): Promise<IPrompt | null> {
   try {
-    const query: any = {
+    const query: MongoQuery = {
       isActive: true,
       isDeleted: { $ne: true }
     };
@@ -217,7 +224,7 @@ async function findMatchingPrompt(info: PromptInfo) {
       query['metadata.operation'] = info.operation;
     }
     
-    const prompts = await Prompt.find(query).lean();
+    const prompts = await Prompt.find(query);
     
     if (prompts.length === 0) {
       return null;

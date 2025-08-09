@@ -9,7 +9,6 @@ import {
   Check, 
   AlertCircle,
   FileText,
-  Settings,
   Expand,
   // Compress - Use Compass instead
   Compass
@@ -75,7 +74,7 @@ export function PromptPreview({
     let rendered = template;
     
     // Replace variables with their values or default values, wrapped in styled spans
-    templateVariables.forEach((variable, index) => {
+    templateVariables.forEach((variable) => {
       const value = currentVariables[variable.name];
       const placeholder = `{${variable.name}}`;
       

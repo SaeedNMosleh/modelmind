@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requestRouter, RequestRouterParams } from '@/lib/ai-pipeline/RequestRouter';
-import { DiagramIntent, DiagramType, AnalysisType } from '@/lib/ai-pipeline/schemas/MasterClassificationSchema';
+import { DiagramIntent, DiagramType } from '@/lib/ai-pipeline/schemas/MasterClassificationSchema';
 import { contextManager } from '@/lib/ai-pipeline/contextManager';
 import { responseFormatter, ResponseType } from '@/lib/ai-pipeline/responseFormatter';
 import { z } from 'zod';

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { connectToDatabase, Prompt, PromptEnvironment, AgentType, DiagramType } from '@/lib/database';
+import { connectToDatabase, Prompt, AgentType, DiagramType } from '@/lib/database';
 import { createSuccessResponse, createErrorResponse, handleApiError, withTimeout } from '@/lib/api/responses';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 const logger = createEnhancedLogger('active-prompts-api');
 
 const ActivePromptsQuerySchema = z.object({
-  environment: z.nativeEnum(PromptEnvironment).default(PromptEnvironment.PRODUCTION),
+  environment: z.enum(['production', 'development']).default('production'),
   agentType: z.nativeEnum(AgentType).optional(),
   diagramType: z.nativeEnum(DiagramType).optional(),
   includeTemplate: z
@@ -37,19 +37,15 @@ export async function GET(request: NextRequest) {
     const { environment, agentType, diagramType, includeTemplate, format } = queryValidation.data;
 
     const filter: Record<string, unknown> = {
-      environments: { $in: [environment] }
+      isProduction: environment === 'production'
     };
-    
-    if (environment === PromptEnvironment.PRODUCTION) {
-      filter.isProduction = true;
-    }
     
     if (agentType) filter.agentType = agentType;
     if (diagramType) filter.diagramType = { $in: [diagramType] };
 
     const selectFields = includeTemplate 
-      ? 'name agentType diagramType operation primaryVersion versions environments isProduction tags metadata'
-      : 'name agentType diagramType operation primaryVersion versions.version versions.createdAt versions.changelog environments isProduction tags metadata';
+      ? 'name agentType diagramType operation primaryVersion versions isProduction tags metadata'
+      : 'name agentType diagramType operation primaryVersion versions.version versions.createdAt versions.changelog isProduction tags metadata';
 
     const prompts = await Prompt.find(filter)
       .select(selectFields)
@@ -76,7 +72,7 @@ export async function GET(request: NextRequest) {
           changelog: primaryVersion.changelog,
           ...(includeTemplate && { template: primaryVersion.template })
         },
-        environments: prompt.environments,
+        environment: prompt.isProduction ? 'production' : 'development',
         isProduction: prompt.isProduction,
         tags: prompt.tags,
         metadata: prompt.metadata
@@ -110,7 +106,7 @@ export async function GET(request: NextRequest) {
     }, 'Retrieved active prompts');
 
     const response: {
-      environment: PromptEnvironment;
+      environment: 'production' | 'development';
       count: number;
       prompts: unknown[];
       promptfooConfig?: unknown;

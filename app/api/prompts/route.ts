@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
       agentType,
       diagramType,
       operation,
-      environment,
       isProduction,
       search,
       tags
@@ -45,7 +44,6 @@ export async function GET(request: NextRequest) {
     if (agentType) filter.agentType = agentType;
     if (diagramType) filter.diagramType = { $in: [diagramType] };
     if (operation) filter.operation = operation;
-    if (environment) filter.environments = { $in: [environment] };
     if (typeof isProduction === 'boolean') filter.isProduction = isProduction;
     if (tags && tags.length > 0) filter.tags = { $in: tags };
     if (search) {

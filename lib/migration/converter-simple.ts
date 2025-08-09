@@ -3,7 +3,6 @@ import { PromptSeedData } from './types';
 import { 
   AgentType, 
   PromptOperation, 
-  PromptEnvironment 
 } from '../database/types';
 
 // Import only the needed types, removing unused DiagramType import
@@ -46,7 +45,6 @@ export function convertExtractedPromptToDatabase(
       metadata: extracted.metadata
     }],
     isProduction: false,
-    environments: [PromptEnvironment.DEVELOPMENT],
     tags: ['migrated', 'ai-pipeline'],
     metadata: {
       ...extracted.metadata,
@@ -69,8 +67,7 @@ export function createProductionPrompts(developmentPrompts: PromptSeedData[]): P
   return developmentPrompts.map(prompt => ({
     ...prompt,
     name: `${prompt.name}-prod`,
-    isProduction: true,
-    environments: [PromptEnvironment.PRODUCTION],
+    isProduction: true,    
     currentVersion: '1.0.0-prod',
     versions: prompt.versions.map(v => ({
       ...v,

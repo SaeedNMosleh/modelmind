@@ -1,4 +1,4 @@
-import { IPromptFooAssertion, PromptEnvironment } from '@/lib/database/types';
+import { IPromptFooAssertion } from '@/lib/database/types';
 
 export interface TestExecutionJob {
   id: string;
@@ -14,7 +14,7 @@ export interface TestExecutionJob {
     totalTests: number;
     completedTests: number;
     failedTests: number;
-    environment: PromptEnvironment;
+    environment: 'production' | 'development';
   };
 }
 
@@ -38,12 +38,12 @@ export interface PromptFooConfig {
   }>;
   providers: Array<string>;
   tests: Array<{
-    vars?: Record<string, any>;
+    vars?: Record<string, unknown>;
     assert?: IPromptFooAssertion[];
     description?: string;
   }>;
   defaultTest?: {
-    vars?: Record<string, any>;
+    vars?: Record<string, unknown>;
     assert?: IPromptFooAssertion[];
   };
   outputPath?: string | string[];
@@ -162,7 +162,7 @@ export interface TestComparisonResult {
 }
 
 export interface TestExecutionOptions {
-  environment?: PromptEnvironment;
+  environment?: 'production' | 'development';
   provider?: string;
   model?: string;
   temperature?: number;

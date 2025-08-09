@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { IPromptMetrics, PromptEnvironment } from '../types';
+import { IPromptMetrics } from '../types';
 
 // Extend the Model interface to include static methods
 export interface PromptMetricsModel extends Model<IPromptMetrics> {
@@ -8,7 +8,7 @@ export interface PromptMetricsModel extends Model<IPromptMetrics> {
     promptVersion: string,
     period: 'hour' | 'day' | 'week' | 'month',
     timestamp: Date,
-    environment: PromptEnvironment
+    environment: 'production' | 'development'
   ) => Promise<IPromptMetrics>;
   
   aggregateMetrics: (
@@ -16,7 +16,7 @@ export interface PromptMetricsModel extends Model<IPromptMetrics> {
     period: 'hour' | 'day' | 'week' | 'month',
     startDate: Date,
     endDate: Date,
-    environment?: PromptEnvironment,
+    environment?: 'production' | 'development',
     promptVersion?: string
   ) => Promise<{
     summary: {
@@ -46,7 +46,7 @@ export interface PromptMetricsModel extends Model<IPromptMetrics> {
     period: 'hour' | 'day' | 'week' | 'month',
     startDate: Date,
     endDate: Date,
-    environment?: PromptEnvironment,
+    environment?: 'production' | 'development',
     limit?: number
   ) => Promise<Array<{
     promptId: string;

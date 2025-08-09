@@ -15,7 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PromptFormData, TemplateValidationResult, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { AgentType, DiagramType, PromptOperation } from '@/lib/database/types';
 import { 
   validatePromptFormData, 
   PROMPT_DEFAULTS, 
@@ -54,6 +54,7 @@ export default function NewPromptEditPage() {
     agentType: PROMPT_DEFAULTS.agentType,
     diagramType: [...PROMPT_DEFAULTS.diagramType],
     operation: PROMPT_DEFAULTS.operation,
+    isProduction: PROMPT_DEFAULTS.isProduction,
     environments: [...PROMPT_DEFAULTS.environments],
     tags: [...PROMPT_DEFAULTS.tags],
     template: '',
@@ -259,7 +260,7 @@ export default function NewPromptEditPage() {
     }
   };
   
-  const handleEnvironmentToggle = (env: PromptEnvironment) => {
+  const handleEnvironmentToggle = (env: 'production' | 'development') => {
     // Environments are mutually exclusive
     updateFormData({ environments: [env] });
   };
@@ -460,7 +461,7 @@ export default function NewPromptEditPage() {
                 } as unknown as PromptMgmtPrompt}
                 variables={previewVariables}
                 onVariablesChange={setPreviewVariables}
-                showVariableEditor
+                showVariables
               />
             </TabsContent>
             
@@ -581,7 +582,7 @@ export default function NewPromptEditPage() {
               <div>
                 <Label>Environment</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.values(PromptEnvironment).map(env => (
+                  {(['development', 'production'] as const).map(env => (
                     <Badge
                       key={env}
                       variant={formData.environments.includes(env) ? "default" : "outline"}

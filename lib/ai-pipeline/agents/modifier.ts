@@ -4,7 +4,7 @@ import { z } from "zod";
 import { model, baseSystemPrompt } from "../baseChain";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
-import { getPrompt, substituteVariables, logPromptUsage } from "../../prompts/loader";
+import { getPrompt, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType } from "../schemas/MasterClassificationSchema";
 import { createEnhancedLogger, withTiming } from "../../utils/consola-logger";

@@ -229,7 +229,7 @@ export async function PUT(
     // Update other fields
     const updatableFields = [
       'name', 'agentType', 'diagramType', 'operation', 
-      'environments', 'tags', 'metadata', 'isProduction'
+      'tags', 'metadata', 'isProduction'
     ];
     
     updatableFields.forEach(field => {

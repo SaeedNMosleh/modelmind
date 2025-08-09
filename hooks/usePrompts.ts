@@ -10,13 +10,15 @@ import {
   ApiResponse,
   PaginatedResponse
 } from '@/lib/prompt-mgmt/types';
+import { CreatePromptInput, UpdatePromptInput } from '@/lib/database/types';
 
 interface UsePromptsOptions {
-  initialFilters?: PromptFilters;
+  initialFilters?: Partial<PromptFilters>;
   initialSort?: PromptSortOptions;
   pageSize?: number;
   autoRefresh?: boolean;
   refreshInterval?: number;
+  disableAutoFetch?: boolean; // Add option to disable auto-fetching
 }
 
 interface UsePromptsReturn {
@@ -43,8 +45,8 @@ interface UsePromptsReturn {
   togglePromptSelection: (id: string) => void;
   
   // CRUD operations
-  createPrompt: (promptData: any) => Promise<PromptMgmtPrompt>;
-  updatePrompt: (id: string, updates: any) => Promise<PromptMgmtPrompt>;
+  createPrompt: (promptData: CreatePromptInput) => Promise<PromptMgmtPrompt>;
+  updatePrompt: (id: string, updates: UpdatePromptInput) => Promise<PromptMgmtPrompt>;
   deletePrompt: (id: string) => Promise<void>;
   duplicatePrompt: (id: string, nameSuffix?: string) => Promise<PromptMgmtPrompt>;
   
@@ -58,7 +60,8 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     initialSort = { field: 'updatedAt', direction: 'desc' },
     pageSize = 20,
     autoRefresh = false,
-    refreshInterval = 30000
+    refreshInterval = 30000,
+    disableAutoFetch = false
   } = options;
   
   // State
@@ -115,9 +118,7 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
       if (currentFilters.operation?.length) {
         searchParams.set('operation', currentFilters.operation.join(','));
       }
-      if (currentFilters.environment?.length) {
-        searchParams.set('environment', currentFilters.environment.join(','));
-      }
+      // ...existing code...
       if (currentFilters.isProduction !== undefined) {
         searchParams.set('isProduction', currentFilters.isProduction.toString());
       }
@@ -129,6 +130,11 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
       }
       
       const response = await fetch(`/api/prompt-mgmt?${searchParams.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+      }
+      
       const data: PaginatedResponse<PromptMgmtPrompt> = await response.json();
       
       if (!data.success) {
@@ -148,8 +154,14 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      console.error('Error fetching prompts:', err);
+      setError(`Failed to fetch prompts: ${errorMessage}`);
+      console.error('Error fetching prompts:', {
+        error: err,
+        url: `/api/prompt-mgmt`,
+        filters: currentFilters,
+        sort: currentSort,
+        page: targetPage
+      });
     } finally {
       setLoading(false);
     }
@@ -157,19 +169,21 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
   
   // Initial load and dependency updates
   useEffect(() => {
-    fetchPrompts(1, true);
-  }, [filters, sort, fetchPrompts]);
+    if (!disableAutoFetch) {
+      fetchPrompts(1, true);
+    }
+  }, [filters, sort, fetchPrompts, disableAutoFetch]);
   
   // Auto-refresh
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || disableAutoFetch) return;
     
     const interval = setInterval(() => {
       fetchPrompts(currentPage, true);
     }, refreshInterval);
     
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, currentPage, fetchPrompts]);
+  }, [autoRefresh, refreshInterval, currentPage, fetchPrompts, disableAutoFetch]);
   
   // Actions
   const refresh = useCallback(() => fetchPrompts(currentPage, true), [fetchPrompts, currentPage]);
@@ -204,7 +218,7 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
   }, []);
   
   // CRUD operations
-  const createPrompt = useCallback(async (promptData: any): Promise<PromptMgmtPrompt> => {
+  const createPrompt = useCallback(async (promptData: CreatePromptInput): Promise<PromptMgmtPrompt> => {
     const response = await fetch('/api/prompt-mgmt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,7 +237,7 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     return data.data!;
   }, [refresh]);
   
-  const updatePrompt = useCallback(async (id: string, updates: any): Promise<PromptMgmtPrompt> => {
+  const updatePrompt = useCallback(async (id: string, updates: UpdatePromptInput): Promise<PromptMgmtPrompt> => {
     const response = await fetch(`/api/prompt-mgmt/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -261,28 +275,6 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     setTotal(prev => prev - 1);
   }, []);
   
-  const duplicatePrompt = useCallback(async (id: string, nameSuffix = ' (Copy)'): Promise<PromptMgmtPrompt> => {
-    const result = await executeBulkOperation({
-      type: 'duplicate',
-      promptIds: [id],
-      options: { nameSuffix }
-    });
-    
-    if (result.failed > 0) {
-      const failedResult = result.results.find(r => r.promptId === id);
-      throw new Error(failedResult?.error || 'Failed to duplicate prompt');
-    }
-    
-    // Refresh to get the new prompt
-    await refresh();
-    
-    // Return the newly created prompt (we'll need to find it by name)
-    const originalPrompt = prompts.find(p => p._id.toString() === id);
-    const duplicatedPrompt = prompts.find(p => p.name === `${originalPrompt?.name}${nameSuffix}`);
-    
-    return duplicatedPrompt!;
-  }, [prompts, refresh]);
-  
   const executeBulkOperation = useCallback(async (operation: BulkOperation): Promise<BulkOperationResult> => {
     const response = await fetch('/api/prompt-mgmt/bulk', {
       method: 'POST',
@@ -303,6 +295,28 @@ export function usePrompts(options: UsePromptsOptions = {}): UsePromptsReturn {
     
     return data.data!;
   }, [refresh]);
+
+  const duplicatePrompt = useCallback(async (id: string, nameSuffix = ' (Copy)'): Promise<PromptMgmtPrompt> => {
+    const result = await executeBulkOperation({
+      type: 'duplicate',
+      promptIds: [id],
+      options: { nameSuffix }
+    });
+    
+    if (result.failed > 0) {
+      const failedResult = result.results.find(r => r.promptId === id);
+      throw new Error(failedResult?.error || 'Failed to duplicate prompt');
+    }
+    
+    // Refresh to get the new prompt
+    await refresh();
+    
+    // Return the newly created prompt (we'll need to find it by name)
+    const originalPrompt = prompts.find(p => p._id.toString() === id);
+    const duplicatedPrompt = prompts.find(p => p.name === `${originalPrompt?.name}${nameSuffix}`);
+    
+    return duplicatedPrompt!;
+  }, [prompts, refresh, executeBulkOperation]);
   
   return {
     prompts,

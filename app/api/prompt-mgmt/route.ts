@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/database/connection';
 import { Prompt } from '@/lib/database/models/prompt';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { AgentType, DiagramType, PromptOperation } from '@/lib/database/types';
 import { PromptFilters, PromptSortOptions, ApiResponse, PaginatedResponse, PromptMgmtPrompt } from '@/lib/prompt-mgmt/types';
 import { filterPrompts, sortPrompts } from '@/lib/prompt-mgmt/utils';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
       agentType: searchParams.get('agentType')?.split(',') as AgentType[],
       diagramType: searchParams.get('diagramType')?.split(',') as DiagramType[],
       operation: searchParams.get('operation')?.split(',') as PromptOperation[],
-      environment: searchParams.get('environment')?.split(',') as PromptEnvironment[],
       isProduction: searchParams.get('isProduction') ? searchParams.get('isProduction') === 'true' : undefined,
       tags: searchParams.get('tags')?.split(','),
       search: searchParams.get('search') || undefined
@@ -176,7 +175,6 @@ export async function POST(request: NextRequest) {
         metadata: promptData.versionMetadata || {}
       }],
       isProduction: promptData.isProduction || false,
-      environments: promptData.environments || ['development'],
       tags: promptData.tags || [],
       metadata: promptData.metadata || {}
     });

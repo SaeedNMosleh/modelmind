@@ -9,7 +9,12 @@ import {
   TestCase, 
   TestCaseValidationSchema 
 } from '../database/models/testCase';
-import { PromptEnvironment } from '../database/types';
+import { AgentType, PromptOperation } from '../database/types';
+// PromptEnvironment removed - using isProduction boolean
+import { 
+  isValidAgentOperation, 
+  canSelectDiagramTypes 
+} from '../prompt-mgmt/agent-operation-config';
 
 const logger = createEnhancedLogger('validation-utils');
 
@@ -75,7 +80,6 @@ export class ValidationManager {
           diagramType: prompt.diagramType,
           operation: prompt.operation,
           isProduction: prompt.isProduction,
-          environments: prompt.environments,
           tags: prompt.tags,
           metadata: prompt.metadata
         });
@@ -162,6 +166,9 @@ export class ValidationManager {
             issue: `Duplicate prompt name "${prompt.name}" found ${duplicateCount} times`
           });
         }
+
+        // Validate agent-operation compatibility
+        this.validateAgentOperationLogic(prompt, issues);
 
         // Validate PromptFoo compatibility
         this.validatePromptFooCompatibility(prompt, issues);
@@ -265,6 +272,45 @@ export class ValidationManager {
     return { total: testCases.length, valid: validCount, issues };
   }
 
+  private validateAgentOperationLogic(prompt: { 
+    _id: string; 
+    agentType: string;
+    operation: string;
+    diagramType: string[];
+  }, issues: ValidationIssue[]): void {
+    // Validate agent-operation compatibility
+    if (!isValidAgentOperation(prompt.agentType as AgentType, prompt.operation as PromptOperation)) {
+      issues.push({
+        type: 'error',
+        collection: 'prompts',
+        documentId: prompt._id.toString(),
+        field: 'operation',
+        issue: `Operation "${prompt.operation}" is not valid for agent "${prompt.agentType}"`
+      });
+    }
+
+    // Validate diagram type logic
+    const supportsDiagramTypes = canSelectDiagramTypes(prompt.agentType as AgentType, prompt.operation as PromptOperation);
+    
+    if (!supportsDiagramTypes && prompt.diagramType.length > 0) {
+      issues.push({
+        type: 'error',
+        collection: 'prompts',
+        documentId: prompt._id.toString(),
+        field: 'diagramType',
+        issue: `Agent "${prompt.agentType}" with operation "${prompt.operation}" should not have diagram types (should be generic). Found: ${prompt.diagramType.join(', ')}`
+      });
+    } else if (supportsDiagramTypes && prompt.diagramType.length === 0) {
+      issues.push({
+        type: 'warning',
+        collection: 'prompts',
+        documentId: prompt._id.toString(),
+        field: 'diagramType',
+        issue: `Agent "${prompt.agentType}" with operation "${prompt.operation}" can support diagram-specific prompts but has no diagram types defined. Consider adding specific diagram types for better targeting.`
+      });
+    }
+  }
+
   private validateTemplateVariables(promptId: string, version: string, template: string, issues: ValidationIssue[]): void {
     // Find all {variable} patterns
     const variablePattern = /\{([^}]+)\}/g;
@@ -317,7 +363,6 @@ export class ValidationManager {
       template: string;
       variables: string[];
     }>;
-    environments?: string[];
     isProduction?: boolean;
   }, issues: ValidationIssue[]): void {
     // Check if prompt has appropriate metadata for PromptFoo
@@ -340,14 +385,14 @@ export class ValidationManager {
       });
     }
 
-    // Check for environment-specific configurations
-    if (prompt.environments?.includes(PromptEnvironment.PRODUCTION) && !prompt.isProduction) {
+    // Validate production status
+    if (typeof prompt.isProduction !== 'boolean') {
       issues.push({
-        type: 'warning',
+        type: 'error',
         collection: 'prompts',
         documentId: prompt._id.toString(),
         field: 'isProduction',
-        issue: 'Prompt is marked for production environment but isProduction=false'
+        issue: 'Production status must be a boolean value'
       });
     }
   }

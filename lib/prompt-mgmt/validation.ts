@@ -1,4 +1,4 @@
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '../database/types';
+import { AgentType, DiagramType, PromptOperation } from '../database/types';
 
 /**
  * Validation rules for different agent types based on AI pipeline code structure
@@ -31,6 +31,13 @@ export const AGENT_RULES = {
     allowMultipleDiagramTypes: false,
     requiredFields: ['name', 'agentType', 'operation', 'diagramType'],
     description: 'Analyzes diagrams - works with single diagram type at a time'
+  },
+  [AgentType.MASTER_CLASSIFIER]: {
+    operations: [PromptOperation.COMPREHENSIVE_CLASSIFICATION] as PromptOperation[],
+    allowDiagramTypes: false,
+    allowMultipleDiagramTypes: false,
+    requiredFields: ['name', 'agentType', 'operation'],
+    description: 'Performs comprehensive classification - does not work with specific diagram types'
   }
 } as const;
 
@@ -40,10 +47,10 @@ export const AGENT_RULES = {
 export const PROMPT_DEFAULTS = {
   agentType: AgentType.GENERATOR,
   diagramType: [DiagramType.SEQUENCE],
-  environment: PromptEnvironment.DEVELOPMENT,
+  isProduction: false,
   operation: PromptOperation.GENERATION,
-  tags: [],
-  environments: [PromptEnvironment.DEVELOPMENT]
+  environments: ['development'],
+  tags: []
 } as const;
 
 /**
@@ -51,8 +58,8 @@ export const PROMPT_DEFAULTS = {
  */
 export const ENVIRONMENT_RULES = {
   mutuallyExclusive: true,
-  options: Object.values(PromptEnvironment),
-  default: PromptEnvironment.DEVELOPMENT
+  options: ['development', 'production'] as const,
+  default: 'development' as const
 } as const;
 
 /**
@@ -69,13 +76,18 @@ export function validatePromptFormData(formData: {
   agentType: AgentType;
   diagramType: DiagramType[];
   operation: PromptOperation;
-  environments: PromptEnvironment[];
+  isProduction: boolean;
   template: string;
 }): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   
   const rules = AGENT_RULES[formData.agentType];
+  
+  if (!rules) {
+    errors.push(`Invalid agent type: ${formData.agentType}`);
+    return { isValid: false, errors, warnings };
+  }
   
   // Check required fields
   if (!formData.name?.trim()) {
@@ -104,16 +116,7 @@ export function validatePromptFormData(formData: {
     }
   }
   
-  // Check environment rules
-  if (formData.environments.length === 0) {
-    errors.push('At least one environment must be selected');
-  } else if (formData.environments.length > 1) {
-    // Check for production + development
-    if (formData.environments.includes(PromptEnvironment.PRODUCTION) && 
-        formData.environments.includes(PromptEnvironment.DEVELOPMENT)) {
-      errors.push('Production and Development environments are mutually exclusive');
-    }
-  }
+  // Environment is now handled by isProduction boolean - no additional validation needed
   
   return {
     isValid: errors.length === 0,
@@ -126,33 +129,46 @@ export function validatePromptFormData(formData: {
  * Get default operation for an agent type
  */
 export function getDefaultOperation(agentType: AgentType): PromptOperation {
-  return AGENT_RULES[agentType].operations[0];
+  const rules = AGENT_RULES[agentType];
+  if (!rules || !rules.operations.length) {
+    console.warn(`No operations found for agent type: ${agentType}`);
+    return PromptOperation.GENERATION; // fallback
+  }
+  return rules.operations[0];
 }
 
 /**
  * Check if diagram types should be enabled for an agent type
  */
 export function shouldShowDiagramTypes(agentType: AgentType): boolean {
-  return AGENT_RULES[agentType].allowDiagramTypes;
+  const rules = AGENT_RULES[agentType];
+  return rules ? rules.allowDiagramTypes : false;
 }
 
 /**
  * Check if multiple diagram types are allowed for an agent type
  */
 export function allowsMultipleDiagramTypes(agentType: AgentType): boolean {
-  return AGENT_RULES[agentType].allowMultipleDiagramTypes;
+  const rules = AGENT_RULES[agentType];
+  return rules ? rules.allowMultipleDiagramTypes : false;
 }
 
 /**
  * Get valid operations for an agent type
  */
 export function getValidOperations(agentType: AgentType): PromptOperation[] {
-  return [...AGENT_RULES[agentType].operations];
+  const rules = AGENT_RULES[agentType];
+  return rules ? [...rules.operations] : [];
 }
 
 /**
  * Get description for an agent type
  */
 export function getAgentDescription(agentType: AgentType): string {
-  return AGENT_RULES[agentType].description;
+  const rules = AGENT_RULES[agentType];
+  if (!rules) {
+    console.warn(`No rules found for agent type: ${agentType}`);
+    return `Unknown agent type: ${agentType}`;
+  }
+  return rules.description;
 }

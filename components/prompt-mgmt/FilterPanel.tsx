@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Filter, 
@@ -12,7 +12,11 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { PromptFilters, PromptSortOptions } from '@/lib/prompt-mgmt/types';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { AgentType, DiagramType, PromptOperation } from '@/lib/database/types';
+import { 
+  canSelectDiagramTypes, 
+  getAvailableOperations
+} from '@/lib/prompt-mgmt/agent-operation-config';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +71,30 @@ export function FilterPanel({
     } : undefined
   );
   
+  // Check if diagram types should be disabled based on selected agents/operations
+  const isDiagramTypeDisabled = useMemo(() => {
+    // If no agents or operations selected, allow diagram type selection
+    if (!filters.agentType?.length || !filters.operation?.length) {
+      return false;
+    }
+    
+    // Check if any selected agent-operation combination supports diagram-specific prompts
+    for (const agent of filters.agentType) {
+      for (const operation of filters.operation) {
+        if (canSelectDiagramTypes(agent, operation)) {
+          return false; // At least one combination supports diagram types
+        }
+      }
+    }
+    
+    return true; // None of the combinations support diagram types
+  }, [filters.agentType, filters.operation]);
+  
+  // Get available operations based on selected agents
+  const availableOperations = useMemo(() => {
+    return getAvailableOperations(filters.agentType || []);
+  }, [filters.agentType]);
+  
   // Count active filters
   const activeFiltersCount = Object.values(filters).filter(value => {
     if (Array.isArray(value)) return value.length > 0;
@@ -89,14 +117,6 @@ export function FilterPanel({
     updateFilters({ agentType: updated.length > 0 ? updated : undefined });
   };
   
-  const handleDiagramTypeToggle = (diagramType: DiagramType, checked: boolean) => {
-    const current = filters.diagramType || [];
-    const updated = checked
-      ? [...current, diagramType]
-      : current.filter(t => t !== diagramType);
-    updateFilters({ diagramType: updated.length > 0 ? updated : undefined });
-  };
-  
   const handleOperationToggle = (operation: PromptOperation, checked: boolean) => {
     const current = filters.operation || [];
     const updated = checked
@@ -105,13 +125,16 @@ export function FilterPanel({
     updateFilters({ operation: updated.length > 0 ? updated : undefined });
   };
   
-  const handleEnvironmentToggle = (environment: PromptEnvironment, checked: boolean) => {
-    const current = filters.environment || [];
+  const handleDiagramTypeToggle = (diagramType: DiagramType, checked: boolean) => {
+    if (isDiagramTypeDisabled) return; // Prevent changes when disabled
+    
+    const current = filters.diagramType || [];
     const updated = checked
-      ? [...current, environment]
-      : current.filter(e => e !== environment);
-    updateFilters({ environment: updated.length > 0 ? updated : undefined });
+      ? [...current, diagramType]
+      : current.filter(t => t !== diagramType);
+    updateFilters({ diagramType: updated.length > 0 ? updated : undefined });
   };
+  
   
   const handleProductionStatusChange = (value: string) => {
     const isProduction = value === 'production' ? true : value === 'development' ? false : undefined;
@@ -354,33 +377,47 @@ export function FilterPanel({
           
           {/* Diagram Types */}
           <div>
-            <Label className="text-sm font-medium">Diagram Types</Label>
+            <Label className="text-sm font-medium">
+              Diagram Types
+              {isDiagramTypeDisabled && (
+                <Badge variant="outline" className="ml-2 text-xs">Generic Only</Badge>
+              )}
+            </Label>
             <div className="grid grid-cols-2 gap-2 mt-2">
               {Object.values(DiagramType).map(type => (
                 <div key={type} className="flex items-center space-x-2">
                   <Checkbox
                     id={`diagram-${type}`}
                     checked={filters.diagramType?.includes(type) || false}
+                    disabled={isDiagramTypeDisabled}
                     onCheckedChange={(checked) => 
                       handleDiagramTypeToggle(type, checked as boolean)
                     }
                   />
                   <Label 
                     htmlFor={`diagram-${type}`} 
-                    className="text-sm capitalize cursor-pointer"
+                    className={cn(
+                      "text-sm capitalize cursor-pointer",
+                      isDiagramTypeDisabled && "text-gray-400 cursor-not-allowed"
+                    )}
                   >
                     {type.replace('-', ' ')}
                   </Label>
                 </div>
               ))}
             </div>
+            {isDiagramTypeDisabled && (
+              <p className="text-xs text-gray-500 mt-2">
+                Diagram types are not applicable for the selected agent/operation combinations.
+              </p>
+            )}
           </div>
           
           {/* Operations */}
           <div>
             <Label className="text-sm font-medium">Operations</Label>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              {Object.values(PromptOperation).map(operation => (
+              {availableOperations.map(operation => (
                 <div key={operation} className="flex items-center space-x-2">
                   <Checkbox
                     id={`operation-${operation}`}
@@ -400,29 +437,6 @@ export function FilterPanel({
             </div>
           </div>
           
-          {/* Environments */}
-          <div>
-            <Label className="text-sm font-medium">Environments</Label>
-            <div className="flex gap-4 mt-2">
-              {Object.values(PromptEnvironment).map(env => (
-                <div key={env} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`env-${env}`}
-                    checked={filters.environment?.includes(env) || false}
-                    onCheckedChange={(checked) => 
-                      handleEnvironmentToggle(env, checked as boolean)
-                    }
-                  />
-                  <Label 
-                    htmlFor={`env-${env}`} 
-                    className="text-sm capitalize cursor-pointer"
-                  >
-                    {env}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
           
           {/* Tags */}
           <div>

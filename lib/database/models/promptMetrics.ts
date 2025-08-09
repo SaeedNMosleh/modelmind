@@ -1,6 +1,6 @@
 import mongoose, { Schema, model } from 'mongoose';
 import { z } from 'zod';
-import { IPromptMetrics, PromptEnvironment } from '../types';
+import { IPromptMetrics } from '../types';
 import { PromptMetricsModel } from './promptMetrics.types';
 
 export const PromptMetricsValidationSchema = z.object({
@@ -19,7 +19,7 @@ export const PromptMetricsValidationSchema = z.object({
     p95LatencyMs: z.number().min(0),
     p99LatencyMs: z.number().min(0)
   }),
-  environment: z.nativeEnum(PromptEnvironment)
+  environment: z.enum(['production', 'development'])
 });
 
 const PromptMetricsSchema = new Schema<IPromptMetrics>({
@@ -95,7 +95,7 @@ const PromptMetricsSchema = new Schema<IPromptMetrics>({
   },
   environment: {
     type: String,
-    enum: Object.values(PromptEnvironment),
+    enum: ['production', 'development'],
     required: true,
     index: true
   },
@@ -143,7 +143,7 @@ PromptMetricsSchema.statics.aggregateMetrics = async function(
   period: 'hour' | 'day' | 'week' | 'month',
   startDate: Date,
   endDate: Date,
-  environment?: PromptEnvironment,
+  environment?: 'production' | 'development',
   promptVersion?: string
 ) {
   const matchConditions: Record<string, unknown> = {
@@ -220,7 +220,7 @@ PromptMetricsSchema.statics.getTopPerformingPrompts = async function(
   period: 'hour' | 'day' | 'week' | 'month',
   startDate: Date,
   endDate: Date,
-  environment?: PromptEnvironment,
+  environment?: 'production' | 'development',
   limit: number = 10
 ) {
   const matchConditions: Record<string, unknown> = {
@@ -292,7 +292,7 @@ PromptMetricsSchema.statics.createFromTestResults = async function(
   promptVersion: string,
   period: 'hour' | 'day' | 'week' | 'month',
   timestamp: Date,
-  environment: PromptEnvironment
+  environment: 'production' | 'development'
 ) {
   const TestResult = mongoose.models.TestResult;
   if (!TestResult) {
@@ -320,7 +320,7 @@ PromptMetricsSchema.statics.createFromTestResults = async function(
     getAggregatedMetrics: (
       promptId: string,
       promptVersion: string,
-      environment: PromptEnvironment,
+      environment: 'production' | 'development',
       startDate: Date,
       endDate: Date
     ) => Promise<AggregatedMetrics>;

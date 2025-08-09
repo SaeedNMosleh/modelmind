@@ -10,7 +10,6 @@ import {
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import { PromptEnvironment } from '@/lib/database/types';
 import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
 
@@ -30,7 +29,7 @@ const PromptTestResultQuerySchema = z.object({
     .default('createdAt'),
   order: z.enum(['asc', 'desc']).default('desc'),
   version: z.string().optional(),
-  environment: z.nativeEnum(PromptEnvironment).optional(),
+  environment: z.enum(['production', 'development']).optional(),
   success: z
     .string()
     .optional()

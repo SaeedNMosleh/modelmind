@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from 'mongoose';
+import mongoose, { Schema, model, Model } from 'mongoose';
 import { z } from 'zod';
 import {
   IPrompt,
@@ -6,7 +6,6 @@ import {
   AgentType,
   DiagramType,
   PromptOperation,
-  PromptEnvironment,
   CreatePromptVersionInput
 } from '../types';
 
@@ -22,10 +21,9 @@ export const PromptVersionValidationSchema = z.object({
 export const PromptValidationSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').max(100, 'Name cannot exceed 100 characters'),
   agentType: z.nativeEnum(AgentType, { errorMap: () => ({ message: 'Invalid agent type' }) }),
-  diagramType: z.array(z.nativeEnum(DiagramType)).min(1, 'At least one diagram type is required'),
+  diagramType: z.array(z.nativeEnum(DiagramType)).min(0, 'Diagram types array must be valid'),
   operation: z.nativeEnum(PromptOperation, { errorMap: () => ({ message: 'Invalid prompt operation' }) }),
   isProduction: z.boolean().default(false),
-  environments: z.array(z.nativeEnum(PromptEnvironment)).min(1, 'At least one environment is required'),
   tags: z.array(z.string()).default([]),
   metadata: z.record(z.any()).optional()
 });
@@ -104,13 +102,9 @@ const PromptSchema = new Schema<IPrompt>({
   },
   isProduction: {
     type: Boolean,
-    default: false
-  },
-  environments: [{
-    type: String,
-    enum: Object.values(PromptEnvironment),
+    default: false,
     required: true
-  }],
+  },
   tags: [{
     type: String,
     trim: true
@@ -133,7 +127,8 @@ const PromptSchema = new Schema<IPrompt>({
 
 PromptSchema.index({ agentType: 1, diagramType: 1 });
 PromptSchema.index({ operation: 1 });
-PromptSchema.index({ isProduction: 1, environments: 1 });
+PromptSchema.index({ isProduction: 1 });
+PromptSchema.index({ agentType: 1, operation: 1, isProduction: 1 }); // For atomic activation queries
 PromptSchema.index({ tags: 1 });
 PromptSchema.index({ name: 'text', tags: 'text' });
 PromptSchema.index({ 'versions.version': 1 });
@@ -196,6 +191,40 @@ PromptSchema.methods.getPrimaryVersion = function(): IPromptVersion | null {
 
 PromptSchema.methods.getVersion = function(version: string): IPromptVersion | null {
   return this.versions.find((v: IPromptVersion) => v.version === version) || null;
+};
+
+/**
+ * Atomically activate this prompt for its agent-operation combination.
+ * This will deactivate any other prompts for the same agent-operation.
+ */
+PromptSchema.methods.activateAtomically = async function(): Promise<void> {
+  const PromptModel = this.constructor as Model<IPrompt>;
+  
+  // Start a session for atomic operation
+  const session = await mongoose.startSession();
+  
+  try {
+    await session.withTransaction(async () => {
+      // Deactivate all other prompts for this agent-operation combination
+      await PromptModel.updateMany(
+        {
+          agentType: this.agentType,
+          operation: this.operation,
+          _id: { $ne: this._id },
+          isProduction: true
+        },
+        { isProduction: false },
+        { session }
+      );
+      
+      // Activate this prompt
+      this.isProduction = true;
+      this.updatedAt = new Date();
+      await this.save({ session });
+    });
+  } finally {
+    await session.endSession();
+  }
 };
 
 export const Prompt = mongoose.models.Prompt || model<IPrompt>('Prompt', PromptSchema);

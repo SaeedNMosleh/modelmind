@@ -3,7 +3,7 @@
  * Provides beautiful, readable logging with colors, 3-letter prefixes, and stage-specific colors
  */
 
-import { consola, createConsola } from 'consola';
+import { createConsola } from 'consola';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -130,7 +130,7 @@ export const loggers = {
  * Performance timing utility with beautiful output
  */
 export async function withTiming<T>(
-  logger: any,
+  logger: ReturnType<typeof createEnhancedLogger>,
   operation: string,
   fn: () => Promise<T>
 ): Promise<T> {
@@ -203,18 +203,19 @@ export const createEnhancedLogger = (context: string) => {
       base.start(`⏳ Starting ${stage}`);
     },
     
-    stageComplete: (stage: string, duration: number, result?: Record<string, any>) => {
+    stageComplete: (stage: string, duration: number, result?: Record<string, unknown>) => {
       let resultStr = '';
       if (result) {
         const keys = Object.keys(result).slice(0, 3); // Show first 3 result fields
-        resultStr = ` | ${keys.map(k => `${k}: ${result[k]}`).join(', ')}`;
+        resultStr = ` | ${keys.map(k => `${k}: ${String(result[k])}`).join(', ')}`;
       }
       base.success(`✅ Completed ${stage} | Duration: ${duration}ms${resultStr}`);
     },
     
     // Error logging with context (no user input exposure)
-    failure: (operation: string, error: any, context?: Record<string, any>) => {
-      base.error(`❌ ${operation} failed | Error: ${error.message || error}`);
+    failure: (operation: string, error: unknown, context?: Record<string, unknown>) => {
+      const errorMsg = typeof error === 'object' && error !== null && 'message' in error ? (error as { message?: string }).message : String(error);
+      base.error(`❌ ${operation} failed | Error: ${errorMsg}`);
       if (context && Object.keys(context).length > 0) {
         // Filter out sensitive information
         const safeContext = Object.fromEntries(

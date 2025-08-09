@@ -9,7 +9,6 @@ import {
 } from '@/lib/api/responses';
 import { ObjectIdSchema } from '@/lib/api/validation/prompts';
 import { zodErrorsToValidationDetails } from '@/lib/api/validation/prompts';
-import { PromptEnvironment } from '@/lib/database/types';
 import { TestAnalytics } from '@/lib/testing/types';
 import { z } from 'zod';
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
@@ -25,7 +24,7 @@ const AnalyticsQuerySchema = z.object({
     .string()
     .optional()
     .transform(val => val ? new Date(val) : new Date()),
-  environment: z.nativeEnum(PromptEnvironment).optional(),
+  environment: z.enum(['production', 'development']).optional(),
   version: z.string().optional(),
   granularity: z.enum(['hour', 'day', 'week']).default('day'),
   includeVersionComparison: z

@@ -10,6 +10,7 @@ import {
   ValidationError
 } from './types';
 import { AgentType } from '../database/types';
+import { AnalysisType } from '../ai-pipeline/schemas/MasterClassificationSchema';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -37,7 +38,8 @@ export function extractTemplateVariables(template: string): TemplateVariable[] {
         name: varName,
         type,
         required: true, // Assume required by default
-        description: generateVariableDescription(varName)
+        description: generateVariableDescription(varName),
+        ...getVariableValidation(varName, type)
       });
     }
   }
@@ -48,12 +50,22 @@ export function extractTemplateVariables(template: string): TemplateVariable[] {
 function inferVariableType(varName: string): TemplateVariable['type'] {
   const lowerName = varName.toLowerCase();
   
+  // Check for specific known enum variables first
+  if (lowerName === 'analysistype') {
+    return 'enum';
+  }
+  
   // Check for common patterns
   if (lowerName.includes('count') || lowerName.includes('number') || lowerName.includes('index')) {
     return 'number';
   }
   
+  // Fix: conversationHistory should be string, not boolean
   if (lowerName.includes('is') || lowerName.includes('has') || lowerName.includes('enabled')) {
+    // Exception: conversationHistory should be string
+    if (lowerName.includes('conversation') || lowerName.includes('history')) {
+      return 'string';
+    }
     return 'boolean';
   }
   
@@ -69,6 +81,25 @@ function inferVariableType(varName: string): TemplateVariable['type'] {
 }
 
 function generateVariableDescription(varName: string): string {
+  const lowerName = varName.toLowerCase();
+  
+  // Specific descriptions for known variables
+  if (lowerName === 'analysistype') {
+    return 'Type of analysis to perform on the diagram';
+  }
+  if (lowerName === 'conversationhistory') {
+    return 'Previous conversation messages for context';
+  }
+  if (lowerName === 'currentdiagram') {
+    return 'Current PlantUML diagram content';
+  }
+  if (lowerName === 'userinput') {
+    return 'User input or request';
+  }
+  if (lowerName === 'diagramtype') {
+    return 'Type of diagram to generate or analyze';
+  }
+  
   // Convert camelCase to readable description
   const readable = varName
     .replace(/([A-Z])/g, ' $1')
@@ -76,6 +107,21 @@ function generateVariableDescription(varName: string): string {
     .trim();
   
   return `${readable} parameter`;
+}
+
+function getVariableValidation(varName: string, type: TemplateVariable['type']): Partial<TemplateVariable> {
+  const lowerName = varName.toLowerCase();
+  
+  // Add enum validation for specific variables
+  if (lowerName === 'analysistype' && type === 'enum') {
+    return {
+      validation: {
+        enum: Object.values(AnalysisType)
+      }
+    };
+  }
+  
+  return {};
 }
 
 // Template validation
@@ -166,15 +212,7 @@ export function filterPrompts(prompts: PromptMgmtPrompt[], filters: PromptFilter
       }
     }
     
-    // Environment filter
-    if (filters.environment && filters.environment.length > 0) {
-      const hasMatchingEnv = filters.environment.some(env => 
-        prompt.environments.includes(env)
-      );
-      if (!hasMatchingEnv) {
-        return false;
-      }
-    }
+    // ...existing code...
     
     // Production status filter
     if (filters.isProduction !== undefined) {

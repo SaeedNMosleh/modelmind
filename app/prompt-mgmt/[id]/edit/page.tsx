@@ -14,7 +14,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { PromptMgmtPrompt, PromptFormData, TemplateValidationResult, PromptMgmtVersion } from '@/lib/prompt-mgmt/types';
-import { AgentType, DiagramType, PromptOperation, PromptEnvironment } from '@/lib/database/types';
+import { AgentType, PromptOperation } from '@/lib/database/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,12 @@ import { MonacoEditor } from '@/components/prompt-mgmt/MonacoEditor';
 import { PromptPreview } from '@/components/prompt-mgmt/PromptPreview';
 import { VariableEditor } from '@/components/prompt-mgmt/VariableEditor';
 import { validateTemplate, validateSemanticVersion } from '@/lib/prompt-mgmt/utils';
+import { 
+  getDiagramTypeDisplayConfig, 
+  getProductionStatusLabel,
+  validateFormField
+} from '@/lib/prompt-mgmt/form-validation';
+import { getValidOperations, getAvailableAgentTypes } from '@/lib/prompt-mgmt/agent-operation-config';
 import { cn } from '@/lib/utils';
 
 export default function PromptEditPage() {
@@ -52,7 +58,8 @@ export default function PromptEditPage() {
     agentType: AgentType.GENERATOR,
     diagramType: [],
     operation: PromptOperation.GENERATION,
-    environments: [PromptEnvironment.DEVELOPMENT],
+    isProduction: false,
+    environments: ['development'],
     tags: [],
     template: '',
     changelog: '',
@@ -60,7 +67,6 @@ export default function PromptEditPage() {
   });
   
   // Additional state for version management
-  const [currentEditingVersion, setCurrentEditingVersion] = useState<string>('');
   const [newVersion, setNewVersion] = useState<string>('');
   const [originalVersion, setOriginalVersion] = useState<string>('');
   
@@ -75,6 +81,17 @@ export default function PromptEditPage() {
   const [editingVersion, setEditingVersion] = useState<string | null>(null);
   const [draftVersion, setDraftVersion] = useState<PromptMgmtVersion | null>(null);
   const [versionValidation, setVersionValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: true });
+  
+  // Real-time validation and UI state
+  const [fieldValidationErrors, setFieldValidationErrors] = useState<Record<string, string>>({});
+  const [diagramTypeConfig, setDiagramTypeConfig] = useState<ReturnType<typeof getDiagramTypeDisplayConfig> | null>(null);
+  
+  // Set initial diagram type config for new prompts
+  useEffect(() => {
+    if (isNew && diagramTypeConfig === null) {
+      setDiagramTypeConfig(getDiagramTypeDisplayConfig(formData.diagramType));
+    }
+  }, [isNew, formData.diagramType, diagramTypeConfig]);
   
   // Fetch existing prompt for editing
   useEffect(() => {
@@ -119,12 +136,16 @@ export default function PromptEditPage() {
             agentType: data.data.agentType,
             diagramType: data.data.diagramType,
             operation: data.data.operation,
-            environments: data.data.environments,
+            isProduction: data.data.isProduction,
+            environments: data.data.environments || ['development'],
             tags: data.data.tags,
             template: targetVersion?.template || '',
             changelog: editVersionParam ? `Edit of version ${editVersionParam}` : '',
             metadata: data.data.metadata || {}
           });
+          
+          // Set diagram type display configuration
+          setDiagramTypeConfig(getDiagramTypeDisplayConfig(data.data.diagramType));
           
           // Set version states
           const versionToEdit = targetVersion?.version || data.data.primaryVersion;
@@ -133,7 +154,7 @@ export default function PromptEditPage() {
             throw new Error('No version to edit found');
           }
           
-          setCurrentEditingVersion(versionToEdit);
+          setEditingVersion(versionToEdit);
           setOriginalVersion(versionToEdit);
           setNewVersion(versionToEdit);
         } catch (err) {
@@ -204,7 +225,7 @@ export default function PromptEditPage() {
   
   // Save function
   const handleSave = useCallback(async () => {
-    if (!validationResult?.isValid && !isAutoSave) {
+    if (!validationResult?.isValid) {
       alert('Please fix template validation errors before saving');
       return;
     }
@@ -315,14 +336,33 @@ export default function PromptEditPage() {
           // Clear outdated draft
           localStorage.removeItem(draftKey);
         }
-      } catch (e) {
+      } catch {
         localStorage.removeItem(draftKey);
       }
     }
   }, [isNew, promptId, originalVersion]);
 
   const updateFormData = (updates: Partial<PromptFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+    setFormData(prev => {
+      const newFormData = { ...prev, ...updates };
+      
+      // Perform real-time validation for updated fields
+      const newErrors = { ...fieldValidationErrors };
+      
+      Object.keys(updates).forEach(field => {
+        const fieldKey = field as keyof PromptFormData;
+        const fieldErrors = validateFormField(fieldKey, updates[fieldKey], newFormData);
+        
+        if (fieldErrors.length > 0) {
+          newErrors[field] = fieldErrors[0].message;
+        } else {
+          delete newErrors[field];
+        }
+      });
+      
+      setFieldValidationErrors(newErrors);
+      return newFormData;
+    });
     setIsDirty(true);
   };
   
@@ -365,20 +405,9 @@ export default function PromptEditPage() {
     updateFormData({ tags });
   };
   
-  const handleDiagramTypeToggle = (type: DiagramType) => {
-    const current = formData.diagramType;
-    const updated = current.includes(type)
-      ? current.filter(t => t !== type)
-      : [...current, type];
-    updateFormData({ diagramType: updated });
-  };
   
-  const handleEnvironmentToggle = (env: PromptEnvironment) => {
-    const current = formData.environments;
-    const updated = current.includes(env)
-      ? current.filter(e => e !== env)
-      : [...current, env];
-    updateFormData({ environments: updated });
+  const handleProductionToggle = () => {
+    updateFormData({ isProduction: !formData.isProduction });
   };
   
   if (loading) {
@@ -655,15 +684,24 @@ export default function PromptEditPage() {
                 <Label htmlFor="agentType">Agent Type</Label>
                 <Select 
                   value={formData.agentType} 
-                  onValueChange={(value: AgentType) => updateFormData({ agentType: value })}
+                  onValueChange={(value: AgentType) => {
+                    // When agent type changes, also update operation to first valid one
+                    const validOps = getValidOperations(value);
+                    const currentOpIsValid = validOps.includes(formData.operation);
+                    
+                    updateFormData({ 
+                      agentType: value,
+                      ...(currentOpIsValid ? {} : { operation: validOps[0] })
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(AgentType).map(type => (
+                    {getAvailableAgentTypes().map(type => (
                       <SelectItem key={type} value={type}>
-                        <span className="capitalize">{type}</span>
+                        <span className="capitalize">{type.replace('_', ' ')}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -676,48 +714,72 @@ export default function PromptEditPage() {
                   value={formData.operation} 
                   onValueChange={(value: PromptOperation) => updateFormData({ operation: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(
+                    fieldValidationErrors.operation && "border-red-500"
+                  )}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(PromptOperation).map(op => (
+                    {getValidOperations(formData.agentType).map(op => (
                       <SelectItem key={op} value={op}>
                         <span className="capitalize">{op.replace('_', ' ')}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {fieldValidationErrors.operation && (
+                  <p className="text-sm text-red-600 mt-1">{fieldValidationErrors.operation}</p>
+                )}
               </div>
               
               <div>
                 <Label>Diagram Types</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.values(DiagramType).map(type => (
-                    <Badge
-                      key={type}
-                      variant={formData.diagramType.includes(type) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => handleDiagramTypeToggle(type)}
-                    >
-                      {type}
-                    </Badge>
-                  ))}
+                <div className="mt-2">
+                  {diagramTypeConfig ? (
+                    <div className="space-y-2">
+                      <Badge variant="secondary" className="cursor-default">
+                        {diagramTypeConfig.displayLabel}
+                      </Badge>
+                      {!diagramTypeConfig.showAsGeneric && (
+                        <div className="flex flex-wrap gap-1">
+                          {diagramTypeConfig.displayTypes.map(type => (
+                            <Badge key={type} variant="outline" className="text-xs cursor-default">
+                              {type.charAt(0).toUpperCase() + type.slice(1).toLowerCase().replace('_', ' ')}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        Diagram types are determined by the prompt configuration and cannot be modified during editing.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">Loading diagram type configuration...</div>
+                  )}
                 </div>
               </div>
               
               <div>
-                <Label>Environments</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.values(PromptEnvironment).map(env => (
-                    <Badge
-                      key={env}
-                      variant={formData.environments.includes(env) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => handleEnvironmentToggle(env)}
-                    >
-                      {env}
-                    </Badge>
-                  ))}
+                <Label>Environment</Label>
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center space-x-3">
+                    <Switch
+                      id="production-toggle"
+                      checked={formData.isProduction}
+                      onCheckedChange={handleProductionToggle}
+                    />
+                    <Label htmlFor="production-toggle" className="flex items-center space-x-2">
+                      <Badge variant={formData.isProduction ? "default" : "secondary"}>
+                        {getProductionStatusLabel(formData.isProduction)}
+                      </Badge>
+                    </Label>
+                  </div>
+                  {fieldValidationErrors.isProduction && (
+                    <p className="text-sm text-red-600">{fieldValidationErrors.isProduction}</p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Toggle between Development and Production environments.
+                  </p>
                 </div>
               </div>
               
