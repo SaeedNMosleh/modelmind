@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type PanelState = boolean | "collapsed" | "normal" | "expanded"
 
 interface CollapsiblePanelProps {
   title: string
