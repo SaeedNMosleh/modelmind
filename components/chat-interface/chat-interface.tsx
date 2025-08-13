@@ -292,22 +292,21 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       <ScrollArea 
         ref={messageContainerRef} 
         className="flex-1 pr-2 pl-2 py-4 overflow-y-auto"
-      >        {messages.map((message) => (
+      >
+        {messages.map((message) => (
           <div 
             key={message.id} 
-            className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2`} // Reduced margins and padding
+            className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2`}
           >
-            <div className="flex items-center mb-1"> {/* Reduced margin */}
-              <div className={`flex items-center justify-center w-6 h-6 rounded-full ${
-                message.role === "user" ? "bg-[#2E3B5E]" : "bg-[#2A3046]"
-              }`}>
+            <div className="flex items-center mb-1">
+              <div className={`flex items-center justify-center w-6 h-6 rounded-full ${message.role === "user" ? "bg-[#2E3B5E]" : "bg-[#2A3046]"}`}>
                 {message.role === "user" ? (
-                  <User size={12} className="text-[#96ADFF]" /> // Smaller icon
+                  <User size={12} className="text-[#96ADFF]" />
                 ) : (
-                  <Bot size={12} className="text-[#79DBC7]" /> // Smaller icon
+                  <Bot size={12} className="text-[#79DBC7]" />
                 )}
               </div>
-              <div className="ml-1 text-xs font-semibold"> {/* Smaller text and margin */}
+              <div className="ml-1 text-xs font-semibold">
                 {message.role === "user" ? (
                   <span className="text-[#96ADFF]">You</span>
                 ) : (
@@ -316,7 +315,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
               </div>
             </div>
             <p className={`whitespace-pre-wrap text-sm leading-tight ml-7 ${
-              message.role === "user" ? "text-[#E8EAFF]" : "text-[#DFFFF6]"
+              message.role === "user" ? "text-[#F1F3FF]" : "text-[#E8FFF8]"
             }`}>
               {message.content.split(/(@\w+)/).map((part, index) =>
                 part.startsWith("@") ? (
@@ -332,16 +331,16 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
         ))}
         
         {isLoading && (
-          <div className="message-assistant mb-2 p-2"> 
+          <div className="message-assistant mb-3 p-3"> 
             <div className="flex items-center mb-1">
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#2A3046]">
-                <Bot size={12} className="text-[#79DBC7]" />
+              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#2A3046]">
+                <Bot size={14} className="text-[#79DBC7]" />
               </div>
               <div className="ml-1 text-xs font-semibold">
                 <span className="text-[#79DBC7]">Assistant</span>
               </div>
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-tight ml-7 text-[#DFFFF6] opacity-70">
+            <p className="whitespace-pre-wrap text-sm leading-tight ml-7 text-[#E8FFF8] opacity-80">
               Thinking...
             </p>
           </div>
@@ -453,13 +452,13 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                     key={cmd}
                     className={`px-4 py-1.5 cursor-pointer text-sm ${
                       index === selectedCommandIndex ? "bg-blue-900/50" : "hover:bg-slate-700"
-                    }`} // Smaller text and reduced padding
+                    }`}
                     onClick={() => insertCommand(cmd)}
                   >
                     <Badge variant="secondary" className="bg-blue-700/30 text-blue-300">
                       {cmd}
                     </Badge>
-                    <span className="ml-2 text-xs text-gray-300"> {/* Smaller text */}
+                    <span className="ml-2 text-xs text-gray-300">
                       {cmd === "@clear" ? "Clear chat history" : "Reset diagram"}
                     </span>
                   </li>

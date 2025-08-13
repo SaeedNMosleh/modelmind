@@ -91,8 +91,8 @@ body {
 
 /* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
-  width: 8px; /* Smaller scrollbar */
-  height: 8px;
+  width: 6px; /* Even smaller scrollbar */
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -126,11 +126,11 @@ body {
 /* Custom components */
 @layer components {
   .main-container {
-    @apply w-full px-4 py-2 flex flex-col h-[calc(100vh-80px)];
+    @apply w-full px-3 py-1 flex flex-col h-[calc(100vh-64px)];
   }
   
   .panel-container {
-    @apply grid gap-3 h-full overflow-hidden;
+    @apply grid gap-1 h-full overflow-hidden;
     background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 8px;
@@ -143,17 +143,17 @@ body {
   }
   
   .panel-header {
-    @apply p-2 flex items-center justify-between;
+    @apply p-1.5 flex items-center justify-between;
     background-color: var(--header-bg);
-    border-bottom: 1px solid var(--panel-border);
+    border-bottom: 0.5px solid var(--panel-border);
   }
   
   .panel-title {
-    @apply text-base font-semibold text-white flex items-center gap-2;
+    @apply text-sm font-semibold text-white flex items-center gap-2;
   }
   
   .panel-title-icon {
-    @apply w-4 h-4 rounded;
+    @apply w-3 h-3 rounded;
   }
   
   .panel-content {
@@ -163,13 +163,15 @@ body {
   .message-user {
     @apply rounded-lg;
     background: var(--user-msg-gradient);
-    border: 1px solid rgba(111, 135, 255, 0.3);
+    border: 1px solid rgba(111, 135, 255, 0.4);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
   
   .message-assistant {
     @apply rounded-lg;
     background: var(--ai-msg-gradient);
-    border: 1px solid rgba(78, 201, 176, 0.3);
+    border: 1px solid rgba(78, 201, 176, 0.4);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
   
   .button-primary {
@@ -230,7 +232,7 @@ body {
 .app-header {
   background: var(--header-gradient);
   box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.2);
-  height: 40px; /* Reduced header height */
+  height: 32px; /* Further reduced header height */
 }
 
 .chat-panel {
@@ -341,8 +343,8 @@ body {
 
 /* Enhanced scrollbar styling for VS Code look */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

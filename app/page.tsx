@@ -9,15 +9,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CollapsiblePanel } from "@/components/ui/collapsible-panel"
 import { Code, MessageSquare, Image } from "lucide-react"
 
+type ChatPanelState = "collapsed" | "normal" | "expanded"
+
 export default function Home() {
   const [script, setScript] = useState(DEFAULT_PLANTUML)
   const [activeTab, setActiveTab] = useState<string>("chat")
   const [isSmallScreen, setIsSmallScreen] = useState(false)
   
   // Panel expanded states
-  const [chatExpanded, setChatExpanded] = useState(true)
+  const [chatState, setChatState] = useState<ChatPanelState>("normal")
   const [editorExpanded, setEditorExpanded] = useState(true)
   const [previewExpanded, setPreviewExpanded] = useState(true)
+  
+  // Helper function to get chat panel width classes
+  const getChatPanelClasses = () => {
+    switch (chatState) {
+      case "collapsed":
+        return "w-auto min-w-[50px]"
+      case "normal":
+        return "w-1/5 min-w-[280px]"
+      case "expanded":
+        return "w-2/5 min-w-[400px]"
+      default:
+        return "w-1/5 min-w-[280px]"
+    }
+  }
   
   // Detect screen size for responsive layout
   useEffect(() => {
@@ -92,15 +108,16 @@ export default function Home() {
         </Tabs>
       ) : (
         /* Desktop Layout - Using collapsible panels */
-        <div className="flex h-full gap-4">
+        <div className="flex h-full gap-1">
           {/* Chat Panel */}
           <CollapsiblePanel
             id="chat-panel"
             title="Chat Assistant"
             icon={<MessageSquare className="w-5 h-5 text-indigo-400" />}
-            defaultExpanded={chatExpanded}
-            onToggle={setChatExpanded}
-            className={`transition-all duration-300 ${chatExpanded ? 'w-1/5 min-w-[250px]' : 'w-auto min-w-[50px]'}`}
+            enableTripleState={true}
+            tripleState={chatState}
+            onTripleStateChange={setChatState}
+            className={`transition-all duration-300 ${getChatPanelClasses()}`}
           >
             <ChatInterface onScriptGenerated={setScript} currentScript={script} />
           </CollapsiblePanel>
@@ -128,16 +145,18 @@ export default function Home() {
               // Properly handle the collapsed state
               !previewExpanded ? 'w-auto min-w-[50px]' :
               // If both other panels are collapsed, take up most space
-              (!chatExpanded && !editorExpanded) ? 'flex-1' :
+              (chatState === "collapsed" && !editorExpanded) ? 'flex-1' :
               // If one other panel is collapsed, take up more space
-              (!chatExpanded || !editorExpanded) ? 'w-3/5' :
-              // Default state - increased from w-1/3 to w-2/5
-              'w-2/5 min-w-[300px]'
+              (chatState === "collapsed" || !editorExpanded) ? 'w-3/5' :
+              // If chat is expanded (double width), give preview less space
+              chatState === "expanded" ? 'w-1/4 min-w-[250px]' :
+              // Default state - normal chat width
+              'w-2/5 min-w-[320px]'
             }`}
           >
             <Preview 
               content={script} 
-              expandedView={previewExpanded && (!chatExpanded || !editorExpanded)}
+              expandedView={previewExpanded && (chatState === "collapsed" || !editorExpanded)}
             />
           </CollapsiblePanel>
         </div>

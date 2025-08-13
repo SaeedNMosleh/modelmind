@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased app-container`}>        
-        <header className="app-header px-4 flex items-center">
+        <header className="app-header px-3 flex items-center">
           <div className="flex items-center">
             <div className="relative mr-2">
               <div 
