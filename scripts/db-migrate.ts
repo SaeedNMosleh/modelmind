@@ -258,6 +258,8 @@ async function migratePrompts(): Promise<MigrationStats> {
  */
 function mapAgentTypeToOperation(agentType: AgentType): PromptOperation {
   switch (agentType) {
+    case AgentType.BASE:
+      return PromptOperation.BASE_SYSTEM;
     case AgentType.GENERATOR:
       return PromptOperation.GENERATION;
     case AgentType.MODIFIER:

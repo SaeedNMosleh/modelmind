@@ -151,6 +151,32 @@ PromptSchema.pre('save', function(next) {
   next();
 });
 
+// Auto-activation pre-save hook - safety net for AI pipeline integrity
+PromptSchema.pre('save', async function(next) {
+  // Only check for new prompts that aren't explicitly set to production
+  if (this.isNew && !this.isProduction) {
+    try {
+      const PromptModel = this.constructor as Model<IPrompt>;
+      
+      // Check if this is the only prompt for this agent+operation combination
+      const existingCount = await PromptModel.countDocuments({
+        agentType: this.agentType,
+        operation: this.operation
+      });
+      
+      // If this will be the only prompt, auto-activate it
+      if (existingCount === 0) {
+        this.isProduction = true;
+        console.log(`[AUTO-ACTIVATION] Activating prompt ${this.name} - only prompt for ${this.agentType}+${this.operation}`);
+      }
+    } catch (error) {
+      console.error('[AUTO-ACTIVATION] Error in pre-save hook:', error);
+      // Continue without failing the save operation
+    }
+  }
+  next();
+});
+
 PromptSchema.methods.addVersion = function(versionData: CreatePromptVersionInput) {
   const validation = PromptVersionValidationSchema.safeParse(versionData);
   if (!validation.success) {

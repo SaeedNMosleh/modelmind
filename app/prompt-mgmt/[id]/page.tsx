@@ -276,7 +276,10 @@ export default function PromptDetailPage() {
               <div className="flex items-center space-x-2">
                 <Badge 
                   variant={prompt.isProduction ? "default" : "secondary"}
-                  className={prompt.isProduction ? "bg-green-100 text-green-800" : ""}
+                  className={prompt.isProduction 
+                    ? "bg-green-600 text-white border-green-500 font-medium" 
+                    : "bg-gray-600 text-gray-100 border-gray-500"
+                  }
                 >
                   {prompt.isProduction ? 'Production' : 'Development'}
                 </Badge>
@@ -320,7 +323,11 @@ export default function PromptDetailPage() {
             
             <div className="flex flex-wrap gap-1">
               {prompt.tags.map(tag => (
-                <Badge key={tag} variant="outline" className="text-xs">
+                <Badge 
+                  key={tag} 
+                  variant="outline" 
+                  className="text-xs bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200"
+                >
                   {tag}
                 </Badge>
               ))}
@@ -492,7 +499,15 @@ export default function PromptDetailPage() {
               <div>
                 <label className="text-sm font-medium text-gray-500">Environment</label>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  <Badge variant={prompt.isProduction ? "default" : "secondary"} className="text-xs">
+                  <Badge 
+                    variant={prompt.isProduction ? "default" : "secondary"} 
+                    className={cn(
+                      "text-xs",
+                      prompt.isProduction 
+                        ? "bg-green-600 text-white border-green-500" 
+                        : "bg-gray-600 text-gray-100 border-gray-500"
+                    )}
+                  >
                     {prompt.isProduction ? 'Production' : 'Development'}
                   </Badge>
                 </div>

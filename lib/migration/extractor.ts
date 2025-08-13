@@ -278,7 +278,7 @@ export function extractBaseSystemPrompt(): ExtractedPrompt {
 You have deep knowledge of PlantUML syntax, best practices, and design patterns.
 Always provide accurate, well-structured PlantUML code that follows conventions.`,
     variables: [],
-    agentType: AgentType.GENERATOR, // Base prompt can be categorized under any agent type
+    agentType: AgentType.BASE, // Base system prompt has its own dedicated category
     version: '2.0.0',
     isActive: true,
     metadata: {

@@ -4,6 +4,13 @@ import { AgentType, DiagramType, PromptOperation } from '../database/types';
  * Validation rules for different agent types based on AI pipeline code structure
  */
 export const AGENT_RULES = {
+  [AgentType.BASE]: {
+    operations: [PromptOperation.BASE_SYSTEM] as PromptOperation[],
+    allowDiagramTypes: false,
+    allowMultipleDiagramTypes: false,
+    requiredFields: ['name', 'agentType', 'operation'],
+    description: 'Base system prompt - provides foundational instructions for all agents'
+  },
   [AgentType.CLASSIFIER]: {
     operations: [PromptOperation.INTENT_CLASSIFICATION] as PromptOperation[],
     allowDiagramTypes: false,

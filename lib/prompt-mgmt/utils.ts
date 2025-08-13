@@ -432,10 +432,12 @@ export function getPromptStatusColor(prompt: PromptMgmtPrompt): string {
 
 export function getAgentTypeIcon(agentType: AgentType): string {
   const icons = {
+    [AgentType.BASE]: '⚡',
     [AgentType.GENERATOR]: '🔧',
     [AgentType.MODIFIER]: '✏️',
     [AgentType.ANALYZER]: '🔍',
-    [AgentType.CLASSIFIER]: '🏷️'
+    [AgentType.CLASSIFIER]: '🏷️',
+    [AgentType.MASTER_CLASSIFIER]: '🎯'
   };
   
   return icons[agentType] || '📄';

@@ -15,6 +15,12 @@ export interface AgentOperationConfig {
  */
 export const AGENT_OPERATION_MATRIX: AgentOperationConfig[] = [
   {
+    agent: AgentType.BASE,
+    validOperations: [PromptOperation.BASE_SYSTEM],
+    supportsDiagramSpecific: false,
+    description: 'Base system prompt provides foundational instructions used across all agents'
+  },
+  {
     agent: AgentType.GENERATOR,
     validOperations: [PromptOperation.GENERATION],
     supportsDiagramSpecific: false,

@@ -181,10 +181,30 @@ export async function POST(request: NextRequest) {
     
     const savedPrompt = await newPrompt.save();
     
+    // Auto-activate if this is the only prompt for this agent+operation combination
+    const existingCount = await Prompt.countDocuments({
+      agentType: promptData.agentType,
+      operation: promptData.operation
+    });
+    
+    let autoActivated = false;
+    if (existingCount === 1) {
+      savedPrompt.isProduction = true;
+      await savedPrompt.save();
+      autoActivated = true;
+      logger.info({
+        promptId: savedPrompt._id,
+        agentType: promptData.agentType,
+        operation: promptData.operation
+      }, 'Auto-activated prompt - only one for agent+operation combination');
+    }
+    
     const response: ApiResponse = {
       success: true,
       data: savedPrompt,
-      message: 'Prompt created successfully'
+      message: autoActivated 
+        ? 'Prompt created and auto-activated (only prompt for this agent+operation)'
+        : 'Prompt created successfully'
     };
     
     return NextResponse.json(response, { status: 201 });

@@ -1,6 +1,7 @@
 import { Document, Types } from 'mongoose';
 
 export enum AgentType {
+  BASE = 'base',
   GENERATOR = 'generator',
   MODIFIER = 'modifier',
   ANALYZER = 'analyzer',
@@ -9,6 +10,7 @@ export enum AgentType {
 }
 
 export enum PromptOperation {
+  BASE_SYSTEM = 'base-system',
   GENERATION = 'generation',
   MODIFICATION = 'modification',
   ANALYSIS = 'analysis',

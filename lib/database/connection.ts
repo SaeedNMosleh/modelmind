@@ -11,6 +11,7 @@ declare global {
     mongoose: {
       conn: mongoose.Connection | null;
       promise: Promise<mongoose.Connection> | null;
+      listenersAttached: boolean;
     } | undefined;
   }
 }
@@ -24,7 +25,7 @@ if (!MONGODB_URI) {
 let cached = global.mongoose;
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongoose = { conn: null, promise: null, listenersAttached: false };
 }
 
 export async function connectToDatabase() {
@@ -43,6 +44,9 @@ export async function connectToDatabase() {
       retryWrites: true,
       retryReads: true,
     };
+
+    // Increase max listeners to prevent memory leak warnings
+    mongoose.connection.setMaxListeners(20);
 
     logger.info('Creating new database connection');
     cached.promise = mongoose.connect(MONGODB_URI!, opts);
@@ -75,15 +79,22 @@ export async function disconnectFromDatabase() {
   }
 }
 
-mongoose.connection.on('error', (error) => {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  logger.error('💥 Database connection error', { error: errorMessage });
-});
+// Only attach event listeners once to prevent memory leaks
+if (!cached.listenersAttached) {
+  mongoose.connection.on('error', (error) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('💥 Database connection error', { error: errorMessage });
+  });
 
-mongoose.connection.on('disconnected', () => {
-  logger.warn('Database disconnected');
-  cached.conn = null;
-  cached.promise = null;
-});
+  mongoose.connection.on('disconnected', () => {
+    logger.warn('Database disconnected');
+    if (cached) {
+      cached.conn = null;
+      cached.promise = null;
+    }
+  });
+
+  cached.listenersAttached = true;
+}
 
 export default connectToDatabase;

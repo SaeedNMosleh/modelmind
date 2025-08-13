@@ -769,7 +769,13 @@ export default function PromptEditPage() {
                       onCheckedChange={handleProductionToggle}
                     />
                     <Label htmlFor="production-toggle" className="flex items-center space-x-2">
-                      <Badge variant={formData.isProduction ? "default" : "secondary"}>
+                      <Badge 
+                        variant={formData.isProduction ? "default" : "secondary"}
+                        className={formData.isProduction 
+                          ? "bg-green-600 text-white border-green-500 font-medium" 
+                          : "bg-gray-600 text-gray-100 border-gray-500"
+                        }
+                      >
                         {getProductionStatusLabel(formData.isProduction)}
                       </Badge>
                     </Label>

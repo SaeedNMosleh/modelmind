@@ -275,12 +275,39 @@ export async function DELETE(
       );
     }
     
-    // Check if prompt is in production
+    // Enhanced deletion safety for AI pipeline integrity
     if (prompt.isProduction) {
-      return NextResponse.json(
-        { success: false, error: 'Cannot delete production prompts. Deactivate first.' },
-        { status: 403 }
-      );
+      // Check if there are other prompts for the same agent+operation combination
+      const alternativePrompts = await Prompt.find({
+        agentType: prompt.agentType,
+        operation: prompt.operation,
+        _id: { $ne: promptId }
+      });
+      
+      if (alternativePrompts.length === 0) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Cannot delete the only activated prompt for this agent+operation combination. This would break the AI pipeline.' 
+          },
+          { status: 403 }
+        );
+      }
+      
+      // Auto-activate the most recently created alternative prompt
+      const mostRecentAlternative = alternativePrompts.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      
+      mostRecentAlternative.isProduction = true;
+      await mostRecentAlternative.save();
+      
+      logger.info({
+        deletedPromptId: promptId,
+        autoActivatedPromptId: mostRecentAlternative._id,
+        agentType: prompt.agentType,
+        operation: prompt.operation
+      }, 'Auto-activated alternative prompt to maintain AI pipeline integrity');
     }
     
     // Delete related data

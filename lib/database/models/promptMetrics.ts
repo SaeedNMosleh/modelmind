@@ -26,24 +26,20 @@ const PromptMetricsSchema = new Schema<IPromptMetrics>({
   promptId: {
     type: Schema.Types.ObjectId,
     ref: 'Prompt',
-    required: true,
-    index: true
+    required: true
   },
   promptVersion: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   period: {
     type: String,
     enum: ['hour', 'day', 'week', 'month'],
-    required: true,
-    index: true
+    required: true
   },
   timestamp: {
     type: Date,
-    required: true,
-    index: true
+    required: true
   },
   metrics: {
     totalRequests: {
@@ -96,8 +92,7 @@ const PromptMetricsSchema = new Schema<IPromptMetrics>({
   environment: {
     type: String,
     enum: ['production', 'development'],
-    required: true,
-    index: true
+    required: true
   },
   createdAt: {
     type: Date,

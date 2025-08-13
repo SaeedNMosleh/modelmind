@@ -122,7 +122,7 @@ export function PromptCard({
                   {prompt.name}
                 </Link>
                 {prompt.isProduction && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Badge variant="default" className="bg-green-600 text-white border-green-500 font-medium">
                     Production
                   </Badge>
                 )}
@@ -143,12 +143,19 @@ export function PromptCard({
               {!compact && (
                 <div className="flex flex-wrap gap-1 mb-2">
                   {prompt.tags.slice(0, 3).map(tag => (
-                    <Badge key={tag} variant="outline" className="text-xs">
+                    <Badge 
+                      key={tag} 
+                      variant="outline" 
+                      className="text-xs bg-gray-100 text-gray-800 border-gray-300"
+                    >
                       {tag}
                     </Badge>
                   ))}
                   {prompt.tags.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs bg-gray-100 text-gray-800 border-gray-300"
+                    >
                       +{prompt.tags.length - 3} more
                     </Badge>
                   )}

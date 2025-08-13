@@ -84,8 +84,7 @@ const TestCaseSchema = new Schema<ITestCase>({
   promptId: {
     type: Schema.Types.ObjectId,
     ref: 'Prompt',
-    required: true,
-    index: true
+    required: true
   },
   name: {
     type: String,
@@ -120,8 +119,7 @@ const TestCaseSchema = new Schema<ITestCase>({
   }],
   isActive: {
     type: Boolean,
-    default: true,
-    index: true
+    default: true
   },
   createdAt: {
     type: Date,

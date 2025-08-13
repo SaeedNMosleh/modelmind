@@ -33,31 +33,26 @@ const TestResultSchema = new Schema<ITestResult>({
   testCaseId: {
     type: Schema.Types.ObjectId,
     ref: 'TestCase',
-    required: true,
-    index: true
+    required: true
   },
   promptId: {
     type: Schema.Types.ObjectId,
     ref: 'Prompt',
-    required: true,
-    index: true
+    required: true
   },
   promptVersion: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   success: {
     type: Boolean,
-    required: true,
-    index: true
+    required: true
   },
   score: {
     type: Number,
     required: true,
     min: [0, 'Score must be non-negative'],
-    max: [1, 'Score must not exceed 1'],
-    index: true
+    max: [1, 'Score must not exceed 1']
   },
   latencyMs: {
     type: Number,
@@ -121,14 +116,12 @@ const TestResultSchema = new Schema<ITestResult>({
     environment: {
       type: String,
       enum: ['production', 'development'],
-      required: true,
-      index: true
+      required: true
     }
   },
   createdAt: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   }
 }, {
   timestamps: { createdAt: true, updatedAt: false }
