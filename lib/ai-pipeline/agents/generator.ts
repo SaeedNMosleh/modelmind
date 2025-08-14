@@ -1,7 +1,8 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
+import { model } from "../baseChain";
+import { BASE_SYSTEM_PROMPT } from "../../prompts/embedded";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import { listTemplates } from "../../knowledge/templates";
@@ -17,7 +18,7 @@ const logger = createEnhancedLogger('generator');
  * Schema defining the structure of the diagram generation output
  */
 const generationOutputSchema = z.object({
-  diagram: z.string().min(10),
+  diagram: z.string().min(10).nullable(),
   diagramType: z.nativeEnum(DiagramType),
   explanation: z.string(),
   suggestions: z.array(z.string()).optional()
@@ -118,13 +119,13 @@ export class DiagramGenerator {
       const result = await generationChain.invoke(promptData.variables);
       
       // Calculate performance metrics and diagram stats
-      const lineCount = result.diagram.split('\n').length;
+      const lineCount = result.diagram ? result.diagram.split('\n').length : 0;
       const startTime = Date.now();
       logger.generation(result.diagramType, Date.now() - startTime, lineCount);
       
       return result;
     } catch (error) {
-      return this.handleGenerationError(error);
+      return this.handleGenerationError(error, params);
     }
   }
 
@@ -175,7 +176,7 @@ export class DiagramGenerator {
     templatesText: string
   ): Promise<{ template: string; variables: Record<string, string> }> {
     const variables = {
-      baseSystemPrompt,
+      baseSystemPrompt: BASE_SYSTEM_PROMPT,
       currentDiagram: currentDiagram || "No diagram exists currently in editor",
       userInput,
       diagramType: diagramType.toString(),
@@ -196,37 +197,8 @@ export class DiagramGenerator {
         variables
       };
     } catch (promptError) {
-      logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
-      
-      // Fallback template with proper variable placeholders
-      const fallbackTemplate = `{baseSystemPrompt}
-
-You are a specialist in creating PlantUML diagrams based on user requirements.
-
-Current diagram (for reference):
-\`\`\`plantuml
-{currentDiagram}
-\`\`\`
-
-User requirements: {userInput}
-
-Diagram type: {diagramType}
-
-PlantUML Guidelines:
-{guidelines}
-
-Available Templates:
-{templates}
-
-Based on the requirements, create a detailed PlantUML diagram.
-Focus on clarity, proper syntax, and following best practices.
-
-{formatInstructions}`;
-
-      return {
-        template: fallbackTemplate,
-        variables
-      };
+      logger.error("Failed to load prompt", { error: promptError });
+      throw new Error(`Generator prompt loading failed: ${promptError instanceof Error ? promptError.message : 'Unknown error'}`);
     }
   }
 
@@ -234,12 +206,12 @@ Focus on clarity, proper syntax, and following best practices.
    * Handle generation errors with meaningful fallbacks
    * @private
    */
-  private handleGenerationError(error: unknown): GenerationResult {
+  private handleGenerationError(error: unknown, params: GeneratorParams): GenerationResult {
     if (error instanceof z.ZodError) {
       logger.error("Input validation error:", { errors: error.errors });
       return {
-        diagram: `@startuml\ntitle Error: Invalid Generation Parameters\nnote "Error: ${error.message}" as Error\n@enduml`,
-        diagramType: DiagramType.UNKNOWN,
+        diagram: null,
+        diagramType: params.diagramType,
         explanation: `I couldn't generate the diagram due to invalid parameters: ${error.message}. Please try again with a clearer description.`
       };
     }
@@ -251,16 +223,16 @@ Focus on clarity, proper syntax, and following best practices.
       });
       
       return {
-        diagram: `@startuml\ntitle Error in Diagram Generation\nnote "Error: ${error.message}" as Error\n@enduml`,
-        diagramType: DiagramType.UNKNOWN,
+        diagram: null,
+        diagramType: params.diagramType,
         explanation: `I encountered an error while generating the diagram: ${error.message}. Please try again or provide more details.`
       };
     }
 
     logger.error("Unknown error during diagram generation:", { error });
     return {
-      diagram: `@startuml\ntitle Error in Diagram Generation\nnote "An unknown error occurred" as Error\n@enduml`,
-      diagramType: DiagramType.UNKNOWN,
+      diagram: null,
+      diagramType: params.diagramType,
       explanation: "I encountered an unexpected error while generating the diagram. Please try again with a different description."
     };
   }

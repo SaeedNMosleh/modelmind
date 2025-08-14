@@ -1,7 +1,8 @@
-import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
-import { model, baseSystemPrompt } from "./baseChain";
+import { model } from "./baseChain";
+import { BASE_SYSTEM_PROMPT } from "../prompts/embedded";
+import { getPrompt, substituteVariables, logPromptUsage } from "../prompts/loader";
 import { UnifiedOutputParser } from "./parsers/UnifiedOutputParser";
 import {
   masterClassificationSchema,
@@ -118,93 +119,43 @@ export class MasterClassifier {
    */
   private buildClassificationChain(): RunnableSequence {
     return RunnableSequence.from([
-      this.createClassificationPrompt(),
+      // Dynamic prompt creation will happen at runtime in classify()
+      async (input: Record<string, string>) => {
+        const promptData = await this.getClassificationPrompt();
+        const populatedPrompt = substituteVariables(promptData.template, {
+          baseSystemPrompt: BASE_SYSTEM_PROMPT,
+          userInput: input.userInput || '',
+          currentDiagram: input.currentDiagram || 'No diagram currently exists',
+          conversationHistory: input.conversationHistory || 'No previous conversation',
+          formatInstructions: getMasterClassificationInstructions()
+        });
+        
+        return populatedPrompt;
+      },
       model,
       this.parser
     ]);
   }
 
   /**
-   * Create the comprehensive classification prompt template
+   * Get classification prompt using the centralized prompt loader
    */
-  private createClassificationPrompt(): PromptTemplate {
-    const promptTemplate = `
-${baseSystemPrompt}
-
-You are a master classifier for PlantUML diagram operations. Your task is to comprehensively analyze the user's request and provide a complete classification in a single response.
-
-CONTEXT:
-- User Input: {userInput}
-- Current Diagram: {currentDiagram}
-- Conversation History: {conversationHistory}
-
-CLASSIFICATION TASK:
-Analyze the user's request and determine:
-
-1. PRIMARY INTENT:
-   - GENERATE: User wants to create a new diagram or completely different one
-   - MODIFY: User wants to change, update, or edit an existing diagram
-   - ANALYZE: User wants to understand, explain, or get insights about a diagram
-   - UNKNOWN: Intent cannot be clearly determined
-
-2. DIAGRAM TYPE (if applicable):
-   - SEQUENCE: Interactions between components over time
-   - CLASS: System structure, objects, and relationships
-   - ACTIVITY: Workflows, processes, and business logic
-   - STATE: State transitions and behaviors
-   - COMPONENT: System components and interfaces
-   - DEPLOYMENT: Physical deployment of components
-   - USE_CASE: System/actor interactions and use cases
-   - ENTITY_RELATIONSHIP: Data modeling and database schemas
-   - UNKNOWN: Cannot determine type
-
-3. ANALYSIS TYPE (for ANALYZE intent):
-   - GENERAL: Overall assessment and explanation
-   - QUALITY: Best practices and quality assessment
-   - COMPONENTS: Inventory and explanation of parts
-   - RELATIONSHIPS: Analysis of connections and associations
-   - COMPLEXITY: Complexity and maintainability assessment
-   - IMPROVEMENTS: Suggestions for enhancement
-
-4. CONFIDENCE ASSESSMENT:
-   - Provide numerical confidence (0.0 to 1.0)
-   - Explain your reasoning
-   - Consider context and clarity of the request
-
-CLASSIFICATION GUIDELINES:
-
-For GENERATE intent:
-- Look for words like: create, generate, build, make, new, design
-- User wants something that doesn't exist yet
-- May specify diagram type or describe what they want
-
-For MODIFY intent:
-- Look for words like: modify, change, update, edit, add, remove, delete
-- User references existing diagram or wants changes
-- Requires current diagram context
-
-For ANALYZE intent:
-- Look for words like: analyze, explain, describe, review, check, what, how, why
-- User wants to understand or get insights
-- May specify what aspect to analyze
-
-DIAGRAM TYPE DETECTION:
-- Look for explicit mentions of diagram types
-- Infer from context (e.g., "login flow" suggests SEQUENCE)
-- Consider domain (e.g., "database design" suggests ENTITY_RELATIONSHIP)
-- Default to most likely type based on intent and context
-
-{formatInstructions}
-
-IMPORTANT:
-- Be thorough in your analysis but concise in reasoning
-- Always provide confidence score with justification
-- Clean and normalize the user instruction
-- Consider the full context when making decisions
-- If unsure, be honest about low confidence rather than guessing
-    `.trim();
-
-    return PromptTemplate.fromTemplate(promptTemplate);
+  private async getClassificationPrompt(): Promise<{ template: string; variables: string[] }> {
+    try {
+      const startTime = Date.now();
+      const promptData = await getPrompt('master-classifier', 'comprehensive-classification');
+      
+      const duration = Date.now() - startTime;
+      logPromptUsage('master-classifier', 'comprehensive-classification', promptData.source, duration);
+      
+      return {
+        template: promptData.template,
+        variables: promptData.variables
+      };
+    } catch (promptError) {
+      logger.error("Failed to load classification prompt", { error: promptError });
+      throw new Error(`MasterClassifier prompt loading failed: ${promptError instanceof Error ? promptError.message : 'Unknown error'}`);
+    }
   }
 
   /**

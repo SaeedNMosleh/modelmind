@@ -1,7 +1,8 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
+import { model } from "../baseChain";
+import { BASE_SYSTEM_PROMPT } from "../../prompts/embedded";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import { getPrompt, logPromptUsage } from "../../prompts/loader";
@@ -172,7 +173,7 @@ export class DiagramModifier {
     guidelinesText: string
   ): Promise<{ template: string; variables: Record<string, string> }> {
     const variables = {
-      baseSystemPrompt,
+      baseSystemPrompt: BASE_SYSTEM_PROMPT,
       currentDiagram,
       userInput,
       diagramType: diagramType.toString(),
@@ -192,35 +193,8 @@ export class DiagramModifier {
         variables
       };
     } catch (promptError) {
-      logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
-      
-      // Fallback template with proper variable placeholders
-      const fallbackTemplate = `{baseSystemPrompt}
-
-You are a specialist in modifying PlantUML diagrams based on user instructions.
-
-Current diagram:
-\`\`\`plantuml
-{currentDiagram}
-\`\`\`
-
-User modification request: {userInput}
-
-Diagram type: {diagramType}
-
-PlantUML Guidelines:
-{guidelines}
-
-Modify the diagram according to the user's instructions.
-Preserve existing structure while implementing the requested changes.
-Ensure the modified diagram uses correct PlantUML syntax.
-
-{formatInstructions}`;
-
-      return {
-        template: fallbackTemplate,
-        variables
-      };
+      logger.error("Failed to load prompt", { error: promptError });
+      throw new Error(`Modifier prompt loading failed: ${promptError instanceof Error ? promptError.message : 'Unknown error'}`);
     }
   }
 
@@ -233,7 +207,7 @@ Ensure the modified diagram uses correct PlantUML syntax.
       logger.error("Input validation error:", { errors: error.errors });
       return {
         diagram: params.currentDiagram || "",
-        diagramType: DiagramType.UNKNOWN,
+        diagramType: params.diagramType,
         changes: [`Error: Invalid modification parameters: ${error.message}`],
         explanation: `I couldn't modify the diagram due to validation errors: ${error.message}. Please try again with clearer instructions.`
       };
@@ -247,7 +221,7 @@ Ensure the modified diagram uses correct PlantUML syntax.
       
       return {
         diagram: params.currentDiagram,
-        diagramType: DiagramType.UNKNOWN,
+        diagramType: params.diagramType,
         changes: [`Error: ${error.message}`],
         explanation: `I encountered an error while modifying the diagram: ${error.message}. Please try again with different instructions.`
       };
@@ -256,7 +230,7 @@ Ensure the modified diagram uses correct PlantUML syntax.
     logger.error("Unknown error during diagram modification:", { error });
     return {
       diagram: params.currentDiagram,
-      diagramType: DiagramType.UNKNOWN,
+      diagramType: params.diagramType,
       changes: ["Error: Unknown error occurred"],
       explanation: "I encountered an unexpected error while modifying the diagram. Please try again with different instructions."
     };

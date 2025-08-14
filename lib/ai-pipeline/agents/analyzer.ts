@@ -1,7 +1,8 @@
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { z } from "zod";
-import { model, baseSystemPrompt } from "../baseChain";
+import { model } from "../baseChain";
+import { BASE_SYSTEM_PROMPT } from "../../prompts/embedded";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
 import { getPrompt, logPromptUsage } from "../../prompts/loader";
@@ -154,7 +155,7 @@ export class DiagramAnalyzer {
       
       return result;
     } catch (error) {
-      return this.handleAnalysisError(error);
+      return this.handleAnalysisError(error, params);
     }
   }
 
@@ -188,7 +189,7 @@ export class DiagramAnalyzer {
     guidelinesText: string
   ): Promise<{ template: string; variables: Record<string, string> }> {
     const variables = {
-      baseSystemPrompt,
+      baseSystemPrompt: BASE_SYSTEM_PROMPT,
       diagram,
       userInput,
       analysisType: analysisType.toString(),
@@ -209,35 +210,8 @@ export class DiagramAnalyzer {
         variables
       };
     } catch (promptError) {
-      logger.warn("Failed to load dynamic prompt, using fallback", { error: promptError });
-      
-      // Fallback template with proper variable placeholders
-      const fallbackTemplate = `{baseSystemPrompt}
-
-You are a specialist in analyzing PlantUML diagrams.
-
-Diagram to analyze:
-\`\`\`plantuml
-{diagram}
-\`\`\`
-
-User analysis request: {userInput}
-
-Analysis type: {analysisType}
-Diagram type: {diagramType}
-
-PlantUML Guidelines:
-{guidelines}
-
-Analyze the diagram based on the analysis type and user request.
-Provide detailed and insightful analysis.
-
-{formatInstructions}`;
-
-      return {
-        template: fallbackTemplate,
-        variables
-      };
+      logger.error("Failed to load prompt", { error: promptError });
+      throw new Error(`Analyzer prompt loading failed: ${promptError instanceof Error ? promptError.message : 'Unknown error'}`);
     }
   }
 
@@ -245,12 +219,12 @@ Provide detailed and insightful analysis.
    * Handle analysis errors with meaningful fallbacks
    * @private
    */
-  private handleAnalysisError(error: unknown): AnalysisResult {
+  private handleAnalysisError(error: unknown, params: AnalyzerParams): AnalysisResult {
     if (error instanceof z.ZodError) {
       logger.error("Input validation error:", { errors: error.errors });
       return {
-        diagramType: DiagramType.UNKNOWN,
-        analysisType: AnalysisType.GENERAL,
+        diagramType: params.diagramType,
+        analysisType: params.analysisType,
         overview: `I couldn't analyze the diagram due to invalid parameters: ${error.message}. Please try again with a different request.`
       };
     }
@@ -262,16 +236,16 @@ Provide detailed and insightful analysis.
       });
       
       return {
-        diagramType: DiagramType.UNKNOWN,
-        analysisType: AnalysisType.GENERAL,
+        diagramType: params.diagramType,
+        analysisType: params.analysisType,
         overview: `I encountered an error while analyzing the diagram: ${error.message}. Please try again with a clearer request.`
       };
     }
 
     logger.error("Unknown error during diagram analysis:", { error });
     return {
-      diagramType: DiagramType.UNKNOWN,
-      analysisType: AnalysisType.GENERAL,
+      diagramType: params.diagramType,
+      analysisType: params.analysisType,
       overview: "I encountered an unexpected error while analyzing the diagram. Please try again with a different request."
     };
   }

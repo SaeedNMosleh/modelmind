@@ -113,6 +113,14 @@ export class ResponseFormatter {
     try {
       logger.debug("📤 Formatting generator response");
       
+      // Handle null diagram case (error scenario)
+      if (result.diagram === null) {
+        return ResponseFactory.createErrorResponse(
+          result.explanation,
+          "GENERATION_ERROR"
+        );
+      }
+      
       return ResponseFactory.createScriptResponse(
         result.diagram,
         result.explanation
