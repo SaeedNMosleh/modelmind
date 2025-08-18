@@ -103,7 +103,7 @@ IMPORTANT:
 - Consider the full context when making decisions
 - If unsure, be honest about low confidence rather than guessing`,
     variables: ['baseSystemPrompt', 'userInput', 'currentDiagram', 'conversationHistory', 'formatInstructions'],
-    agentType: AgentType.CLASSIFIER,
+    agentType: AgentType.MASTER_CLASSIFIER,
     version: '2.0.0',
     isActive: true,
     metadata: {

@@ -9,5 +9,6 @@
       "Bash(npm run lint)"
     ],
     "deny": []
-  }
+  },
+  "outputStyle": "Learning"
 }

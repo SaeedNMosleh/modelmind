@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { useCallback, useState, useEffect, useRef, useMemo} from "react"
 import { useIsomorphicLayoutEffect } from 'react-use'
 import { User, Bot, Send, Image, Paperclip, MessageCircle, Zap } from 'lucide-react'
+import { ScrollToBottomButton } from '@/components/ui/scroll-to-bottom-button'
 
 interface ChatInterfaceProps {
   onScriptGenerated: (script: string) => void
@@ -97,7 +98,16 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
   const [showCommands, setShowCommands] = useState(false)
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
 
-  const messageContainerRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [scrollState, setScrollState] = useState({
+    isNearBottom: true,
+    showScrollButton: false
+  })
+  
+  // Get the actual scrolling viewport element
+  const getScrollViewport = useCallback(() => {
+    return scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement
+  }, [])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const commandsRef = useRef<HTMLDivElement>(null)
   
@@ -118,28 +128,66 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
 
   const commandList = useMemo(() => Object.keys(commands), [commands]);
 
-  // Auto-scroll when new messages are added - enhanced implementation
-  useEffect(() => {
-    if (messageContainerRef.current) {
-      const container = messageContainerRef.current;
-      
-      // Check if user is already near the bottom before scrolling
-      const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 100;
-      
-      // Use requestAnimationFrame to ensure DOM is updated before scrolling
-      requestAnimationFrame(() => {
-        // Only auto-scroll if user was already at the bottom or it's a new message from the user
-        if (isNearBottom || messages.length > 0 && messages[messages.length - 1].role === 'user') {
-          // Smooth scroll to bottom
-          console.log("Scrolling to bottom")
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
-      });
+  // Simple, working auto-scroll
+  const scrollToBottom = useCallback((force = false) => {
+    const viewport = getScrollViewport()
+    if (!viewport) return
+    
+    if (force) {
+      // Always scroll for user messages or forced scroll
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth'
+      })
+    } else {
+      // Check if user is near bottom before auto-scrolling
+      const isNearBottom = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 100
+      if (isNearBottom) {
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
     }
-  }, [messages]);  const onSubmit = useCallback(
+  }, [getScrollViewport])
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length === 0) return
+    
+    const lastMessage = messages[messages.length - 1]
+    
+    // Always scroll for user messages, conditionally for AI responses
+    scrollToBottom(lastMessage.role === 'user')
+  }, [messages, scrollToBottom])
+
+  // Auto-scroll when loading state changes
+  useEffect(() => {
+    if (isLoading) {
+      scrollToBottom(false) // Gentle scroll for loading
+    }
+  }, [isLoading, scrollToBottom])
+  
+  // Update scroll state for button visibility
+  useEffect(() => {
+    const viewport = getScrollViewport()
+    if (!viewport) return
+    
+    const handleScroll = () => {
+      const isNearBottom = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 100
+      setScrollState({
+        isNearBottom,
+        showScrollButton: !isNearBottom && viewport.scrollHeight > viewport.clientHeight
+      })
+    }
+    
+    viewport.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll() // Initial check
+    
+    return () => viewport.removeEventListener('scroll', handleScroll)
+  }, [getScrollViewport])
+
+  const onSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
       const userMessage = input.trim()
@@ -288,9 +336,9 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <ScrollArea 
-        ref={messageContainerRef} 
+        ref={scrollAreaRef} 
         className="flex-1 pr-2 pl-2 py-4 overflow-y-auto"
       >
         {messages.map((message) => (
@@ -346,6 +394,13 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
           </div>
         )}
       </ScrollArea>
+      
+      {/* Scroll to bottom button */}
+      <ScrollToBottomButton
+        visible={scrollState.showScrollButton}
+        onClick={() => scrollToBottom(true)}
+        subtle={false}
+      />
       
       <form onSubmit={onSubmit} className="mt-2 mb-2 px-2">
         <div className="chat-input-wrapper relative">

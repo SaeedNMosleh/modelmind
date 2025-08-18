@@ -114,7 +114,7 @@ export class PromptLoader {
     const query: PromptQuery = {
       agentType,
       operation,
-      isProduction: this.config.environment === 'production'
+      isProduction: true  // Always query for production prompts (activated prompts)
     };
 
     // Add diagram type filter if provided and applicable
