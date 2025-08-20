@@ -70,7 +70,19 @@ export function createLogger(context?: string) {
                 output += ` [${(context || tag).toUpperCase()}]`;
               }
               
-              output += `${reset} ${prefix.icon} ${args.join(' ')}`;
+              // Properly serialize arguments, handling objects
+              const serializedArgs = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                  try {
+                    return JSON.stringify(arg, null, 2);
+                  } catch {
+                    return String(arg);
+                  }
+                }
+                return String(arg);
+              });
+              
+              output += `${reset} ${prefix.icon} ${serializedArgs.join(' ')}`;
               
               console.log(output);
             }
@@ -83,12 +95,24 @@ export function createLogger(context?: string) {
               const { level, args, date, tag } = logObj;
               const levelNames = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'];
               
+              // Properly serialize arguments for production logging
+              const serializedArgs = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                  try {
+                    return JSON.stringify(arg);
+                  } catch {
+                    return String(arg);
+                  }
+                }
+                return String(arg);
+              });
+              
               const logEntry = {
                 level: levelNames[level] || 'info',
                 time: date?.toISOString() || new Date().toISOString(),
                 service: 'modelmind',
                 context: context || tag,
-                msg: args.join(' ')
+                msg: serializedArgs.join(' ')
               };
               
               console.log(JSON.stringify(logEntry));

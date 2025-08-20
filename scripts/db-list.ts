@@ -2,7 +2,7 @@
 
 import { createEnhancedLogger } from '../lib/utils/consola-logger';
 import { fileURLToPath } from 'url';
-import { backupManager } from '../lib/scripts/backup-utils';
+import { backupManager } from './backup-utils';
 import path from 'path';
 
 const logger = createEnhancedLogger('db-list-backups');

@@ -1,0 +1,130 @@
+@startuml Entity Relationship Diagram Template
+title Database Entity Relationship Diagram
+
+' Entities
+entity "Customer" {
+  * CustomerID : INT <<PK>>
+  --
+  * FirstName : VARCHAR(50)
+  * LastName : VARCHAR(50)
+  * Email : VARCHAR(100) <<UK>>
+  * PhoneNumber : VARCHAR(20)
+  * DateRegistered : DATETIME
+  * IsActive : BOOLEAN
+}
+
+entity "Order" {
+  * OrderID : INT <<PK>>
+  --
+  * CustomerID : INT <<FK>>
+  * OrderDate : DATETIME
+  * Status : ENUM(pending, processing, shipped, delivered, cancelled)
+  * TotalAmount : DECIMAL(10,2)
+  * ShippingAddress : TEXT
+  * BillingAddress : TEXT
+  * Notes : TEXT
+}
+
+entity "Product" {
+  * ProductID : INT <<PK>>
+  --
+  * CategoryID : INT <<FK>>
+  * ProductName : VARCHAR(100)
+  * Description : TEXT
+  * Price : DECIMAL(8,2)
+  * StockQuantity : INT
+  * SKU : VARCHAR(50) <<UK>>
+  * IsActive : BOOLEAN
+  * CreatedDate : DATETIME
+  * ModifiedDate : DATETIME
+}
+
+entity "OrderItem" {
+  * OrderItemID : INT <<PK>>
+  --
+  * OrderID : INT <<FK>>
+  * ProductID : INT <<FK>>
+  * Quantity : INT
+  * UnitPrice : DECIMAL(8,2)
+  * TotalPrice : DECIMAL(10,2)
+}
+
+entity "Category" {
+  * CategoryID : INT <<PK>>
+  --
+  * CategoryName : VARCHAR(100)
+  * Description : TEXT
+  * ParentCategoryID : INT <<FK>>
+  * IsActive : BOOLEAN
+}
+
+entity "Payment" {
+  * PaymentID : INT <<PK>>
+  --
+  * OrderID : INT <<FK>>
+  * PaymentDate : DATETIME
+  * Amount : DECIMAL(10,2)
+  * PaymentMethod : ENUM(credit_card, debit_card, paypal, bank_transfer)
+  * TransactionID : VARCHAR(100)
+  * Status : ENUM(pending, completed, failed, refunded)
+}
+
+entity "Address" {
+  * AddressID : INT <<PK>>
+  --
+  * CustomerID : INT <<FK>>
+  * AddressType : ENUM(shipping, billing)
+  * Street : VARCHAR(200)
+  * City : VARCHAR(100)
+  * State : VARCHAR(100)
+  * ZipCode : VARCHAR(20)
+  * Country : VARCHAR(100)
+  * IsDefault : BOOLEAN
+}
+
+entity "Review" {
+  * ReviewID : INT <<PK>>
+  --
+  * CustomerID : INT <<FK>>
+  * ProductID : INT <<FK>>
+  * Rating : INT
+  * ReviewText : TEXT
+  * ReviewDate : DATETIME
+  * IsVerifiedPurchase : BOOLEAN
+  * HelpfulVotes : INT
+}
+
+' Relationships
+Customer ||--o{ Order : "places"
+Order ||--o{ OrderItem : "contains"
+Product ||--o{ OrderItem : "ordered in"
+Product }o--|| Category : "belongs to"
+Category ||--o{ Category : "parent/child"
+Order ||--|| Payment : "paid by"
+Customer ||--o{ Address : "has"
+Customer ||--o{ Review : "writes"
+Product ||--o{ Review : "reviewed in"
+
+' Notes
+note top of Customer
+  Core entity representing
+  registered users of the system
+end note
+
+note right of Order
+  Central transaction entity
+  linking customers to products
+end note
+
+note bottom of OrderItem
+  Junction table resolving
+  many-to-many between
+  Orders and Products
+end note
+
+note left of Category
+  Hierarchical product
+  categorization system
+end note
+
+@enduml

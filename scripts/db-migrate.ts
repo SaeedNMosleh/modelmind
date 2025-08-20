@@ -182,7 +182,7 @@ async function migratePrompts(): Promise<MigrationStats> {
           operation,
           primaryVersion: extracted.version,
           versions: [initialVersion],
-          isProduction: false,
+          isProduction: true, // Auto-activate migrated prompts
           tags: ['migrated', extracted.agentType, 'ai-pipeline'],
           metadata: {
             migrated: true,

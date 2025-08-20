@@ -1,20 +1,20 @@
 import { createEnhancedLogger } from "@/lib/utils/consola-logger";
-import { connectToDatabase } from '../database/connection';
+import { connectToDatabase } from '../lib/database/connection';
 import { 
   Prompt, 
   PromptValidationSchema, 
   PromptVersionValidationSchema 
-} from '../database/models/prompt';
+} from '../lib/database/models/prompt';
 import { 
   TestCase, 
   TestCaseValidationSchema 
-} from '../database/models/testCase';
-import { AgentType, PromptOperation } from '../database/types';
+} from '../lib/database/models/testCase';
+import { AgentType, PromptOperation } from '../lib/database/types';
 // PromptEnvironment removed - using isProduction boolean
 import { 
   isValidAgentOperation, 
   canSelectDiagramTypes 
-} from '../prompt-mgmt/agent-operation-config';
+} from '../lib/prompt-mgmt/agent-operation-config';
 
 const logger = createEnhancedLogger('validation-utils');
 

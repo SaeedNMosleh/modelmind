@@ -68,23 +68,23 @@ export type AnalyzerParams = z.infer<typeof analyzerParamsSchema>;
 function mapToGuidelinesType(type: DiagramType): GuidelinesType {
   switch(type) {
     case DiagramType.SEQUENCE: 
-      return 'sequence' as GuidelinesType;
+      return 'sequence';
     case DiagramType.CLASS: 
-      return 'class' as GuidelinesType;
+      return 'class';
     case DiagramType.ACTIVITY: 
-      return 'activity' as GuidelinesType;
+      return 'activity';
     case DiagramType.STATE: 
-      return 'state' as GuidelinesType;
+      return 'state';
     case DiagramType.COMPONENT: 
-      return 'component' as GuidelinesType;
+      return 'component';
     case DiagramType.USE_CASE: 
-      return 'use-case' as GuidelinesType;
+      return 'use-case';
     case DiagramType.ENTITY_RELATIONSHIP: 
-      return 'entity_relationship' as GuidelinesType;
+      return 'entity-relationship';
     case DiagramType.DEPLOYMENT:
-      return 'deployment' as GuidelinesType;
+      return 'deployment';
     default:
-      return 'sequence' as GuidelinesType; // Default fallback
+      return 'sequence'; // Default fallback
   }
 }
 

@@ -1,0 +1,120 @@
+@startuml Sequence Diagram Template
+title System Interaction Flow
+
+' Actors and Participants
+actor User
+participant "Client App" as Client
+participant "API Gateway" as Gateway
+participant "Auth Service" as Auth
+participant "Business Service" as Service
+participant "Repository" as Repo
+database "Database" as DB
+queue "Message Queue" as Queue
+
+' Authentication Flow
+group Authentication
+    User -> Client: Enter credentials
+    Client -> Gateway: POST /auth/login
+    Gateway -> Auth: Validate credentials
+    Auth -> DB: Query user
+    DB --> Auth: User data
+    
+    alt Valid credentials
+        Auth -> Auth: Generate JWT token
+        Auth --> Gateway: Return token & user info
+        Gateway --> Client: Authentication success
+        Client -> Client: Store token locally
+        Client --> User: Show dashboard
+    else Invalid credentials
+        Auth --> Gateway: Authentication failed
+        Gateway --> Client: Error response
+        Client --> User: Show error message
+    end
+end
+
+' Business Operation Flow
+group Business Operation
+    User -> Client: Perform action
+    Client -> Gateway: API request with token
+    Gateway -> Gateway: Validate JWT token
+    
+    alt Valid token
+        Gateway -> Service: Forward request
+        Service -> Service: Validate input
+        
+        opt Cache check
+            Service -> Service: Check cache
+            note right: Optional caching layer
+        end
+        
+        Service -> Repo: Data operation
+        Repo -> DB: Execute query
+        DB --> Repo: Query result
+        Repo --> Service: Processed data
+        
+        opt Async processing
+            Service -> Queue: Publish event
+            note right: For background tasks
+        end
+        
+        Service --> Gateway: Operation result
+        Gateway --> Client: Success response
+        Client -> Client: Update UI state
+        Client --> User: Show result
+    else Invalid/expired token
+        Gateway --> Client: Unauthorized error
+        Client -> Client: Clear stored token
+        Client --> User: Redirect to login
+    end
+end
+
+' Error Handling Flow
+group Error Handling
+    Client -> Gateway: Request
+    Gateway -> Service: Forward request
+    Service -> Repo: Data operation
+    
+    alt Database error
+        Repo -> DB: Query
+        DB --> Repo: Error response
+        Repo --> Service: Database exception
+        Service -> Service: Log error
+        Service --> Gateway: Error response
+        Gateway --> Client: HTTP 500 error
+        Client --> User: Show error message
+    else Validation error
+        Service -> Service: Validate data
+        Service --> Gateway: Validation error
+        Gateway --> Client: HTTP 400 error
+        Client --> User: Show validation errors
+    else Service unavailable
+        Gateway -> Service: Request
+        note right: Service is down
+        Gateway --> Client: HTTP 503 error
+        Client --> User: Show service unavailable
+    end
+end
+
+' Background Processing
+group Background Processing
+    Service -> Queue: Publish event
+    activate Queue
+    Queue -> Queue: Process message
+    Queue -> Service: Callback/webhook
+    Service -> DB: Update status
+    Service -> Client: Push notification
+    deactivate Queue
+end
+
+' Cleanup and Logging
+group System Operations
+    par Logging
+        Service -> Service: Log operation
+        Gateway -> Gateway: Log request
+    and Cleanup
+        Service -> Service: Cleanup resources
+        Client -> Client: Clear temporary data
+    end
+end
+
+@enduml

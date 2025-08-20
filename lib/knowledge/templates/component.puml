@@ -1,0 +1,28 @@
+@startuml
+' Component diagram template
+' Description: Basic component diagram structure
+
+!theme plain
+
+package "System" {
+  component [User Interface] as UI
+  component [Business Logic] as BL
+  component [Data Access] as DA
+  component [Database] as DB
+}
+
+package "External Services" {
+  component [External API] as API
+  component [File System] as FS
+}
+
+UI --> BL : Uses
+BL --> DA : Calls
+DA --> DB : Queries
+BL --> API : Requests
+BL --> FS : Reads/Writes
+
+note right of UI : Components represent\nmodular parts of system
+note bottom of DB : Interfaces show\nconnections between components
+
+@enduml

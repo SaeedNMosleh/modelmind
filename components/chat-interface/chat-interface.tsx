@@ -344,7 +344,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
         {messages.map((message) => (
           <div 
             key={message.id} 
-            className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2`}
+            className={`${message.role === "user" ? "message-user" : "message-assistant"} mb-2 p-2 flex flex-col`}
           >
             <div className="flex items-center mb-1">
               <div className={`flex items-center justify-center w-6 h-6 rounded-full ${message.role === "user" ? "bg-[#2E3B5E]" : "bg-[#2A3046]"}`}>
@@ -362,35 +362,39 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
                 )}
               </div>
             </div>
-            <p className={`whitespace-pre-wrap text-sm leading-tight ml-7 ${
-              message.role === "user" ? "text-[#F1F3FF]" : "text-[#E8FFF8]"
-            }`}>
-              {message.content.split(/(@\w+)/).map((part, index) =>
-                part.startsWith("@") ? (
-                  <Badge key={index} variant="secondary" className="mr-1 bg-blue-700/30 text-blue-300 text-xs">
-                    {part}
-                  </Badge>
-                ) : (
-                  part
-                ),
-              )}
-            </p>
+            <div className="ml-7 flex-1 min-w-0">
+              <p className={`whitespace-pre-wrap text-sm leading-tight break-words ${
+                message.role === "user" ? "text-[#F1F3FF]" : "text-[#E8FFF8]"
+              }`}>
+                {message.content.split(/(@\w+)/).map((part, index) =>
+                  part.startsWith("@") ? (
+                    <Badge key={index} variant="secondary" className="mr-1 bg-blue-700/30 text-blue-300 text-xs">
+                      {part}
+                    </Badge>
+                  ) : (
+                    part
+                  ),
+                )}
+              </p>
+            </div>
           </div>
         ))}
         
         {isLoading && (
-          <div className="message-assistant mb-3 p-3"> 
+          <div className="message-assistant mb-3 p-3 flex flex-col"> 
             <div className="flex items-center mb-1">
-              <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#2A3046]">
-                <Bot size={14} className="text-[#79DBC7]" />
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#2A3046]">
+                <Bot size={12} className="text-[#79DBC7]" />
               </div>
               <div className="ml-1 text-xs font-semibold">
                 <span className="text-[#79DBC7]">Assistant</span>
               </div>
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-tight ml-7 text-[#E8FFF8] opacity-80">
-              Thinking...
-            </p>
+            <div className="ml-7 flex-1 min-w-0">
+              <p className="whitespace-pre-wrap text-sm leading-tight break-words text-[#E8FFF8] opacity-80">
+                Thinking...
+              </p>
+            </div>
           </div>
         )}
       </ScrollArea>

@@ -1,0 +1,19 @@
+@startuml
+' State diagram template
+' Description: Basic state diagram structure
+
+!theme plain
+
+[*] --> State1
+State1 : Entry action / Initial setup
+State1 : Do activity / Ongoing process
+State1 : Exit action / Cleanup
+
+State1 --> State2 : Event / Action
+State2 --> State3 : Event / Action
+State3 --> [*] : Final event
+
+note right of State1 : States represent\nconditions or situations
+note right of State2 : Transitions show\nflow between states
+
+@enduml

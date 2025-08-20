@@ -5,7 +5,7 @@ import { TextLoader } from 'langchain/document_loaders/fs/text';
 
 
 // Define diagram types
-export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case';
+export type DiagramType = 'sequence' | 'class' | 'activity' | 'state' | 'component' | 'use-case' | 'entity-relationship' | 'deployment';
 
 /**
  * Reads the specified guideline file for a diagram type.
@@ -49,7 +49,9 @@ export async function getAllGuidelinesAsDocuments(): Promise<Document[]> {
     'activity.md',
     'state.md',
     'component.md',
-    'use-case.md'
+    'use-case.md',
+    'entity-relationship.md',
+    'deployment.md'
   ];
   
   const documents: Document[] = [];

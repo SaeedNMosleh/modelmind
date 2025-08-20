@@ -1,0 +1,87 @@
+@startuml Activity Diagram Template
+title Business Process Flow
+
+' Start of process
+start
+
+' Input activity
+:Receive user input;
+note right: Capture and validate input data
+
+' Decision point
+if (Input valid?) then (yes)
+  :Process request;
+  
+  ' Parallel activities
+  fork
+    :Update database;
+    :Log operation;
+  fork again
+    :Send notification;
+    :Update cache;
+  end fork
+  
+  ' Another decision
+  if (Requires approval?) then (yes)
+    :Submit for approval;
+    
+    ' Wait state
+    :Wait for approval;
+    note right: Process paused until approved
+    
+    if (Approved?) then (yes)
+      :Execute approved action;
+    else (no)
+      :Reject request;
+      :Send rejection notice;
+      stop
+    endif
+    
+  else (no)
+    :Auto-execute action;
+  endif
+  
+  ' Swimlanes for different actors
+  |System|
+  :Generate response;
+  :Update status;
+  
+  |User|
+  :Receive confirmation;
+  
+  |Administrator|
+  :Review logs;
+  
+else (no)
+  ' Error handling path
+  :Log validation error;
+  :Generate error response;
+  
+  if (Retry allowed?) then (yes)
+    :Increment retry count;
+    if (Max retries reached?) then (no)
+      backward :Return to input validation;
+    else (yes)
+      :Block further attempts;
+      stop
+    endif
+  else (no)
+    stop
+  endif
+endif
+
+' Exception handling
+detach
+:Handle system errors;
+:Send alert to admin;
+kill
+
+' Successful completion
+:Operation completed successfully;
+:Clean up resources;
+:Archive transaction;
+
+' End of process
+end
+
+@enduml

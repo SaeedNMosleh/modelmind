@@ -261,6 +261,26 @@ body {
   margin-bottom: 10px;
 }
 
+/* Enhanced chat message text responsiveness */
+.message-user .ml-7,
+.message-assistant .ml-7 {
+  max-width: calc(100% - 32px); /* Account for avatar space and padding */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Ensure proper text flow in expanded chat panels */
+@media (min-width: 1024px) {
+  .chat-panel .message-user,
+  .chat-panel .message-assistant {
+    max-width: 100%;
+  }
+  
+  .chat-panel .ml-7 {
+    max-width: calc(100% - 40px); /* Slightly more space on larger screens */
+  }
+}
+
 /* This file only contains the VS Code-related styling changes to match
    the requested color scheme. The full file would be much larger. */
 
@@ -339,6 +359,10 @@ body {
 
 .message-user, .message-assistant {
   animation: messageAppear 0.3s ease-out forwards;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 /* Enhanced scrollbar styling for VS Code look */

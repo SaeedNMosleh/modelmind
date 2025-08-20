@@ -39,6 +39,12 @@ export const AGENT_OPERATION_MATRIX: AgentOperationConfig[] = [
     description: 'Analyzer uses generic prompts with diagram-specific variables injected dynamically'
   },
   {
+    agent: AgentType.CLASSIFIER,
+    validOperations: [PromptOperation.INTENT_CLASSIFICATION],
+    supportsDiagramSpecific: false,
+    description: 'Classifier operations are always generic, work across all diagram types'
+  },
+  {
     agent: AgentType.MASTER_CLASSIFIER,
     validOperations: [PromptOperation.COMPREHENSIVE_CLASSIFICATION],
     supportsDiagramSpecific: false,

@@ -7,7 +7,7 @@ import { Prompt } from '../lib/database/models/prompt';
 import { TestCase } from '../lib/database/models/testCase';
 import { TestResult } from '../lib/database/models/testResult';
 import { PromptMetrics } from '../lib/database/models/promptMetrics';
-import { backupManager, BackupData } from '../lib/scripts/backup-utils';
+import { backupManager, BackupData } from './backup-utils';
 import readline from 'readline';
 
 const logger = createEnhancedLogger('db-restore');

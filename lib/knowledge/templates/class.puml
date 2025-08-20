@@ -1,0 +1,170 @@
+@startuml Class Diagram Template
+title System Class Diagram
+
+' Abstract base class example
+abstract class "BaseEntity" {
+  #id: string
+  #createdAt: DateTime
+  #updatedAt: DateTime
+  +BaseEntity(id: string)
+  +getId(): string
+  +getCreatedAt(): DateTime
+  +getUpdatedAt(): DateTime
+  {abstract} +validate(): boolean
+}
+
+' Interface example
+interface "IService<T>" {
+  +create(item: T): T
+  +getById(id: string): T
+  +getAll(): List<T>
+  +update(id: string, item: T): T
+  +delete(id: string): boolean
+}
+
+' Concrete service class
+class "UserService" {
+  -repository: IUserRepository
+  -validator: IValidator
+  +UserService(repository: IUserRepository, validator: IValidator)
+  +createUser(userData: UserData): User
+  +getUserById(id: string): User
+  +getAllUsers(): List<User>
+  +updateUser(id: string, userData: UserData): User
+  +deleteUser(id: string): boolean
+  +authenticateUser(email: string, password: string): User
+  -hashPassword(password: string): string
+  -validateUserData(userData: UserData): ValidationResult
+}
+
+' Entity class
+class "User" {
+  -name: string
+  -email: string
+  -password: string
+  -role: Role
+  -isActive: boolean
+  +User(name: string, email: string, role: Role)
+  +getName(): string
+  +setName(name: string): void
+  +getEmail(): string
+  +setEmail(email: string): void
+  +getRole(): Role
+  +setRole(role: Role): void
+  +activate(): void
+  +deactivate(): void
+  +changePassword(newPassword: string): void
+  +validate(): boolean
+}
+
+' Enumeration
+enum "Role" {
+  ADMIN
+  USER
+  MODERATOR
+  GUEST
+}
+
+' Value object
+class "Address" <<value object>> {
+  -street: string
+  -city: string
+  -state: string
+  -zipCode: string
+  -country: string
+  +Address(street: string, city: string, state: string, zipCode: string, country: string)
+  +getFullAddress(): string
+  +validate(): boolean
+}
+
+' Repository interface
+interface "IUserRepository" {
+  +save(user: User): User
+  +findById(id: string): User
+  +findByEmail(email: string): User
+  +findAll(): List<User>
+  +delete(id: string): void
+  +existsByEmail(email: string): boolean
+}
+
+' Repository implementation
+class "DatabaseUserRepository" {
+  -connection: DatabaseConnection
+  -mapper: UserMapper
+  +DatabaseUserRepository(connection: DatabaseConnection)
+  +save(user: User): User
+  +findById(id: string): User
+  +findByEmail(email: string): User
+  +findAll(): List<User>
+  +delete(id: string): void
+  +existsByEmail(email: string): boolean
+  -buildQuery(criteria: SearchCriteria): string
+}
+
+' Controller class
+class "UserController" {
+  -userService: UserService
+  -logger: ILogger
+  +UserController(userService: UserService, logger: ILogger)
+  +createUser(request: CreateUserRequest): Response
+  +getUser(id: string): Response
+  +updateUser(id: string, request: UpdateUserRequest): Response
+  +deleteUser(id: string): Response
+  +listUsers(filters: UserFilters): Response
+  -handleError(error: Error): Response
+  -validateRequest(request: any): ValidationResult
+}
+
+' Data Transfer Object
+class "UserData" <<DTO>> {
+  +name: string
+  +email: string
+  +role: string
+  +address: AddressData
+  +UserData()
+}
+
+' Relationships
+BaseEntity <|-- User
+IService <|.. UserService
+IUserRepository <|.. DatabaseUserRepository
+UserService --> IUserRepository : uses
+UserService --> User : manages
+User --> Role : has
+User --> Address : has
+UserController --> UserService : uses
+UserController --> UserData : processes
+DatabaseUserRepository --> User : persists
+
+' Composition and Aggregation examples
+User *-- Address : owns
+UserService o-- IUserRepository : depends on
+
+' Notes
+note right of BaseEntity
+  Base class for all entities
+  providing common properties
+  and abstract methods
+end note
+
+note bottom of IService
+  Generic service interface
+  following CRUD operations
+end note
+
+note left of UserService
+  Implements business logic
+  for user operations
+end note
+
+note right of User
+  Domain entity representing
+  a user in the system
+end note
+
+note bottom of UserController
+  REST API controller handling
+  HTTP requests and responses
+end note
+
+@enduml

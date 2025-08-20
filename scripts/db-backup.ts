@@ -2,7 +2,7 @@
 
 import { fileURLToPath } from 'url';
 import { disconnectFromDatabase } from '../lib/database/connection';
-import { backupManager } from '../lib/scripts/backup-utils';
+import { backupManager } from './backup-utils';
 import { createEnhancedLogger } from '../lib/utils/consola-logger';
 
 const logger = createEnhancedLogger('db-backup');

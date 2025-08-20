@@ -189,9 +189,19 @@ export class RequestRouter {
       throw new Error('Unsupported intent');
 
     } catch (error) {
+      const errorDetails = error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : { 
+        error: String(error),
+        type: typeof error 
+      };
+      
       logger.error("Agent routing failed", { 
         intent: classification.intent,
-        error: error instanceof Error ? error.message : error
+        errorDetails,
+        userInput: params.userInput?.substring(0, 100) + '...'
       });
       throw error;
     }

@@ -1,0 +1,164 @@
+@startuml Deployment Diagram Template
+title System Deployment Architecture
+
+' Cloud Environment
+node "Cloud Provider (AWS/Azure)" {
+  
+  ' Load Balancer
+  node "Load Balancer" <<device>> {
+    artifact "Nginx" <<web server>>
+    artifact "SSL Certificate" <<security>>
+  }
+  
+  ' Web Server Cluster
+  node "Web Server Cluster" {
+    node "Web Server 1" <<server>> {
+      artifact "Application.war" <<web app>>
+      artifact "Static Assets" <<resources>>
+    }
+    
+    node "Web Server 2" <<server>> {
+      artifact "Application.war" <<web app>>
+      artifact "Static Assets" <<resources>>
+    }
+  }
+  
+  ' Application Server Cluster
+  node "App Server Cluster" {
+    node "App Server 1" <<application server>> {
+      artifact "Business Logic" <<jar>>
+      artifact "API Services" <<microservice>>
+    }
+    
+    node "App Server 2" <<application server>> {
+      artifact "Business Logic" <<jar>>
+      artifact "API Services" <<microservice>>
+    }
+  }
+  
+  ' Database Cluster
+  node "Database Cluster" {
+    node "Primary DB" <<database>> {
+      artifact "PostgreSQL" <<database engine>>
+      artifact "Application Data" <<data>>
+    }
+    
+    node "Read Replica" <<database>> {
+      artifact "PostgreSQL" <<database engine>>
+      artifact "Replicated Data" <<data>>
+    }
+  }
+  
+  ' Cache Layer
+  node "Cache Layer" {
+    node "Redis Cluster" <<cache>> {
+      artifact "Session Store" <<cache>>
+      artifact "Application Cache" <<cache>>
+    }
+  }
+  
+  ' Message Queue
+  node "Message Queue" <<queue>> {
+    artifact "RabbitMQ" <<messaging>>
+    artifact "Background Jobs" <<queue>>
+  }
+  
+  ' File Storage
+  node "File Storage" <<storage>> {
+    artifact "S3 Bucket" <<cloud storage>>
+    artifact "CDN" <<content delivery>>
+  }
+}
+
+' External Services
+cloud "External Services" {
+  node "Payment Gateway" <<external service>>
+  node "Email Service" <<external service>>
+  node "Analytics Service" <<external service>>
+}
+
+' Client Devices
+node "Client Browser" <<client>> {
+  artifact "JavaScript App" <<web client>>
+  artifact "Service Worker" <<cache>>
+}
+
+node "Mobile App" <<mobile client>> {
+  artifact "React Native App" <<mobile app>>
+  artifact "Local Storage" <<cache>>
+}
+
+' Monitoring & Logging
+node "Monitoring Infrastructure" {
+  node "Log Aggregation" <<monitoring>> {
+    artifact "ELK Stack" <<logging>>
+    artifact "Application Logs" <<logs>>
+  }
+  
+  node "Metrics Collection" <<monitoring>> {
+    artifact "Prometheus" <<metrics>>
+    artifact "Grafana" <<visualization>>
+  }
+}
+
+' Network Connections
+"Client Browser" --> "Load Balancer" : HTTPS/443
+"Mobile App" --> "Load Balancer" : HTTPS/443
+
+"Load Balancer" --> "Web Server 1" : HTTP/8080
+"Load Balancer" --> "Web Server 2" : HTTP/8080
+
+"Web Server 1" --> "App Server 1" : HTTP/8081
+"Web Server 1" --> "App Server 2" : HTTP/8081
+"Web Server 2" --> "App Server 1" : HTTP/8081
+"Web Server 2" --> "App Server 2" : HTTP/8081
+
+"App Server 1" --> "Primary DB" : TCP/5432
+"App Server 2" --> "Primary DB" : TCP/5432
+"App Server 1" --> "Read Replica" : TCP/5432
+"App Server 2" --> "Read Replica" : TCP/5432
+
+"Primary DB" --> "Read Replica" : TCP/5432 (replication)
+
+"App Server 1" --> "Redis Cluster" : TCP/6379
+"App Server 2" --> "Redis Cluster" : TCP/6379
+
+"App Server 1" --> "Message Queue" : AMQP/5672
+"App Server 2" --> "Message Queue" : AMQP/5672
+
+"App Server 1" --> "File Storage" : HTTPS/443
+"App Server 2" --> "File Storage" : HTTPS/443
+
+"App Server 1" --> "Payment Gateway" : HTTPS/443
+"App Server 2" --> "Payment Gateway" : HTTPS/443
+"App Server 1" --> "Email Service" : HTTPS/443
+"App Server 2" --> "Email Service" : HTTPS/443
+
+"Web Server 1" --> "Log Aggregation" : TCP/5044
+"Web Server 2" --> "Log Aggregation" : TCP/5044
+"App Server 1" --> "Log Aggregation" : TCP/5044
+"App Server 2" --> "Log Aggregation" : TCP/5044
+
+"App Server 1" --> "Metrics Collection" : HTTP/9090
+"App Server 2" --> "Metrics Collection" : HTTP/9090
+
+' Deployment specifications
+note top of "Web Server Cluster"
+  Auto-scaling group: 2-10 instances
+  Instance type: t3.medium
+  OS: Ubuntu 20.04 LTS
+end note
+
+note right of "Database Cluster"
+  Instance type: r5.large
+  Storage: 500GB SSD
+  Automated backups enabled
+end note
+
+note bottom of "Load Balancer"
+  Health checks on /health endpoint
+  SSL termination
+  Request routing based on path
+end note
+
+@enduml

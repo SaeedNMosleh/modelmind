@@ -5,7 +5,7 @@ import { model } from "../baseChain";
 import { BASE_SYSTEM_PROMPT } from "../../prompts/embedded";
 import { UnifiedOutputParser, UnifiedParserFactory } from "../parsers/UnifiedOutputParser";
 import { DiagramType as GuidelinesType, readGuidelines } from "../../knowledge/guidelines";
-import { listTemplates } from "../../knowledge/templates";
+import { getTemplate } from "../../knowledge/templates";
 import { getPrompt, logPromptUsage } from "../../prompts/loader";
 import { AgentType, PromptOperation } from "../../database/types";
 import { DiagramType } from "../schemas/MasterClassificationSchema";
@@ -62,7 +62,7 @@ function mapToGuidelinesType(type: DiagramType): GuidelinesType {
     case DiagramType.USE_CASE: 
       return 'use-case' as GuidelinesType;
     case DiagramType.ENTITY_RELATIONSHIP: 
-      return 'entity_relationship' as GuidelinesType;
+      return 'entity-relationship' as GuidelinesType;
     case DiagramType.DEPLOYMENT:
       return 'deployment' as GuidelinesType;
     default:
@@ -100,15 +100,30 @@ export class DiagramGenerator {
       const { userInput, diagramType, currentDiagram = "" } = validatedParams;
       
       logger.stageStart(`diagram generation (${diagramType})`);
-      logger.debug(`🎨 Generation request received`);
+      logger.debug(`🎨 Generation request received`, {
+        userInput: userInput.substring(0, 100) + (userInput.length > 100 ? '...' : ''),
+        diagramType,
+        hasCurrentDiagram: !!currentDiagram
+      });
       
-      // Fetch relevant guidelines and templates
-      const { guidelinesText, templatesText } = await this.fetchDiagramResources(diagramType);
+      // Fetch relevant guidelines and template
+      logger.debug('📚 Fetching diagram resources...');
+      const { guidelinesText, templateContent } = await this.fetchDiagramResources(diagramType);
+      logger.debug('📚 Resources fetched', { 
+        guidelinesLength: guidelinesText.length, 
+        templateLength: templateContent.length 
+      });
       
       // Load the generation prompt template (without variable substitution)
-      const promptData = await this.getPromptTemplate(userInput, diagramType, currentDiagram, guidelinesText, templatesText);
+      logger.debug('📝 Loading prompt template...');
+      const promptData = await this.getPromptTemplate(userInput, diagramType, currentDiagram, guidelinesText, templateContent);
+      logger.debug('📝 Prompt template loaded', { 
+        templateLength: promptData.template.length,
+        variableCount: Object.keys(promptData.variables).length
+      });
       
       // Create and execute the generation chain
+      logger.debug('🔗 Creating generation chain...');
       const generationChain = RunnableSequence.from([
         PromptTemplate.fromTemplate(promptData.template),
         model,
@@ -116,15 +131,61 @@ export class DiagramGenerator {
       ]);
       
       // Pass all required variables to the chain
-      const result = await generationChain.invoke(promptData.variables);
+      logger.debug('🚀 Invoking generation chain...', {
+        variableKeys: Object.keys(promptData.variables),
+        templatePreview: promptData.template.substring(0, 200) + '...'
+      });
       
-      // Calculate performance metrics and diagram stats
-      const lineCount = result.diagram ? result.diagram.split('\n').length : 0;
-      const startTime = Date.now();
-      logger.generation(result.diagramType, Date.now() - startTime, lineCount);
+      try {
+        const result = await generationChain.invoke(promptData.variables);
+        logger.debug('✅ Generation chain completed', { 
+          resultType: typeof result,
+          hasDiagram: !!result?.diagram,
+          diagramLength: result?.diagram?.length || 0
+        });
+        
+        // Validate the result structure
+        if (!result) {
+          throw new Error('Generation chain returned null/undefined result');
+        }
+        
+        if (typeof result !== 'object') {
+          throw new Error(`Generation chain returned unexpected type: ${typeof result}`);
+        }
+        
+        // Calculate performance metrics and diagram stats
+        const lineCount = result.diagram ? result.diagram.split('\n').length : 0;
+        const startTime = Date.now();
+        logger.generation(result.diagramType, Date.now() - startTime, lineCount);
+        
+        return result;
+      } catch (chainError) {
+        logger.error('❌ Generation chain execution failed:', {
+          errorType: chainError instanceof Error ? chainError.constructor.name : typeof chainError,
+          errorMessage: chainError instanceof Error ? chainError.message : String(chainError),
+          errorStack: chainError instanceof Error ? chainError.stack : undefined,
+          params: {
+            userInput: userInput.substring(0, 100) + '...',
+            diagramType,
+            templateLength: promptData.template.length,
+            variableCount: Object.keys(promptData.variables).length
+          }
+        });
+        throw chainError; // Re-throw to be handled by outer catch
+      }
       
-      return result;
     } catch (error) {
+      logger.error('💥 Generation method failed:', {
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : String(error),
+        params: {
+          userInput: params.userInput?.substring(0, 100) + '...',
+          diagramType: params.diagramType
+        }
+      });
       return this.handleGenerationError(error, params);
     }
   }
@@ -135,31 +196,31 @@ export class DiagramGenerator {
    */
   private async fetchDiagramResources(diagramType: DiagramType): Promise<{
     guidelinesText: string;
-    templatesText: string;
+    templateContent: string;
   }> {
     try {
       const guidelinesType = mapToGuidelinesType(diagramType);
       
-      // Fetch guidelines and templates in parallel
-      const [guidelines, templates] = await Promise.all([
+      // Fetch guidelines and template content in parallel
+      const [guidelines, template] = await Promise.all([
         readGuidelines(guidelinesType),
-        listTemplates(guidelinesType)
+        getTemplate(guidelinesType)
       ]);
       
       const guidelinesText = guidelines && typeof guidelines === 'string' 
         ? guidelines 
         : "No specific guidelines available.";
       
-      const templatesText = templates && templates.length > 0
-        ? templates.map(t => `${t.name}:\n${t.description || ''}`).join('\n\n')
-        : "No specific templates available for this diagram type.";
+      const templateContent = template && template.length > 0
+        ? template
+        : "No template available for this diagram type.";
       
-      return { guidelinesText, templatesText };
+      return { guidelinesText, templateContent };
     } catch (error) {
       logger.error("Error fetching diagram resources:", error);
       return {
         guidelinesText: "No specific guidelines available.",
-        templatesText: "No specific templates available for this diagram type."
+        templateContent: "No template available for this diagram type."
       };
     }
   }
@@ -173,7 +234,7 @@ export class DiagramGenerator {
     diagramType: DiagramType,
     currentDiagram: string,
     guidelinesText: string,
-    templatesText: string
+    templateContent: string
   ): Promise<{ template: string; variables: Record<string, string> }> {
     const variables = {
       baseSystemPrompt: BASE_SYSTEM_PROMPT,
@@ -181,7 +242,8 @@ export class DiagramGenerator {
       userInput,
       diagramType: diagramType.toString(),
       guidelines: guidelinesText,
-      templates: templatesText,
+      template: templateContent,
+      templates: templateContent, // Add both singular and plural for compatibility
       formatInstructions: this.parser.getFormatInstructions()
     };
 
@@ -191,6 +253,14 @@ export class DiagramGenerator {
       
       const duration = Date.now() - startTime;
       logPromptUsage(AgentType.GENERATOR, PromptOperation.GENERATION, promptData.source, duration);
+      
+      // Debug: Extract variables from template to see what's expected
+      const templateVariables = promptData.template.match(/\{([^}]+)\}/g);
+      logger.debug("Template analysis:", {
+        expectedVariables: templateVariables,
+        providedVariables: Object.keys(variables),
+        templatePreview: promptData.template.substring(0, 300) + '...'
+      });
       
       return {
         template: promptData.template,
@@ -207,8 +277,15 @@ export class DiagramGenerator {
    * @private
    */
   private handleGenerationError(error: unknown, params: GeneratorParams): GenerationResult {
+    // Enhanced error logging with proper serialization
     if (error instanceof z.ZodError) {
-      logger.error("Input validation error:", { errors: error.errors });
+      logger.error("Input validation error:", { 
+        errors: error.errors,
+        params: {
+          userInput: params.userInput,
+          diagramType: params.diagramType
+        }
+      });
       return {
         diagram: null,
         diagramType: params.diagramType,
@@ -219,7 +296,12 @@ export class DiagramGenerator {
     if (error instanceof Error) {
       logger.error("Error generating diagram:", { 
         message: error.message, 
-        stack: error.stack
+        stack: error.stack,
+        name: error.name,
+        params: {
+          userInput: params.userInput,
+          diagramType: params.diagramType
+        }
       });
       
       return {
@@ -229,7 +311,20 @@ export class DiagramGenerator {
       };
     }
 
-    logger.error("Unknown error during diagram generation:", { error });
+    // Handle any other type of error with proper serialization
+    const errorString = typeof error === 'string' ? error : 
+                       typeof error === 'object' && error !== null ? JSON.stringify(error, null, 2) :
+                       String(error);
+    
+    logger.error("Unknown error during diagram generation:", { 
+      error: errorString,
+      errorType: typeof error,
+      params: {
+        userInput: params.userInput,
+        diagramType: params.diagramType
+      }
+    });
+    
     return {
       diagram: null,
       diagramType: params.diagramType,
