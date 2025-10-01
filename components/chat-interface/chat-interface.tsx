@@ -1,11 +1,10 @@
 "use client"
 
-import { useChat } from "ai/react"
+import { useSimpleChat } from "@/hooks/useSimpleChat"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { useCallback, useState, useEffect, useRef, useMemo} from "react"
-import { useIsomorphicLayoutEffect } from 'react-use'
+import { useCallback, useState, useEffect, useRef, useMemo, useLayoutEffect} from "react"
 import { User, Bot, Send, Image, Paperclip, MessageCircle, Zap } from 'lucide-react'
 import { ScrollToBottomButton } from '@/components/ui/scroll-to-bottom-button'
 
@@ -39,43 +38,48 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
   useEffect(() => {
     localStorage.setItem('modelMind.apiMode', apiMode);
   }, [apiMode]);
-    // Initialize the chat hook with dynamic API endpoint
-  const { input, handleInputChange, handleSubmit, isLoading } = useChat({
+
+  // Messages state - must be declared before useSimpleChat hook
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+
+  // Initialize the chat hook with dynamic API endpoint
+  const { input, handleInputChange, handleSubmit, isLoading } = useSimpleChat({
     api: apiMode === "freeform" ? "/api/chatopenai" : "/api/pipeline",
     body: {
+      messages,
       currentScript,
     },
     onResponse: async (response) => {
       try {
         const text = await response.text()
         const responseData = JSON.parse(text)
-        
+
         // Handle different response formats based on the API mode
         if (apiMode === "freeform") {
           // Handle chatopenai format
           const { mandatory, optional } = responseData
-          
+
           if (mandatory.type === "message") {
             setMessages((prevMessages) => [
               ...prevMessages,
               { id: Date.now().toString(), role: "assistant", content: mandatory.content },
             ])
           }
-          
+
           if (optional && optional.type === "script" && optional.content !== "") {
             onScriptGenerated(optional.content)
           }
-          
+
           return mandatory.content        } else {
           // Handle pipeline format - normalize casing from ResponseType enum
           const responseType = responseData.type?.toLowerCase();
-          
+
           if (responseType === "script") {
             setMessages((prevMessages) => [
               ...prevMessages,
               { id: Date.now().toString(), role: "assistant", content: responseData.explanation || responseData.content },
             ])
-            
+
             onScriptGenerated(responseData.content)
           } else if (responseType === "message" || responseType === "error") {
             setMessages((prevMessages) => [
@@ -83,7 +87,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
               { id: Date.now().toString(), role: "assistant", content: responseData.content },
             ])
           }
-          
+
           return responseData.content
         }
       } catch (error) {
@@ -92,8 +96,6 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
       }
     },
   })
-
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [textareaHeight, setTextareaHeight] = useState<number>(72) // Reduced default height
   const [showCommands, setShowCommands] = useState(false)
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
@@ -200,12 +202,13 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
             ...prevMessages,
             { id: Date.now().toString(), role: "user", content: userMessage },
           ])
+          handleInputChange({ target: { value: "" } } as React.ChangeEvent<HTMLTextAreaElement>)
           handleSubmit(e)
         }
       }
       setShowCommands(false)
     },
-    [input, handleSubmit, commandList, commands, setMessages],
+    [input, handleSubmit, commandList, commands, setMessages, handleInputChange],
   )
 
   // Dynamically adjust textarea height
@@ -232,7 +235,7 @@ export function ChatInterface({ onScriptGenerated, currentScript }: ChatInterfac
   }, [input, adjustTextareaHeight])
 
   // Initial adjustment after render
-  useIsomorphicLayoutEffect(() => {
+  useLayoutEffect(() => {
     adjustTextareaHeight()
   }, [adjustTextareaHeight])
 

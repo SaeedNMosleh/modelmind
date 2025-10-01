@@ -8,6 +8,7 @@ import { AgentType, PromptOperation, IPrompt } from '../database/types';
 import { getEmbeddedPrompt, EMBEDDED_PROMPTS } from './embedded';
 import { shouldFilterByDiagramType } from './validation';
 import { Document } from 'mongoose';
+import { connectToDatabase } from '../database/connection';
 
 // Type for lean query results from Mongoose
 type LeanPrompt = Omit<IPrompt, keyof Document> & { _id: unknown; __v?: number; };
@@ -146,12 +147,22 @@ export class PromptLoader {
    * @private
    */
   private async loadFromMongoDB(
-    agentType: AgentType | string, 
+    agentType: AgentType | string,
     operation: PromptOperation | string,
     diagramType?: string
   ): Promise<LoadedPrompt | null> {
     logger.debug(`🔍 Starting MongoDB query for ${agentType}/${operation}`, { diagramType });
-    
+
+    // Ensure database connection before querying
+    try {
+      await connectToDatabase();
+    } catch (error) {
+      logger.error('Failed to connect to database', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+
     // Define the expected query type for Prompt.findOne
     interface PromptQuery {
       agentType: AgentType | string;
@@ -369,10 +380,11 @@ export class PromptLoader {
    */
   async testConnection(): Promise<boolean> {
     try {
+      await connectToDatabase();
       await Prompt.findOne().limit(1).lean().exec();
       return true;
     } catch (error) {
-      logger.error('Database connection test failed', { 
+      logger.error('Database connection test failed', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       return false;

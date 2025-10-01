@@ -21,9 +21,9 @@
     "cli-test": "cd .promptfoo && promptfoo eval"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^1.1.0",
+    "@ai-sdk/openai": "^2.0.42",
     "@ai-sdk/provider": "^2.0.0",
-    "@ai-sdk/react": "^2.0.8",
+    "@ai-sdk/react": "^2.0.59",
     "@langchain/core": "^0.3.57",
     "@langchain/openai": "^0.5.12",
     "@monaco-editor/react": "^4.7.0",
