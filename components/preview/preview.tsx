@@ -15,11 +15,56 @@ export function Preview({ content, expandedView = false }: PreviewProps) {
   const [format, setFormat] = useState<"svg" | "png">("png")
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
   const [scale, setScale] = useState<number>(1)
+  const [svgContent, setSvgContent] = useState<string>("")
+  const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false)
+  const [isMouseOver, setIsMouseOver] = useState<boolean>(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const transformComponentRef = useRef(null)
-  
+
   const previewUrl = getPlantUMLPreviewURL(content, format)
   
+  // Fetch SVG content when format is SVG
+  useEffect(() => {
+    if (format === "svg" && previewUrl) {
+      fetch(previewUrl)
+        .then(response => response.text())
+        .then(svgText => setSvgContent(svgText))
+        .catch(error => {
+          console.error("Error fetching SVG:", error)
+          setSvgContent("")
+        })
+    } else {
+      setSvgContent("")
+    }
+  }, [previewUrl, format])
+
+  // Handle space key for panning - only when mouse is over preview
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !isSpacePressed && isMouseOver) {
+        e.preventDefault()
+        // Steal focus from code editor/chat to prevent space from being typed there
+        containerRef.current?.focus()
+        setIsSpacePressed(true)
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault()
+        setIsSpacePressed(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isSpacePressed, isMouseOver])
+
   // Handle expanded view mode by recalculating container dimensions
   useEffect(() => {
     if (containerRef.current) {
@@ -120,15 +165,20 @@ export function Preview({ content, expandedView = false }: PreviewProps) {
       </div>
 
       {/* Diagram Preview Container - This is the main container */}
-      <div 
+      <div
         ref={containerRef}
+        tabIndex={-1}
+        onMouseEnter={() => setIsMouseOver(true)}
+        onMouseLeave={() => setIsMouseOver(false)}
         className="flex-1 relative bg-[#1A203A] rounded-md overflow-hidden border border-[#2D3656] mx-3 mb-3"
-        style={{ 
+        style={{
           // Ensure the container takes up all available space
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
-          height: '100%'
+          height: '100%',
+          cursor: isSpacePressed ? 'grab' : 'default',
+          outline: 'none' // Remove focus outline
         }}
       >
         {/* Transform Wrapper - The zoom/pan functionality */}
@@ -142,7 +192,7 @@ export function Preview({ content, expandedView = false }: PreviewProps) {
           doubleClick={{ disabled: true }}
           wheel={{ step: 0.1 }}
           ref={transformComponentRef}
-          panning={{ velocityDisabled: true }}
+          panning={{ disabled: !isSpacePressed, velocityDisabled: true }}
           alignmentAnimation={{ disabled: true }}
           // The wrapper takes up the full container already with the CSS class
         >
@@ -196,20 +246,34 @@ export function Preview({ content, expandedView = false }: PreviewProps) {
                   }}
                 >
                   {previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={previewUrl}
-                      alt="PlantUML Diagram" 
-                      className="rounded"
-                      style={{
-                        display: 'block',
-                        // Set max dimensions to ensure the image is fully visible initially
-                        maxWidth: '90%',
-                        maxHeight: '90%',
-                        width: 'auto',
-                        height: 'auto'
-                      }}
-                    />
+                    format === "svg" && svgContent ? (
+                      <div
+                        className="rounded"
+                        style={{
+                          display: 'block',
+                          maxWidth: '90%',
+                          maxHeight: '90%',
+                          width: 'auto',
+                          height: 'auto'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: svgContent }}
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={previewUrl}
+                        alt="PlantUML Diagram"
+                        className="rounded"
+                        style={{
+                          display: 'block',
+                          // Set max dimensions to ensure the image is fully visible initially
+                          maxWidth: '90%',
+                          maxHeight: '90%',
+                          width: 'auto',
+                          height: 'auto'
+                        }}
+                      />
+                    )
                   ) : (
                     <div className="flex items-center justify-center text-gray-400 text-xl">
                       No diagram to preview
@@ -227,7 +291,7 @@ export function Preview({ content, expandedView = false }: PreviewProps) {
           <div className="absolute bottom-0 left-0 right-0 p-2 bg-[#252C40]/70 backdrop-blur-sm">
             <div className="flex justify-between items-center px-3">
               <span className="text-xs text-gray-300">
-                {expandedView ? 'Expanded view' : 'Drag to pan, scroll to zoom'}
+                {expandedView ? 'Expanded view' : 'Hold Space + Drag to pan, scroll to zoom'}
               </span>
               <button
                 onClick={handleCopy}
