@@ -1,42 +1,53 @@
-import OpenAI from "openai";
-import { z } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
-import dotenv from "dotenv";
+import { consumeStream, streamText, type UIMessage } from "ai"
+import { openai as openaiProvider } from "@ai-sdk/openai"
+import OpenAI from "openai"
+import { z } from "zod"
+import { zodResponseFormat } from "openai/helpers/zod"
+import dotenv from "dotenv"
 
-dotenv.config(); 
+dotenv.config()
 
-const openai = new OpenAI();
+export const maxDuration = 30
 
-const openAIModels = [
-    "gpt-4o-2024-08-06",
-    "gpt-4o-mini-2024-07-18",
-    "o3-mini-2025-01-31"];
+const openai = new OpenAI()
+
+const openAIModels = ["gpt-4o-2024-08-06", "gpt-4o-mini-2024-07-18", "o3-mini-2025-01-31"]
 
 const ResponseObjectSchema = z.object({
   type: z.string(),
   content: z.string(),
-});
+})
 
 const ResponseSchema = z.object({
   mandatory: ResponseObjectSchema,
   optional: ResponseObjectSchema.nullable().optional(),
-});
+})
 
 export async function POST(req: Request) {
-  const { messages, currentScript } = await req.json();
+  const { messages, currentScript }: { messages: UIMessage[]; currentScript?: string } = await req.json()
 
-  const lastMessage = messages[messages.length - 1];
-  
+  const openAIMessages = messages.map((msg) => ({
+    role: msg.role as "user" | "assistant",
+    content:
+      msg.parts
+        ?.map((part) => {
+          if (part.type === "text") return part.text
+          return ""
+        })
+        .join("") || "",
+  }))
+
+  const lastMessage = openAIMessages[openAIMessages.length - 1]
 
   const completion = await openai.beta.chat.completions.parse({
-    model : openAIModels[0],
+    model: openAIModels[0],
     messages: [
       {
         role: "system",
         content: `You are an assistant integrated into an app for creating and modifying PlantUML diagrams based on user input. Your response must follow these guidelines:
 
 1. **Explanation Response (Always Required):**  
-   Always provide an explanation, acknowledgment, or clarification of the user’s input in the "message" object.  
+   Always provide an explanation, acknowledgment, or clarification of the user's input in the "message" object.  
    This should be informative and help the user understand the state or action related to their request.  
    The response should always be structured as:
    {
@@ -61,22 +72,40 @@ export async function POST(req: Request) {
    }
 
 3. **Context Awareness:**  
-   Always consider the current content of the diagram in the editor (provided with the user input) and the user’s request when crafting your response. Ignore the current diagram if the user requests a completely new diagram. If no modifications are necessary or no new diagram is requested, do not return a new diagram.
+   Always consider the current content of the diagram in the editor (provided with the user input) and the user's request when crafting your response. Ignore the current diagram if the user requests a completely new diagram. If no modifications are necessary or no new diagram is requested, do not return a new diagram.
 
 4. **Ambiguity Handling:**  
-   If the user’s request is unclear, ask clarifying questions in the "message" object. If no modification or creation of a diagram is necessary, do not include the \`script\` object.`,
+   If the user's request is unclear, ask clarifying questions in the "message" object. If no modification or creation of a diagram is necessary, do not include the \`script\` object.`,
       },
-      ...messages.slice(0, -1), //Keep all messages except the last one as history
+      ...openAIMessages.slice(0, -1),
       {
         role: lastMessage.role,
-        content: `${lastMessage.content}\n\nCurrent script in editor: ${currentScript}`,
+        content: `${lastMessage.content}\n\nCurrent script in editor: ${currentScript || ""}`,
       },
     ],
     response_format: zodResponseFormat(ResponseSchema, "response"),
-  });
+  })
 
-  const parsedResponse = completion.choices[0].message.parsed;
-  return new Response(JSON.stringify(parsedResponse), {
-    headers: { "Content-Type": "application/json" },
-  });
+  const parsedResponse = completion.choices[0].message.parsed
+
+  if (!parsedResponse) {
+    throw new Error("Failed to parse OpenAI response")
+  }
+
+  const messageText = parsedResponse.mandatory.content
+
+  // Create a simple stream that returns the message immediately
+  const result = streamText({
+    model: openaiProvider("gpt-4o-mini"),
+    prompt: messageText,
+    abortSignal: req.signal,
+  })
+
+  return result.toUIMessageStreamResponse({
+    messageMetadata: () => ({
+      mandatory: parsedResponse.mandatory,
+      optional: parsedResponse.optional,
+    }),
+    consumeSseStream: consumeStream,
+  })
 }
